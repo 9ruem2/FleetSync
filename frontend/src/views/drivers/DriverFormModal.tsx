@@ -135,9 +135,9 @@ export const DriverFormModal: React.FC<Props> = ({
                 onChange={e => setContractType(e.target.value as ContractType)}
                 className="w-full pl-9 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-blue-500 focus:bg-white outline-none transition appearance-none cursor-pointer"
               >
-                <option value="고정">고정 (정규 담당)</option>
-                <option value="용차">용차 (단기/계약)</option>
-                <option value="백업">백업 (대차 전담 기사)</option>
+                <option value="고정">고정</option>
+                <option value="용차">용차</option>
+                <option value="백업">백업</option>
               </select>
             </div>
           </div>
