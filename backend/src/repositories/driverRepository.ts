@@ -1,19 +1,43 @@
 import { Driver, CreateDriverDTO, UpdateDriverDTO } from '../types';
+import { readJsonFile, writeJsonFile, hasData } from '../database/jsonStore';
 import { initialDrivers } from '../database/mockData';
 
+const FILE_NAME = 'drivers.json';
+
 class DriverRepository {
-  private drivers: Driver[] = [...initialDrivers];
+  constructor() {
+    this.seedIfEmpty();
+  }
+
+  /** 최초 실행 시 JSON 파일이 비어있으면 시드 데이터 주입 */
+  private seedIfEmpty(): void {
+    if (!hasData(FILE_NAME)) {
+      writeJsonFile<Driver>(FILE_NAME, initialDrivers);
+      console.log('[DriverRepo] 시드 데이터 주입 완료 → drivers.json');
+    }
+  }
+
+  private load(): Driver[] {
+    return readJsonFile<Driver>(FILE_NAME);
+  }
+
+  private save(drivers: Driver[]): void {
+    writeJsonFile<Driver>(FILE_NAME, drivers);
+  }
 
   public findAll(includeDeleted = false): Driver[] {
-    if (includeDeleted) return this.drivers;
-    return this.drivers.filter(d => !d.isDeleted);
+    const drivers = this.load();
+    if (includeDeleted) return drivers;
+    return drivers.filter(d => !d.isDeleted);
   }
 
   public findById(id: string): Driver | undefined {
-    return this.drivers.find(d => d.id === id && !d.isDeleted);
+    const drivers = this.load();
+    return drivers.find(d => d.id === id && !d.isDeleted);
   }
 
   public create(dto: CreateDriverDTO): Driver {
+    const drivers = this.load();
     const newDriver: Driver = {
       id: `drv-${Date.now()}`,
       name: dto.name,
@@ -23,15 +47,17 @@ class DriverRepository {
       createdAt: new Date().toISOString(),
       isDeleted: false
     };
-    this.drivers.push(newDriver);
+    drivers.push(newDriver);
+    this.save(drivers);
     return newDriver;
   }
 
   public update(id: string, dto: UpdateDriverDTO): Driver | null {
-    const index = this.drivers.findIndex(d => d.id === id && !d.isDeleted);
+    const drivers = this.load();
+    const index = drivers.findIndex(d => d.id === id && !d.isDeleted);
     if (index === -1) return null;
 
-    const existing = this.drivers[index];
+    const existing = drivers[index];
     const updated: Driver = {
       ...existing,
       name: dto.name !== undefined ? dto.name : existing.name,
@@ -40,14 +66,17 @@ class DriverRepository {
       contractType: dto.contractType !== undefined ? dto.contractType : existing.contractType
     };
 
-    this.drivers[index] = updated;
+    drivers[index] = updated;
+    this.save(drivers);
     return updated;
   }
 
   public softDelete(id: string): boolean {
-    const index = this.drivers.findIndex(d => d.id === id && !d.isDeleted);
+    const drivers = this.load();
+    const index = drivers.findIndex(d => d.id === id && !d.isDeleted);
     if (index === -1) return false;
-    this.drivers[index].isDeleted = true;
+    drivers[index].isDeleted = true;
+    this.save(drivers);
     return true;
   }
 }

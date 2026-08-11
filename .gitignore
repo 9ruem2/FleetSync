@@ -9,6 +9,9 @@ backend/dist/
 frontend/dist/
 build/
 
+# Runtime JSON data store
+backend/data/
+
 # IDE / OS files
 .DS_Store
 *.log
