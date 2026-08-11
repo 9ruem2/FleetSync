@@ -35,7 +35,7 @@ export const Header: React.FC<Props> = ({ title, subtitle }) => {
           </div>
           <div className="text-left text-xs">
             <div className="font-bold text-slate-800 flex items-center gap-1">
-              <span>쿠팡 노선 관리자</span>
+              <span>권광훈</span>
               <ShieldCheck className="w-3.5 h-3.5 text-blue-600" />
             </div>
             <div className="text-slate-400 font-medium text-[11px] flex items-center gap-1">
