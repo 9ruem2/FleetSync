@@ -57,7 +57,7 @@ export const DriverFormModal: React.FC<Props> = ({
         <div className="bg-slate-900 text-white px-6 py-4 flex items-center justify-between">
           <h2 className="text-lg font-bold flex items-center gap-2">
             <User className="w-5 h-5 text-blue-400" />
-            <span>{driver ? '기사 정보 수정' : '신규 기사 등록 [F-01-02]'}</span>
+            <span>{driver ? '기사 정보 수정' : '신규 기사 등록'}</span>
           </h2>
           <button
             onClick={onClose}

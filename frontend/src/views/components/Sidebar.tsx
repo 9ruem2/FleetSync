@@ -13,21 +13,21 @@ export const Sidebar: React.FC<Props> = ({ activeTab, setActiveTab }) => {
       label: '기사 및 라우트 관리',
       icon: Users,
       description: '기사 CRUD, 라우트 & 계약 형태',
-      badge: 'F-01'
+      // badge: 'F-01'
     },
     {
       id: 'schedule',
       label: '근무 스케줄표 (Grid)',
       icon: CalendarRange,
       description: '주간/월간 근무 & 대차 지정',
-      badge: 'F-02'
+      // badge: 'F-02'
     },
     {
       id: 'calendar',
       label: '휴무 달력 (Calendar)',
       icon: CalendarDays,
       description: '월간/주간 휴무 현황판',
-      badge: 'F-02-2'
+      // badge: 'F-02-2'
     }
   ] as const;
 
@@ -62,34 +62,30 @@ export const Sidebar: React.FC<Props> = ({ activeTab, setActiveTab }) => {
               <button
                 key={item.id}
                 onClick={() => setActiveTab(item.id)}
-                className={`w-full flex items-start gap-3 p-3 rounded-xl transition-all duration-200 text-left group ${
-                  isActive
+                className={`w-full flex items-start gap-3 p-3 rounded-xl transition-all duration-200 text-left group ${isActive
                     ? 'bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-md shadow-blue-600/30 font-semibold'
                     : 'text-slate-300 hover:bg-slate-800/80 hover:text-white'
-                }`}
+                  }`}
               >
                 <Icon
-                  className={`w-5 h-5 mt-0.5 transition-colors ${
-                    isActive ? 'text-white' : 'text-slate-400 group-hover:text-blue-400'
-                  }`}
+                  className={`w-5 h-5 mt-0.5 transition-colors ${isActive ? 'text-white' : 'text-slate-400 group-hover:text-blue-400'
+                    }`}
                 />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between">
                     <span className="text-sm">{item.label}</span>
                     <span
-                      className={`text-[10px] px-1.5 py-0.2 rounded font-mono ${
-                        isActive
+                      className={`text-[10px] px-1.5 py-0.2 rounded font-mono ${isActive
                           ? 'bg-blue-800/50 text-blue-100'
                           : 'bg-slate-800 text-slate-400'
-                      }`}
+                        }`}
                     >
-                      {item.badge}
+                      {/* {item.badge} */}
                     </span>
                   </div>
                   <p
-                    className={`text-[11px] truncate mt-0.5 ${
-                      isActive ? 'text-blue-100/80' : 'text-slate-400'
-                    }`}
+                    className={`text-[11px] truncate mt-0.5 ${isActive ? 'text-blue-100/80' : 'text-slate-400'
+                      }`}
                   >
                     {item.description}
                   </p>

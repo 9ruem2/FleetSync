@@ -37,7 +37,7 @@ export const CellStatusModal: React.FC<Props> = ({
         <div className="bg-slate-900 text-white px-5 py-3.5 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Calendar className="w-4 h-4 text-blue-400" />
-            <h3 className="text-sm font-bold">근무 상태 변경 [F-02-02]</h3>
+            <h3 className="text-sm font-bold">근무 상태 변경</h3>
           </div>
           <button onClick={onClose} className="text-slate-400 hover:text-white p-1 rounded-lg">
             <X className="w-4 h-4" />
@@ -71,11 +71,10 @@ export const CellStatusModal: React.FC<Props> = ({
                   <button
                     key={status}
                     onClick={() => onSelectStatus(status)}
-                    className={`flex items-center justify-between p-3 rounded-xl border text-xs font-bold transition ${
-                      isCurrent
-                        ? 'border-blue-600 bg-blue-50 text-blue-900 ring-2 ring-blue-500/20'
-                        : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
-                    }`}
+                    className={`flex items-center justify-between p-3 rounded-xl border text-xs font-bold transition ${isCurrent
+                      ? 'border-blue-600 bg-blue-50 text-blue-900 ring-2 ring-blue-500/20'
+                      : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                      }`}
                   >
                     <StatusBadge status={status} size="sm" />
                     {isCurrent && <CheckCircle2 className="w-4 h-4 text-blue-600" />}
@@ -96,7 +95,7 @@ export const CellStatusModal: React.FC<Props> = ({
                 <span>
                   {cell.backupAssigned
                     ? `대차 변경 (현재: ${cell.backupDriverName})`
-                    : '대차(백업 기사) 수동 지정 [F-02-06]'}
+                    : '대차(백업 기사) 지정'}
                 </span>
               </button>
             </div>

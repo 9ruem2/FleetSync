@@ -37,7 +37,7 @@ export const QuickVacationModal: React.FC<Props> = ({
         <div className="bg-slate-900 text-white px-6 py-4 flex items-center justify-between">
           <h2 className="text-sm font-bold flex items-center gap-2">
             <Calendar className="w-5 h-5 text-red-400" />
-            <span>달력 기반 휴무 등록 [F-02-05]</span>
+            <span>달력 기반 휴무 등록</span>
           </h2>
           <button onClick={onClose} className="text-slate-400 hover:text-white p-1 rounded-lg">
             <X className="w-5 h-5" />
@@ -62,11 +62,10 @@ export const QuickVacationModal: React.FC<Props> = ({
                   <div
                     key={driver.id}
                     onClick={() => setSelectedDriverId(driver.id)}
-                    className={`p-3 rounded-xl border cursor-pointer transition flex items-center justify-between ${
-                      isSelected
-                        ? 'border-red-600 bg-red-50 ring-2 ring-red-500/20'
-                        : 'border-slate-200 bg-slate-50 hover:bg-white'
-                    }`}
+                    className={`p-3 rounded-xl border cursor-pointer transition flex items-center justify-between ${isSelected
+                      ? 'border-red-600 bg-red-50 ring-2 ring-red-500/20'
+                      : 'border-slate-200 bg-slate-50 hover:bg-white'
+                      }`}
                   >
                     <div className="flex items-center gap-2">
                       <User className="w-4 h-4 text-slate-500" />
@@ -96,7 +95,7 @@ export const QuickVacationModal: React.FC<Props> = ({
               disabled={!selectedDriverId}
               className="px-5 py-2.5 rounded-xl bg-red-600 text-white text-xs font-bold hover:bg-red-700 disabled:opacity-50 shadow-md shadow-red-500/20 transition"
             >
-              휴무 등록 완료 [F-02-05]
+              휴무 등록 완료
             </button>
           </div>
         </form>
