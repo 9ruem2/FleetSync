@@ -34,7 +34,7 @@ export const BackupAssignModal: React.FC<Props> = ({
           <div>
             <h2 className="text-base font-bold flex items-center gap-2">
               <UserCheck className="w-5 h-5 text-amber-400" />
-              <span>대차(백업 기사) 수동 지정 [F-02-06]</span>
+              <span>대차(백업 기사) 지정</span>
             </h2>
             <p className="text-xs text-slate-300 mt-0.5">
               휴무가 발생한 라우트에 대체 근무할 백업 기사를 선택하여 배정합니다.
@@ -97,11 +97,10 @@ export const BackupAssignModal: React.FC<Props> = ({
                     <div
                       key={candidate.id}
                       onClick={() => vm.setSelectedBackupId(candidate.id)}
-                      className={`p-3 rounded-xl border cursor-pointer transition flex items-center justify-between ${
-                        isSelected
-                          ? 'border-blue-600 bg-blue-50/80 ring-2 ring-blue-500/20'
-                          : 'border-slate-200 bg-slate-50 hover:bg-white'
-                      }`}
+                      className={`p-3 rounded-xl border cursor-pointer transition flex items-center justify-between ${isSelected
+                        ? 'border-blue-600 bg-blue-50/80 ring-2 ring-blue-500/20'
+                        : 'border-slate-200 bg-slate-50 hover:bg-white'
+                        }`}
                     >
                       <div className="flex items-center gap-3">
                         <input
@@ -164,7 +163,7 @@ export const BackupAssignModal: React.FC<Props> = ({
               onClick={vm.handleAssignBackup}
               className="px-5 py-2.5 rounded-xl bg-amber-600 text-white text-xs font-bold hover:bg-amber-700 disabled:opacity-50 shadow-md shadow-amber-500/20 transition flex items-center gap-1.5"
             >
-              {vm.submitting ? '매칭 중...' : '대차 지정 매칭 완료 [F-02-06]'}
+              {vm.submitting ? '매칭 중...' : '대차 지정 완료'}
             </button>
           </div>
         </div>

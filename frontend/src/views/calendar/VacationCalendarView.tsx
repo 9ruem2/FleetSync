@@ -34,7 +34,7 @@ export const VacationCalendarView: React.FC = () => {
         <div>
           <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2">
             <CalendarDays className="w-6 h-6 text-blue-600" />
-            <span>휴무 달력 현황판 (Calendar View) [F-02-04]</span>
+            <span>휴무 달력 현황판 (Calendar View)</span>
           </h2>
           <p className="text-xs text-slate-500 mt-1">
             월간/주간 단위로 일자별 휴무자 현황과 노선을 모아보고, 날짜를 클릭하여 빠르게 휴무를 등록 및 대차 지정할 수 있습니다.
@@ -46,7 +46,7 @@ export const VacationCalendarView: React.FC = () => {
             onClick={vm.setTodayMonth}
             className="px-3.5 py-2 rounded-xl bg-slate-100 border border-slate-200 text-slate-700 text-xs font-bold hover:bg-slate-200 transition"
           >
-            이번 달 (2026년 8월)
+            이번 달 ({monthTitle})
           </button>
 
           <button
@@ -101,9 +101,8 @@ export const VacationCalendarView: React.FC = () => {
               {weekDayNames.map((day, idx) => (
                 <div
                   key={day}
-                  className={`py-3.5 ${
-                    idx === 0 ? 'text-red-400' : idx === 6 ? 'text-amber-300' : ''
-                  }`}
+                  className={`py-3.5 ${idx === 0 ? 'text-red-400' : idx === 6 ? 'text-amber-300' : ''
+                    }`}
                 >
                   {day}요일
                 </div>
@@ -121,22 +120,20 @@ export const VacationCalendarView: React.FC = () => {
                   <div
                     key={`${cell.dateStr}-${idx}`}
                     onClick={() => vm.setQuickVacationDate(cell.dateStr)}
-                    className={`min-h-[120px] p-2.5 bg-white transition hover:bg-slate-50/90 cursor-pointer flex flex-col justify-between group ${
-                      !cell.isCurrentMonth ? 'opacity-40 bg-slate-50' : ''
-                    } ${cell.isToday ? 'ring-2 ring-blue-500 ring-inset z-10' : ''}`}
+                    className={`min-h-[120px] p-2.5 bg-white transition hover:bg-slate-50/90 cursor-pointer flex flex-col justify-between group ${!cell.isCurrentMonth ? 'opacity-40 bg-slate-50' : ''
+                      } ${cell.isToday ? 'ring-2 ring-blue-500 ring-inset z-10' : ''}`}
                   >
                     {/* Top Row: Date number & Total summary badge [F-02-04] */}
                     <div className="flex items-center justify-between mb-1.5">
                       <span
-                        className={`text-xs font-bold font-mono px-1.5 py-0.5 rounded ${
-                          cell.isToday
-                            ? 'bg-blue-600 text-white'
-                            : isSunday
+                        className={`text-xs font-bold font-mono px-1.5 py-0.5 rounded ${cell.isToday
+                          ? 'bg-blue-600 text-white'
+                          : isSunday
                             ? 'text-red-600 font-extrabold'
                             : isSaturday
-                            ? 'text-blue-600 font-extrabold'
-                            : 'text-slate-800'
-                        }`}
+                              ? 'text-blue-600 font-extrabold'
+                              : 'text-slate-800'
+                          }`}
                       >
                         {cell.dayNumber}
                       </span>
@@ -164,11 +161,10 @@ export const VacationCalendarView: React.FC = () => {
                               originalDriverName: record.driverName
                             });
                           }}
-                          className={`p-1.5 rounded-lg border text-[11px] font-medium transition flex items-center justify-between ${
-                            record.backupAssigned
-                              ? 'bg-amber-50 border-amber-300 text-amber-950 hover:bg-amber-100'
-                              : 'bg-red-50 border-red-200 text-red-900 hover:bg-red-100'
-                          }`}
+                          className={`p-1.5 rounded-lg border text-[11px] font-medium transition flex items-center justify-between ${record.backupAssigned
+                            ? 'bg-amber-50 border-amber-300 text-amber-950 hover:bg-amber-100'
+                            : 'bg-red-50 border-red-200 text-red-900 hover:bg-red-100'
+                            }`}
                           title={
                             record.backupAssigned
                               ? `대차: ${record.backupDriverName}`

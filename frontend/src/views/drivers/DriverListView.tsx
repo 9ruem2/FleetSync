@@ -50,7 +50,7 @@ export const DriverListView: React.FC = () => {
             className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-md shadow-blue-500/20 transition"
           >
             <Plus className="w-4 h-4" />
-            <span>신규 기사 등록 [F-01-02]</span>
+            <span>신규 기사 등록</span>
           </button>
         </div>
       </div>
@@ -83,9 +83,9 @@ export const DriverListView: React.FC = () => {
             className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 focus:ring-2 focus:ring-blue-500 outline-none transition cursor-pointer"
           >
             <option value="">계약 형태 (전체)</option>
-            <option value="고정">고정 (정규)</option>
-            <option value="용차">용차 (단기)</option>
-            <option value="백업">백업 (대차)</option>
+            <option value="고정">고정</option>
+            <option value="용차">용차</option>
+            <option value="백업">백업</option>
           </select>
 
           {/* Route Number Filter */}
@@ -137,7 +137,7 @@ export const DriverListView: React.FC = () => {
                   <th className="py-3.5 px-6">연락처</th>
                   <th className="py-3.5 px-6">계약 형태</th>
                   <th className="py-3.5 px-6">등록 일시</th>
-                  <th className="py-3.5 px-6 text-right">관리 (CRUD)</th>
+                  <th className="py-3.5 px-6 text-right">관리</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 font-medium">

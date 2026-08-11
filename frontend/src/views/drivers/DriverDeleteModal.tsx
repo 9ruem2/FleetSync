@@ -26,7 +26,7 @@ export const DriverDeleteModal: React.FC<Props> = ({
           </div>
 
           <h3 className="text-base font-bold text-slate-900">
-            기사 삭제 확인 (Soft Delete) [F-01-04]
+            기사 삭제 확인 (Soft Delete)
           </h3>
 
           <p className="text-xs text-slate-500 mt-2 leading-relaxed">
