@@ -1,5 +1,6 @@
 import { driverRepository, scheduleRepository, backupRepository } from '../repositories/dbRepository';
 import { CreateDriverDTO, UpdateDriverDTO, Driver, ShiftStatus, AssignBackupDTO } from '../types';
+import { normalizePhoneNumber } from '../utils/phoneFormat';
 
 class DriverService {
   public async getAllDrivers(search?: string, route?: string, contractType?: string): Promise<Driver[]> {
@@ -10,7 +11,8 @@ class DriverService {
       drivers = drivers.filter(d =>
         d.name.toLowerCase().includes(q) ||
         d.routeNumber.toLowerCase().includes(q) ||
-        d.phone.includes(q)
+        d.phone.includes(q) ||
+        normalizePhoneNumber(d.phone).includes(q)
       );
     }
 
@@ -33,11 +35,17 @@ class DriverService {
     if (!dto.name || !dto.phone || !dto.routeNumber || !dto.contractType) {
       throw new Error('필수 입력값이 누락되었습니다 (기사명, 연락처, 라우트번호, 계약형태)');
     }
-    return driverRepository.create(dto);
+    return driverRepository.create({
+      ...dto,
+      phone: normalizePhoneNumber(dto.phone),
+    });
   }
 
   public async updateDriver(id: string, dto: UpdateDriverDTO): Promise<Driver> {
-    const updated = await driverRepository.update(id, dto);
+    const updated = await driverRepository.update(id, {
+      ...dto,
+      ...(dto.phone !== undefined ? { phone: normalizePhoneNumber(dto.phone) } : {}),
+    });
     if (!updated) {
       throw new Error('해당 기사를 찾을 수 없거나 이미 삭제되었습니다');
     }

@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Driver, CreateDriverForm, UpdateDriverForm } from '../models/driver.model';
 import { ApiService } from '../services/apiService';
+import { extractPhoneDigits, formatPhoneNumber } from '../utils/phoneFormat';
 
 export function useDriverViewModel() {
   const [drivers, setDrivers] = useState<Driver[]>([]);
@@ -51,7 +52,9 @@ export function useDriverViewModel() {
         searchTerm === '' ||
         d.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         d.routeNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        d.phone.includes(searchTerm);
+        d.phone.includes(searchTerm) ||
+        formatPhoneNumber(d.phone).includes(searchTerm) ||
+        extractPhoneDigits(d.phone).includes(extractPhoneDigits(searchTerm));
 
       // Filter by contract type
       const matchesContract =

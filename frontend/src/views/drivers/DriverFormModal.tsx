@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Driver, CreateDriverForm, ContractType } from '../../models/driver.model';
+import { formatPhoneNumber, normalizePhoneNumber } from '../../utils/phoneFormat';
 import { X, User, Phone, MapPin, Briefcase } from 'lucide-react';
 
 interface Props {
@@ -23,7 +24,7 @@ export const DriverFormModal: React.FC<Props> = ({
   useEffect(() => {
     if (driver) {
       setName(driver.name);
-      setPhone(driver.phone);
+      setPhone(formatPhoneNumber(driver.phone));
       setRouteNumber(driver.routeNumber);
       setContractType(driver.contractType);
     } else {
@@ -44,7 +45,7 @@ export const DriverFormModal: React.FC<Props> = ({
     }
     onSubmit({
       name: name.trim(),
-      phone: phone.trim(),
+      phone: normalizePhoneNumber(phone),
       routeNumber: routeNumber.trim(),
       contractType
     });
@@ -98,7 +99,7 @@ export const DriverFormModal: React.FC<Props> = ({
                 type="text"
                 placeholder="010-1234-5678"
                 value={phone}
-                onChange={e => setPhone(e.target.value)}
+                onChange={e => setPhone(formatPhoneNumber(e.target.value))}
                 required
                 className="w-full pl-9 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:ring-2 focus:ring-blue-500 focus:bg-white outline-none transition"
               />
