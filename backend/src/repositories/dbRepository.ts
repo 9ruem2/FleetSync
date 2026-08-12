@@ -1,5 +1,5 @@
 import { eq, and, gte, lte } from 'drizzle-orm';
-import { db } from '../../../db';
+import { getDb } from '../../../db';
 import { drivers, scheduleShifts, backupAssignments } from '../../../db/schema';
 import { Driver, CreateDriverDTO, UpdateDriverDTO, ScheduleShift, BackupAssignment, AssignBackupDTO } from '../types';
 
@@ -40,13 +40,13 @@ function toBackup(row: typeof backupAssignments.$inferSelect): BackupAssignment 
 
 class DriverRepository {
   public async findAll(includeDeleted = false): Promise<Driver[]> {
-    const rows = await db.select().from(drivers);
+    const rows = await getDb().select().from(drivers);
     const filtered = includeDeleted ? rows : rows.filter(d => !d.isDeleted);
     return filtered.map(toDriver);
   }
 
   public async findById(id: string): Promise<Driver | undefined> {
-    const rows = await db.select().from(drivers).where(eq(drivers.id, id)).limit(1);
+    const rows = await getDb().select().from(drivers).where(eq(drivers.id, id)).limit(1);
     const row = rows[0];
     if (!row || row.isDeleted) return undefined;
     return toDriver(row);
@@ -62,7 +62,7 @@ class DriverRepository {
       createdAt: new Date(),
       isDeleted: false,
     };
-    const [row] = await db.insert(drivers).values(newDriver).returning();
+    const [row] = await getDb().insert(drivers).values(newDriver).returning();
     return toDriver(row);
   }
 
@@ -70,7 +70,7 @@ class DriverRepository {
     const existing = await this.findById(id);
     if (!existing) return null;
 
-    const [row] = await db
+    const [row] = await getDb()
       .update(drivers)
       .set({
         name: dto.name ?? existing.name,
@@ -88,7 +88,7 @@ class DriverRepository {
     const existing = await this.findById(id);
     if (!existing) return false;
 
-    await db.update(drivers).set({ isDeleted: true }).where(eq(drivers.id, id));
+    await getDb().update(drivers).set({ isDeleted: true }).where(eq(drivers.id, id));
     return true;
   }
 }
@@ -101,14 +101,14 @@ class ScheduleRepository {
     if (driverId) conditions.push(eq(scheduleShifts.driverId, driverId));
 
     const rows = conditions.length > 0
-      ? await db.select().from(scheduleShifts).where(and(...conditions))
-      : await db.select().from(scheduleShifts);
+      ? await getDb().select().from(scheduleShifts).where(and(...conditions))
+      : await getDb().select().from(scheduleShifts);
 
     return rows.map(toShift);
   }
 
   public async findShift(driverId: string, date: string): Promise<ScheduleShift | undefined> {
-    const rows = await db
+    const rows = await getDb()
       .select()
       .from(scheduleShifts)
       .where(and(eq(scheduleShifts.driverId, driverId), eq(scheduleShifts.date, date)))
@@ -120,7 +120,7 @@ class ScheduleRepository {
     const existing = await this.findShift(driverId, date);
 
     if (existing) {
-      const [row] = await db
+      const [row] = await getDb()
         .update(scheduleShifts)
         .set({ status })
         .where(eq(scheduleShifts.id, existing.id))
@@ -134,7 +134,7 @@ class ScheduleRepository {
       date,
       status,
     };
-    const [row] = await db.insert(scheduleShifts).values(newShift).returning();
+    const [row] = await getDb().insert(scheduleShifts).values(newShift).returning();
     return toShift(row);
   }
 
@@ -143,19 +143,19 @@ class ScheduleRepository {
     if (startDate) conditions.push(gte(scheduleShifts.date, startDate));
     if (endDate) conditions.push(lte(scheduleShifts.date, endDate));
 
-    const rows = await db.select().from(scheduleShifts).where(and(...conditions));
+    const rows = await getDb().select().from(scheduleShifts).where(and(...conditions));
     return rows.map(toShift);
   }
 }
 
 class BackupRepository {
   public async findAll(): Promise<BackupAssignment[]> {
-    const rows = await db.select().from(backupAssignments);
+    const rows = await getDb().select().from(backupAssignments);
     return rows.map(toBackup);
   }
 
   public async findByDateAndRoute(date: string, routeNumber: string): Promise<BackupAssignment | undefined> {
-    const rows = await db
+    const rows = await getDb()
       .select()
       .from(backupAssignments)
       .where(and(eq(backupAssignments.date, date), eq(backupAssignments.routeNumber, routeNumber)))
@@ -164,7 +164,7 @@ class BackupRepository {
   }
 
   public async findByDate(date: string): Promise<BackupAssignment[]> {
-    const rows = await db
+    const rows = await getDb()
       .select()
       .from(backupAssignments)
       .where(eq(backupAssignments.date, date));
@@ -177,7 +177,7 @@ class BackupRepository {
 
     if (!originalDriver || !backupDriver) return null;
 
-    await db
+    await getDb()
       .delete(backupAssignments)
       .where(
         and(
@@ -198,7 +198,7 @@ class BackupRepository {
       createdAt: new Date(),
     };
 
-    const [row] = await db.insert(backupAssignments).values(newAssignment).returning();
+    const [row] = await getDb().insert(backupAssignments).values(newAssignment).returning();
     return toBackup(row);
   }
 
@@ -206,7 +206,7 @@ class BackupRepository {
     const existing = await this.findByDateAndRoute(date, routeNumber);
     if (!existing) return false;
 
-    await db
+    await getDb()
       .delete(backupAssignments)
       .where(
         and(

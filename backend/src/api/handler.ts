@@ -1,5 +1,7 @@
 import { driverService, scheduleService, backupService } from '../services/index';
 import { CreateDriverDTO, UpdateDriverDTO, UpdateShiftStatusDTO, AssignBackupDTO } from '../types';
+import { getDb } from '../../../db';
+import { drivers } from '../../../db/schema';
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
@@ -34,10 +36,22 @@ export async function handleApiRequest(req: Request): Promise<Response> {
   try {
     // Health check
     if (path === '/api/health' && method === 'GET') {
-      return jsonResponse({
-        success: true,
-        data: { status: 'ok', system: 'Coupang Fleet Sync API', timestamp: new Date().toISOString() },
-      });
+      try {
+        await getDb().select({ id: drivers.id }).from(drivers).limit(1);
+        return jsonResponse({
+          success: true,
+          data: {
+            status: 'ok',
+            db: 'connected',
+            system: 'Coupang Fleet Sync API',
+            timestamp: new Date().toISOString(),
+          },
+        });
+      } catch (dbError) {
+        const msg = dbError instanceof Error ? dbError.message : 'DB connection failed';
+        console.error('[api/health] DB error:', dbError);
+        return errorResponse(`Database unavailable: ${msg}`, 503);
+      }
     }
 
     // Drivers
@@ -127,6 +141,7 @@ export async function handleApiRequest(req: Request): Promise<Response> {
 
     return errorResponse('Not Found', 404);
   } catch (error: unknown) {
+    console.error('[api] Request error:', { path, method, error });
     const message = error instanceof Error ? error.message : 'Internal Server Error';
     const status = message.includes('찾을') || message.includes('삭제') ? 400 : 500;
     return errorResponse(message, status);
