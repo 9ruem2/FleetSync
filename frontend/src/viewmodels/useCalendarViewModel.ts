@@ -17,7 +17,7 @@ export function useCalendarViewModel() {
   const [backupTarget, setBackupTarget] = useState<{
     date: string;
     routeNumber: string;
-    originalDriverId: string;
+    originalDriverId: number;
     originalDriverName: string;
   } | null>(null);
 
@@ -139,7 +139,7 @@ export function useCalendarViewModel() {
   }, [currentDate, offDaysByDate]);
 
   // Command: Register Off-day for driver on quickVacationDate
-  const handleRegisterOffDay = async (driverId: string, date: string) => {
+  const handleRegisterOffDay = async (driverId: number, date: string) => {
     try {
       await ApiService.updateShiftCell(driverId, date, '휴무');
       showToast('success', '휴무가 지정되었습니다.');

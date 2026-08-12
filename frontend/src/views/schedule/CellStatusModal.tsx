@@ -6,7 +6,7 @@ import { X, Calendar, MapPin, User, CheckCircle2, UserCheck } from 'lucide-react
 interface Props {
   isOpen: boolean;
   cell: {
-    driverId: string;
+    driverId: number;
     driverName: string;
     routeNumber: string;
     date: string;

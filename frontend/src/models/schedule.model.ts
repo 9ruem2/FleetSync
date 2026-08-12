@@ -3,13 +3,14 @@ export type ShiftStatus = '고정' | '용차' | '백업' | '휴무';
 export interface GridShiftCell {
   status: ShiftStatus;
   backupAssigned?: boolean;
-  backupDriverId?: string;
+  backupDriverId?: number;
   backupDriverName?: string;
 }
 
 export interface ScheduleGridRow {
-  driverId: string;
+  driverId: number;
   driverName: string;
+  phone: string;
   routeNumber: string;
   contractType: string;
   shifts: {
@@ -18,8 +19,8 @@ export interface ScheduleGridRow {
 }
 
 export interface OffDayRecord {
-  id: string;
-  driverId: string;
+  id: number;
+  driverId: number;
   driverName: string;
   routeNumber: string;
   date: string;

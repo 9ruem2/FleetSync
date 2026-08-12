@@ -1,10 +1,10 @@
 export interface BackupAssignment {
-  id: string;
+  id: number;
   date: string;
   routeNumber: string;
-  originalDriverId: string;
+  originalDriverId: number;
   originalDriverName: string;
-  backupDriverId: string;
+  backupDriverId: number;
   backupDriverName: string;
   note?: string;
   createdAt: string;
@@ -13,7 +13,7 @@ export interface BackupAssignment {
 export interface AssignBackupForm {
   date: string;
   routeNumber: string;
-  originalDriverId: string;
-  backupDriverId: string;
+  originalDriverId: number;
+  backupDriverId: number;
   note?: string;
 }

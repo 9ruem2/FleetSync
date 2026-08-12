@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { ScheduleGridRow, ShiftStatus } from '../models/schedule.model';
 import { ApiService } from '../services/apiService';
+import { matchesDriverSearch } from '../utils/searchFilter';
 
 export type ScheduleViewMode = 'weekly' | 'monthly';
 
@@ -10,12 +11,14 @@ export function useScheduleViewModel() {
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Selected date reference (Default to 2026-08-11 or current date)
+  const [searchTerm, setSearchTerm] = useState<string>('');
+  const [contractTypeFilter, setContractTypeFilter] = useState<string>('');
+  const [routeFilter, setRouteFilter] = useState<string>('');
+
   const [selectedDate, setSelectedDate] = useState<string>('2026-08-11');
 
-  // Active cell modal state for direct editing
   const [activeCell, setActiveCell] = useState<{
-    driverId: string;
+    driverId: number;
     driverName: string;
     routeNumber: string;
     date: string;
@@ -24,15 +27,13 @@ export function useScheduleViewModel() {
     backupDriverName?: string;
   } | null>(null);
 
-  // Backup assignment modal trigger target
   const [backupTarget, setBackupTarget] = useState<{
     date: string;
     routeNumber: string;
-    originalDriverId: string;
+    originalDriverId: number;
     originalDriverName: string;
   } | null>(null);
 
-  // Toast notification
   const [toastMessage, setToastMessage] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
   const showToast = (type: 'success' | 'error', message: string) => {
@@ -40,14 +41,12 @@ export function useScheduleViewModel() {
     setTimeout(() => setToastMessage(null), 3500);
   };
 
-  // Compute displayed date list based on viewMode & selectedDate
   const dateColumns = useMemo(() => {
     const dates: { dateStr: string; dayName: string; dayNumber: number; isWeekend: boolean }[] = [];
     const base = new Date(selectedDate);
     const dayNames = ['일', '월', '화', '수', '목', '금', '토'];
 
     if (viewMode === 'weekly') {
-      // 7 days starting from Monday of that week
       const currentDay = base.getDay();
       const diffToMon = base.getDate() - currentDay + (currentDay === 0 ? -6 : 1);
       const monday = new Date(base.setDate(diffToMon));
@@ -65,7 +64,6 @@ export function useScheduleViewModel() {
         });
       }
     } else {
-      // Monthly view (full month of selectedDate)
       const year = base.getFullYear();
       const month = base.getMonth();
       const totalDays = new Date(year, month + 1, 0).getDate();
@@ -90,7 +88,6 @@ export function useScheduleViewModel() {
   const startDate = dateColumns[0]?.dateStr || '2026-08-01';
   const endDate = dateColumns[dateColumns.length - 1]?.dateStr || '2026-08-31';
 
-  // Load grid schedule command
   const loadScheduleGrid = useCallback(async () => {
     try {
       setLoading(true);
@@ -108,8 +105,32 @@ export function useScheduleViewModel() {
     loadScheduleGrid();
   }, [loadScheduleGrid]);
 
-  // Command: Update cell shift status
-  const handleUpdateCellStatus = async (driverId: string, date: string, status: ShiftStatus) => {
+  const availableRoutes = useMemo(() => {
+    const set = new Set(gridRows.map(r => r.routeNumber));
+    return Array.from(set).sort();
+  }, [gridRows]);
+
+  const filteredGridRows = useMemo(() => {
+    return gridRows.filter(row => {
+      const matchesSearch = matchesDriverSearch(searchTerm, {
+        name: row.driverName,
+        phone: row.phone,
+        routeNumber: row.routeNumber,
+        contractType: row.contractType,
+        id: row.driverId,
+      });
+
+      const matchesContract =
+        contractTypeFilter === '' || row.contractType === contractTypeFilter;
+
+      const matchesRoute =
+        routeFilter === '' || row.routeNumber.toLowerCase().includes(routeFilter.toLowerCase());
+
+      return matchesSearch && matchesContract && matchesRoute;
+    });
+  }, [gridRows, searchTerm, contractTypeFilter, routeFilter]);
+
+  const handleUpdateCellStatus = async (driverId: number, date: string, status: ShiftStatus) => {
     try {
       await ApiService.updateShiftCell(driverId, date, status);
       showToast('success', '근무 상태가 수정되었습니다.');
@@ -120,8 +141,7 @@ export function useScheduleViewModel() {
     }
   };
 
-  // Open Backup Modal
-  const openBackupAssign = (driverId: string, driverName: string, routeNumber: string, date: string) => {
+  const openBackupAssign = (driverId: number, driverName: string, routeNumber: string, date: string) => {
     setActiveCell(null);
     setBackupTarget({
       date,
@@ -131,12 +151,27 @@ export function useScheduleViewModel() {
     });
   };
 
+  const resetFilters = () => {
+    setSearchTerm('');
+    setContractTypeFilter('');
+    setRouteFilter('');
+  };
+
   return {
     viewMode,
     setViewMode,
     selectedDate,
     setSelectedDate,
     gridRows,
+    filteredGridRows,
+    availableRoutes,
+    searchTerm,
+    setSearchTerm,
+    contractTypeFilter,
+    setContractTypeFilter,
+    routeFilter,
+    setRouteFilter,
+    resetFilters,
     dateColumns,
     loading,
     error,

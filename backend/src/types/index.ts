@@ -2,45 +2,44 @@ export type ContractType = '고정' | '용차' | '백업';
 export type ShiftStatus = '고정' | '용차' | '백업' | '휴무';
 
 export interface Driver {
-  id: string;
+  id: number;
   name: string;
   phone: string;
-  routeNumber: string; // e.g. "101A", "102B"
+  routeNumber: string;
   contractType: ContractType;
   createdAt: string;
-  isDeleted: boolean; // Soft delete support
+  isDeleted: boolean;
 }
 
 export interface ScheduleShift {
-  id: string;
-  driverId: string;
-  date: string; // "YYYY-MM-DD"
+  id: number;
+  driverId: number;
+  date: string;
   status: ShiftStatus;
 }
 
 export interface BackupAssignment {
-  id: string;
-  date: string; // "YYYY-MM-DD"
+  id: number;
+  date: string;
   routeNumber: string;
-  originalDriverId: string;
+  originalDriverId: number;
   originalDriverName: string;
-  backupDriverId: string;
+  backupDriverId: number;
   backupDriverName: string;
   note?: string;
   createdAt: string;
 }
 
 export interface OffDayRecord {
-  id: string;
-  driverId: string;
+  id: number;
+  driverId: number;
   driverName: string;
   routeNumber: string;
-  date: string; // "YYYY-MM-DD"
+  date: string;
   backupAssigned: boolean;
   backupDriverName?: string;
 }
 
-// Request DTOs
 export interface CreateDriverDTO {
   name: string;
   phone: string;
@@ -56,7 +55,7 @@ export interface UpdateDriverDTO {
 }
 
 export interface UpdateShiftStatusDTO {
-  driverId: string;
+  driverId: number;
   date: string;
   status: ShiftStatus;
 }
@@ -64,12 +63,12 @@ export interface UpdateShiftStatusDTO {
 export interface AssignBackupDTO {
   date: string;
   routeNumber: string;
-  originalDriverId: string;
-  backupDriverId: string;
+  originalDriverId: number;
+  backupDriverId: number;
   note?: string;
 }
 
 export interface QuickOffDayDTO {
-  driverId: string;
+  driverId: number;
   date: string;
 }

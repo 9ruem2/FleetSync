@@ -8,7 +8,7 @@ interface Props {
   target: {
     date: string;
     routeNumber: string;
-    originalDriverId: string;
+    originalDriverId: number;
     originalDriverName: string;
   } | null;
   onClose: () => void;

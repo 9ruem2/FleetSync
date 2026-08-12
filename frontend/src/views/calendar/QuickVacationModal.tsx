@@ -7,7 +7,7 @@ interface Props {
   date: string | null;
   drivers: Driver[];
   onClose: () => void;
-  onSubmit: (driverId: string, date: string) => void;
+  onSubmit: (driverId: number, date: string) => void;
 }
 
 export const QuickVacationModal: React.FC<Props> = ({
@@ -17,7 +17,7 @@ export const QuickVacationModal: React.FC<Props> = ({
   onClose,
   onSubmit
 }) => {
-  const [selectedDriverId, setSelectedDriverId] = useState('');
+  const [selectedDriverId, setSelectedDriverId] = useState<number | null>(null);
 
   if (!isOpen || !date) return null;
 

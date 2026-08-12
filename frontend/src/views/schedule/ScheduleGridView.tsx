@@ -4,6 +4,7 @@ import { StatusBadge } from '../components/StatusBadge';
 import { CellStatusModal } from './CellStatusModal';
 import { BackupAssignModal } from '../backup/BackupAssignModal';
 import { ToastNotification } from '../components/ToastNotification';
+import { DriverSearchBar } from '../components/DriverSearchBar';
 import {
   CalendarRange,
   Calendar,
@@ -69,6 +70,18 @@ export const ScheduleGridView: React.FC = () => {
         </div>
       </div>
 
+      {/* Search & Filters */}
+      <DriverSearchBar
+        searchTerm={vm.searchTerm}
+        onSearchChange={vm.setSearchTerm}
+        contractTypeFilter={vm.contractTypeFilter}
+        onContractTypeChange={vm.setContractTypeFilter}
+        routeFilter={vm.routeFilter}
+        onRouteChange={vm.setRouteFilter}
+        availableRoutes={vm.availableRoutes}
+        onReset={vm.resetFilters}
+      />
+
       {/* Date Navigation Bar */}
       <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
         <div className="flex items-center gap-2">
@@ -119,16 +132,17 @@ export const ScheduleGridView: React.FC = () => {
           <div className="p-16 text-center text-slate-400 text-sm font-medium">
             근무 스케줄표 데이터를 로딩 중입니다...
           </div>
-        ) : vm.gridRows.length === 0 ? (
+        ) : vm.filteredGridRows.length === 0 ? (
           <div className="p-16 text-center text-slate-400 text-sm font-medium">
-            등록된 기사 정보가 없습니다. 먼저 기사를 등록해 주세요.
+            {vm.gridRows.length === 0
+              ? '등록된 기사 정보가 없습니다. 먼저 기사를 등록해 주세요.'
+              : '검색 조건에 맞는 기사가 없습니다.'}
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="bg-slate-900 text-white text-xs font-bold divide-x divide-slate-800">
-                  {/* Y-Axis Header: Driver Name & Route [F-02-03] */}
                   <th className="py-4 px-5 min-w-[200px] sticky left-0 z-20 bg-slate-900 shadow-md">
                     기사명 / 라우트 번호
                   </th>
@@ -148,7 +162,7 @@ export const ScheduleGridView: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200 text-xs">
-                {vm.gridRows.map(row => (
+                {vm.filteredGridRows.map(row => (
                   <tr key={row.driverId} className="hover:bg-slate-50/80 transition group">
                     {/* Y-Axis Column: Driver Name & Route Number [F-02-03] */}
                     <td className="py-3 px-5 sticky left-0 bg-white group-hover:bg-slate-50 border-r border-slate-200 z-10 shadow-sm">

@@ -5,10 +5,9 @@ import { StatusBadge } from '../components/StatusBadge';
 import { DriverFormModal } from './DriverFormModal';
 import { DriverDeleteModal } from './DriverDeleteModal';
 import { ToastNotification } from '../components/ToastNotification';
+import { DriverSearchBar } from '../components/DriverSearchBar';
 import {
-  Search,
   Plus,
-  Filter,
   Edit2,
   Trash2,
   Phone,
@@ -57,66 +56,16 @@ export const DriverListView: React.FC = () => {
       </div>
 
       {/* Filters Bar [F-01-01] */}
-      <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col md:flex-row items-center gap-4 justify-between">
-        {/* Search input */}
-        <div className="relative w-full md:w-80">
-          <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
-          <input
-            type="text"
-            placeholder="기사명, 연락처, 라우트 검색..."
-            value={vm.searchTerm}
-            onChange={e => vm.setSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:ring-2 focus:ring-blue-500 focus:bg-white outline-none transition"
-          />
-        </div>
-
-        {/* Filters */}
-        <div className="flex items-center gap-3 w-full md:w-auto">
-          <div className="flex items-center gap-2">
-            <Filter className="w-4 h-4 text-slate-400" />
-            <span className="text-xs font-bold text-slate-600">필터:</span>
-          </div>
-
-          {/* Contract Type Filter */}
-          <select
-            value={vm.contractTypeFilter}
-            onChange={e => vm.setContractTypeFilter(e.target.value)}
-            className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 focus:ring-2 focus:ring-blue-500 outline-none transition cursor-pointer"
-          >
-            <option value="">계약 형태 (전체)</option>
-            <option value="고정">고정</option>
-            <option value="용차">용차</option>
-            <option value="백업">백업</option>
-          </select>
-
-          {/* Route Number Filter */}
-          <select
-            value={vm.routeFilter}
-            onChange={e => vm.setRouteFilter(e.target.value)}
-            className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 focus:ring-2 focus:ring-blue-500 outline-none transition cursor-pointer"
-          >
-            <option value="">라우트 (전체)</option>
-            {vm.availableRoutes.map(route => (
-              <option key={route} value={route}>
-                라우트 {route}
-              </option>
-            ))}
-          </select>
-
-          {(vm.searchTerm || vm.contractTypeFilter || vm.routeFilter) && (
-            <button
-              onClick={() => {
-                vm.setSearchTerm('');
-                vm.setContractTypeFilter('');
-                vm.setRouteFilter('');
-              }}
-              className="text-xs font-semibold text-blue-600 hover:underline px-2"
-            >
-              초기화
-            </button>
-          )}
-        </div>
-      </div>
+      <DriverSearchBar
+        searchTerm={vm.searchTerm}
+        onSearchChange={vm.setSearchTerm}
+        contractTypeFilter={vm.contractTypeFilter}
+        onContractTypeChange={vm.setContractTypeFilter}
+        routeFilter={vm.routeFilter}
+        onRouteChange={vm.setRouteFilter}
+        availableRoutes={vm.availableRoutes}
+        onReset={vm.resetFilters}
+      />
 
       {/* Driver List Table [F-01-01] */}
       <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">

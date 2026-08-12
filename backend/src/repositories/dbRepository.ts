@@ -45,7 +45,7 @@ class DriverRepository {
     return filtered.map(toDriver);
   }
 
-  public async findById(id: string): Promise<Driver | undefined> {
+  public async findById(id: number): Promise<Driver | undefined> {
     const rows = await getDb().select().from(drivers).where(eq(drivers.id, id)).limit(1);
     const row = rows[0];
     if (!row || row.isDeleted) return undefined;
@@ -53,20 +53,20 @@ class DriverRepository {
   }
 
   public async create(dto: CreateDriverDTO): Promise<Driver> {
-    const newDriver = {
-      id: `drv-${Date.now()}`,
-      name: dto.name,
-      phone: dto.phone,
-      routeNumber: dto.routeNumber,
-      contractType: dto.contractType,
-      createdAt: new Date(),
-      isDeleted: false,
-    };
-    const [row] = await getDb().insert(drivers).values(newDriver).returning();
+    const [row] = await getDb()
+      .insert(drivers)
+      .values({
+        name: dto.name,
+        phone: dto.phone,
+        routeNumber: dto.routeNumber,
+        contractType: dto.contractType,
+        isDeleted: false,
+      })
+      .returning();
     return toDriver(row);
   }
 
-  public async update(id: string, dto: UpdateDriverDTO): Promise<Driver | null> {
+  public async update(id: number, dto: UpdateDriverDTO): Promise<Driver | null> {
     const existing = await this.findById(id);
     if (!existing) return null;
 
@@ -84,7 +84,7 @@ class DriverRepository {
     return row ? toDriver(row) : null;
   }
 
-  public async softDelete(id: string): Promise<boolean> {
+  public async softDelete(id: number): Promise<boolean> {
     const existing = await this.findById(id);
     if (!existing) return false;
 
@@ -94,11 +94,11 @@ class DriverRepository {
 }
 
 class ScheduleRepository {
-  public async findShifts(startDate?: string, endDate?: string, driverId?: string): Promise<ScheduleShift[]> {
+  public async findShifts(startDate?: string, endDate?: string, driverId?: number): Promise<ScheduleShift[]> {
     const conditions = [];
     if (startDate) conditions.push(gte(scheduleShifts.date, startDate));
     if (endDate) conditions.push(lte(scheduleShifts.date, endDate));
-    if (driverId) conditions.push(eq(scheduleShifts.driverId, driverId));
+    if (driverId !== undefined) conditions.push(eq(scheduleShifts.driverId, driverId));
 
     const rows = conditions.length > 0
       ? await getDb().select().from(scheduleShifts).where(and(...conditions))
@@ -107,7 +107,7 @@ class ScheduleRepository {
     return rows.map(toShift);
   }
 
-  public async findShift(driverId: string, date: string): Promise<ScheduleShift | undefined> {
+  public async findShift(driverId: number, date: string): Promise<ScheduleShift | undefined> {
     const rows = await getDb()
       .select()
       .from(scheduleShifts)
@@ -116,7 +116,7 @@ class ScheduleRepository {
     return rows[0] ? toShift(rows[0]) : undefined;
   }
 
-  public async upsertShift(driverId: string, date: string, status: ScheduleShift['status']): Promise<ScheduleShift> {
+  public async upsertShift(driverId: number, date: string, status: ScheduleShift['status']): Promise<ScheduleShift> {
     const existing = await this.findShift(driverId, date);
 
     if (existing) {
@@ -128,13 +128,10 @@ class ScheduleRepository {
       return toShift(row);
     }
 
-    const newShift = {
-      id: `shift-${driverId}-${date}`,
-      driverId,
-      date,
-      status,
-    };
-    const [row] = await getDb().insert(scheduleShifts).values(newShift).returning();
+    const [row] = await getDb()
+      .insert(scheduleShifts)
+      .values({ driverId, date, status })
+      .returning();
     return toShift(row);
   }
 
@@ -186,19 +183,19 @@ class BackupRepository {
         )
       );
 
-    const newAssignment = {
-      id: `bak-${Date.now()}`,
-      date: dto.date,
-      routeNumber: dto.routeNumber,
-      originalDriverId: originalDriver.id,
-      originalDriverName: originalDriver.name,
-      backupDriverId: backupDriver.id,
-      backupDriverName: backupDriver.name,
-      note: dto.note || '수동 지정 완료',
-      createdAt: new Date(),
-    };
+    const [row] = await getDb()
+      .insert(backupAssignments)
+      .values({
+        date: dto.date,
+        routeNumber: dto.routeNumber,
+        originalDriverId: originalDriver.id,
+        originalDriverName: originalDriver.name,
+        backupDriverId: backupDriver.id,
+        backupDriverName: backupDriver.name,
+        note: dto.note || '수동 지정 완료',
+      })
+      .returning();
 
-    const [row] = await getDb().insert(backupAssignments).values(newAssignment).returning();
     return toBackup(row);
   }
 

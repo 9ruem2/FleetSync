@@ -24,6 +24,11 @@ async function parseBody<T>(req: Request): Promise<T> {
   return JSON.parse(text) as T;
 }
 
+function parseDriverId(raw: string): number | null {
+  const id = Number(raw);
+  return Number.isInteger(id) && id > 0 ? id : null;
+}
+
 export async function handleApiRequest(req: Request): Promise<Response> {
   if (req.method === 'OPTIONS') {
     return new Response(null, { status: 204, headers: CORS_HEADERS });
@@ -66,7 +71,8 @@ export async function handleApiRequest(req: Request): Promise<Response> {
 
     const driverMatch = path.match(/^\/api\/drivers\/([^/]+)$/);
     if (driverMatch) {
-      const id = driverMatch[1];
+      const id = parseDriverId(driverMatch[1]);
+      if (id === null) return errorResponse('유효하지 않은 기사 ID입니다', 400);
 
       if (method === 'GET') {
         const driver = await driverService.getDriverById(id);

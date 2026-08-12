@@ -29,7 +29,7 @@ export class ApiService {
     return json.data;
   }
 
-  public static async updateDriver(id: string, form: UpdateDriverForm): Promise<Driver> {
+  public static async updateDriver(id: number, form: UpdateDriverForm): Promise<Driver> {
     const res = await fetch(`${API_BASE}/drivers/${id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
@@ -40,7 +40,7 @@ export class ApiService {
     return json.data;
   }
 
-  public static async deleteDriver(id: string): Promise<boolean> {
+  public static async deleteDriver(id: number): Promise<boolean> {
     const res = await fetch(`${API_BASE}/drivers/${id}`, {
       method: 'DELETE'
     });
@@ -57,7 +57,7 @@ export class ApiService {
     return json.data;
   }
 
-  public static async updateShiftCell(driverId: string, date: string, status: ShiftStatus): Promise<void> {
+  public static async updateShiftCell(driverId: number, date: string, status: ShiftStatus): Promise<void> {
     const res = await fetch(`${API_BASE}/schedules/cell`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },

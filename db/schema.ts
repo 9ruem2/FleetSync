@@ -1,32 +1,36 @@
-import { boolean, pgTable, text, timestamp } from 'drizzle-orm/pg-core';
+import { boolean, integer, pgTable, serial, text, timestamp, unique } from 'drizzle-orm/pg-core';
 
 export const drivers = pgTable('drivers', {
-  id: text('id').primaryKey(),
+  id: serial('id').primaryKey(),
   name: text('name').notNull(),
   phone: text('phone').notNull(),
   routeNumber: text('route_number').notNull(),
   contractType: text('contract_type').notNull(),
-  createdAt: timestamp('created_at', { withTimezone: true }).notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   isDeleted: boolean('is_deleted').notNull().default(false),
 });
 
-export const scheduleShifts = pgTable('schedule_shifts', {
-  id: text('id').primaryKey(),
-  driverId: text('driver_id').notNull().references(() => drivers.id),
-  date: text('date').notNull(),
-  status: text('status').notNull(),
-});
+export const scheduleShifts = pgTable(
+  'schedule_shifts',
+  {
+    id: serial('id').primaryKey(),
+    driverId: integer('driver_id').notNull().references(() => drivers.id),
+    date: text('date').notNull(),
+    status: text('status').notNull(),
+  },
+  (table) => [unique('schedule_shifts_driver_date_unique').on(table.driverId, table.date)]
+);
 
 export const backupAssignments = pgTable('backup_assignments', {
-  id: text('id').primaryKey(),
+  id: serial('id').primaryKey(),
   date: text('date').notNull(),
   routeNumber: text('route_number').notNull(),
-  originalDriverId: text('original_driver_id').notNull(),
+  originalDriverId: integer('original_driver_id').notNull().references(() => drivers.id),
   originalDriverName: text('original_driver_name').notNull(),
-  backupDriverId: text('backup_driver_id').notNull(),
+  backupDriverId: integer('backup_driver_id').notNull().references(() => drivers.id),
   backupDriverName: text('backup_driver_name').notNull(),
   note: text('note'),
-  createdAt: timestamp('created_at', { withTimezone: true }).notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 });
 
 export type DriverRow = typeof drivers.$inferSelect;
