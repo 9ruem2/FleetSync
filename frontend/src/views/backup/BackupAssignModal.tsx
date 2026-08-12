@@ -1,5 +1,6 @@
 import React from 'react';
 import { useBackupViewModel } from '../../viewmodels/useBackupViewModel';
+import { formatPhoneNumber } from '../../utils/phoneFormat';
 import { StatusBadge } from '../components/StatusBadge';
 import { UserCheck, X, AlertCircle, Phone, MapPin, Calendar, FileText } from 'lucide-react';
 
@@ -118,7 +119,7 @@ export const BackupAssignModal: React.FC<Props> = ({
                           <div className="text-xs text-slate-500 flex items-center gap-3 mt-0.5">
                             <span className="flex items-center gap-1 font-mono">
                               <Phone className="w-3 h-3 text-slate-400" />
-                              {candidate.phone}
+                              {formatPhoneNumber(candidate.phone)}
                             </span>
                             <span>기본 라우트: {candidate.routeNumber}</span>
                           </div>

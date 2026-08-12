@@ -1,5 +1,6 @@
 import React from 'react';
 import { useDriverViewModel } from '../../viewmodels/useDriverViewModel';
+import { formatPhoneNumber } from '../../utils/phoneFormat';
 import { StatusBadge } from '../components/StatusBadge';
 import { DriverFormModal } from './DriverFormModal';
 import { DriverDeleteModal } from './DriverDeleteModal';
@@ -168,7 +169,7 @@ export const DriverListView: React.FC = () => {
                     <td className="py-4 px-6 text-slate-700">
                       <div className="flex items-center gap-1.5 font-mono">
                         <Phone className="w-3.5 h-3.5 text-slate-400" />
-                        <span>{driver.phone}</span>
+                        <span>{formatPhoneNumber(driver.phone)}</span>
                       </div>
                     </td>
 
