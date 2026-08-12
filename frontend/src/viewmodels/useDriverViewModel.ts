@@ -1,24 +1,21 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Driver, CreateDriverForm, UpdateDriverForm } from '../models/driver.model';
 import { ApiService } from '../services/apiService';
-import { extractPhoneDigits, formatPhoneNumber } from '../utils/phoneFormat';
+import { matchesDriverSearch } from '../utils/searchFilter';
 
 export function useDriverViewModel() {
   const [drivers, setDrivers] = useState<Driver[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Filters & Search State
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [contractTypeFilter, setContractTypeFilter] = useState<string>('');
   const [routeFilter, setRouteFilter] = useState<string>('');
 
-  // Modal States
   const [isAddModalOpen, setIsAddModalOpen] = useState<boolean>(false);
   const [editingDriver, setEditingDriver] = useState<Driver | null>(null);
   const [deletingDriver, setDeletingDriver] = useState<Driver | null>(null);
 
-  // Notification Toast State
   const [toastMessage, setToastMessage] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
   const showToast = (type: 'success' | 'error', message: string) => {
@@ -26,7 +23,6 @@ export function useDriverViewModel() {
     setTimeout(() => setToastMessage(null), 3500);
   };
 
-  // Fetch drivers command
   const loadDrivers = useCallback(async () => {
     try {
       setLoading(true);
@@ -44,23 +40,19 @@ export function useDriverViewModel() {
     loadDrivers();
   }, [loadDrivers]);
 
-  // Filtered drivers computed property
   const filteredDrivers = useMemo(() => {
     return drivers.filter(d => {
-      // Search by name, phone, or route
-      const matchesSearch =
-        searchTerm === '' ||
-        d.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        d.routeNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        d.phone.includes(searchTerm) ||
-        formatPhoneNumber(d.phone).includes(searchTerm) ||
-        extractPhoneDigits(d.phone).includes(extractPhoneDigits(searchTerm));
+      const matchesSearch = matchesDriverSearch(searchTerm, {
+        name: d.name,
+        phone: d.phone,
+        routeNumber: d.routeNumber,
+        contractType: d.contractType,
+        id: d.id,
+      });
 
-      // Filter by contract type
       const matchesContract =
         contractTypeFilter === '' || d.contractType === contractTypeFilter;
 
-      // Filter by route number
       const matchesRoute =
         routeFilter === '' || d.routeNumber.toLowerCase().includes(routeFilter.toLowerCase());
 
@@ -68,13 +60,11 @@ export function useDriverViewModel() {
     });
   }, [drivers, searchTerm, contractTypeFilter, routeFilter]);
 
-  // Unique route numbers list for filter dropdown
   const availableRoutes = useMemo(() => {
     const set = new Set(drivers.map(d => d.routeNumber));
     return Array.from(set).sort();
   }, [drivers]);
 
-  // Create Driver Command
   const handleCreateDriver = async (form: CreateDriverForm) => {
     try {
       await ApiService.createDriver(form);
@@ -86,7 +76,6 @@ export function useDriverViewModel() {
     }
   };
 
-  // Update Driver Command
   const handleUpdateDriver = async (id: number, form: UpdateDriverForm) => {
     try {
       await ApiService.updateDriver(id, form);
@@ -98,7 +87,6 @@ export function useDriverViewModel() {
     }
   };
 
-  // Soft Delete Driver Command
   const handleDeleteDriver = async (id: number) => {
     try {
       await ApiService.deleteDriver(id);
@@ -108,6 +96,12 @@ export function useDriverViewModel() {
     } catch (err: any) {
       showToast('error', err.message || '기사 삭제에 실패했습니다.');
     }
+  };
+
+  const resetFilters = () => {
+    setSearchTerm('');
+    setContractTypeFilter('');
+    setRouteFilter('');
   };
 
   return {
@@ -122,6 +116,7 @@ export function useDriverViewModel() {
     setContractTypeFilter,
     routeFilter,
     setRouteFilter,
+    resetFilters,
     isAddModalOpen,
     setIsAddModalOpen,
     editingDriver,

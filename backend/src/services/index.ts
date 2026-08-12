@@ -64,6 +64,7 @@ class DriverService {
 export interface GridRow {
   driverId: number;
   driverName: string;
+  phone: string;
   routeNumber: string;
   contractType: string;
   shifts: {
@@ -104,6 +105,7 @@ class ScheduleService {
       return {
         driverId: driver.id,
         driverName: driver.name,
+        phone: driver.phone,
         routeNumber: driver.routeNumber,
         contractType: driver.contractType,
         shifts: shiftMap,

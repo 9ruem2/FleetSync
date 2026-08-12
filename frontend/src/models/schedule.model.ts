@@ -10,6 +10,7 @@ export interface GridShiftCell {
 export interface ScheduleGridRow {
   driverId: number;
   driverName: string;
+  phone: string;
   routeNumber: string;
   contractType: string;
   shifts: {
