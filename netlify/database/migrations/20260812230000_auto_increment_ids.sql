@@ -1,7 +1,7 @@
 -- mock 데이터 제거 및 auto increment ID 스키마로 재구성
-DROP TABLE IF EXISTS backup_assignments;
-DROP TABLE IF EXISTS schedule_shifts;
-DROP TABLE IF EXISTS drivers;
+DROP TABLE IF EXISTS backup_assignments CASCADE;
+DROP TABLE IF EXISTS schedule_shifts CASCADE;
+DROP TABLE IF EXISTS drivers CASCADE;
 
 CREATE TABLE drivers (
   id SERIAL PRIMARY KEY,
@@ -33,5 +33,5 @@ CREATE TABLE backup_assignments (
   created_at timestamptz NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX idx_schedule_shifts_date ON schedule_shifts(date);
-CREATE INDEX idx_backup_assignments_date ON backup_assignments(date);
+CREATE INDEX IF NOT EXISTS idx_schedule_shifts_date ON schedule_shifts(date);
+CREATE INDEX IF NOT EXISTS idx_backup_assignments_date ON backup_assignments(date);

@@ -7,7 +7,6 @@
     "dev:legacy": "concurrently -k -n \"BACKEND,FRONTEND\" -c \"blue,cyan\" \"npm run dev:backend\" \"npm run dev:frontend\"",
     "dev:backend": "npm --prefix backend run dev",
     "dev:frontend": "npm --prefix frontend run dev",
-    "prebuild": "npm ci --prefix frontend",
     "build": "npm run build:frontend",
     "build:backend": "npm --prefix backend run build",
     "build:frontend": "npm --prefix frontend run build",
