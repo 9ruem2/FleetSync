@@ -87,7 +87,7 @@ export function useDriverViewModel() {
   };
 
   // Update Driver Command
-  const handleUpdateDriver = async (id: string, form: UpdateDriverForm) => {
+  const handleUpdateDriver = async (id: number, form: UpdateDriverForm) => {
     try {
       await ApiService.updateDriver(id, form);
       showToast('success', `${form.name} 기사 정보가 수정되었습니다.`);
@@ -99,7 +99,7 @@ export function useDriverViewModel() {
   };
 
   // Soft Delete Driver Command
-  const handleDeleteDriver = async (id: string) => {
+  const handleDeleteDriver = async (id: number) => {
     try {
       await ApiService.deleteDriver(id);
       showToast('success', '기사 정보가 삭제 처리되었습니다.');

@@ -27,7 +27,7 @@ class DriverService {
     return drivers;
   }
 
-  public async getDriverById(id: string): Promise<Driver | null> {
+  public async getDriverById(id: number): Promise<Driver | null> {
     return (await driverRepository.findById(id)) || null;
   }
 
@@ -41,7 +41,7 @@ class DriverService {
     });
   }
 
-  public async updateDriver(id: string, dto: UpdateDriverDTO): Promise<Driver> {
+  public async updateDriver(id: number, dto: UpdateDriverDTO): Promise<Driver> {
     const updated = await driverRepository.update(id, {
       ...dto,
       ...(dto.phone !== undefined ? { phone: normalizePhoneNumber(dto.phone) } : {}),
@@ -52,7 +52,7 @@ class DriverService {
     return updated;
   }
 
-  public async deleteDriver(id: string): Promise<boolean> {
+  public async deleteDriver(id: number): Promise<boolean> {
     const success = await driverRepository.softDelete(id);
     if (!success) {
       throw new Error('기사 삭제에 실패했습니다');
@@ -62,7 +62,7 @@ class DriverService {
 }
 
 export interface GridRow {
-  driverId: string;
+  driverId: number;
   driverName: string;
   routeNumber: string;
   contractType: string;
@@ -70,7 +70,7 @@ export interface GridRow {
     [date: string]: {
       status: ShiftStatus;
       backupAssigned?: boolean;
-      backupDriverId?: string;
+      backupDriverId?: number;
       backupDriverName?: string;
     };
   };
@@ -111,7 +111,7 @@ class ScheduleService {
     });
   }
 
-  public async updateCellStatus(driverId: string, date: string, status: ShiftStatus) {
+  public async updateCellStatus(driverId: number, date: string, status: ShiftStatus) {
     const driver = await driverRepository.findById(driverId);
     if (!driver) throw new Error('기사 정보를 찾을 수 없습니다.');
 

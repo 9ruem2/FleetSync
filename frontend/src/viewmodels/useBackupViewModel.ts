@@ -7,13 +7,13 @@ export function useBackupViewModel(
   target: {
     date: string;
     routeNumber: string;
-    originalDriverId: string;
+    originalDriverId: number;
     originalDriverName: string;
   } | null,
   onSuccess?: () => void
 ) {
   const [candidates, setCandidates] = useState<Driver[]>([]);
-  const [selectedBackupId, setSelectedBackupId] = useState<string>('');
+  const [selectedBackupId, setSelectedBackupId] = useState<number | null>(null);
   const [note, setNote] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(false);
   const [submitting, setSubmitting] = useState<boolean>(false);

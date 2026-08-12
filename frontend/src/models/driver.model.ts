@@ -1,7 +1,7 @@
 export type ContractType = '고정' | '용차' | '백업';
 
 export interface Driver {
-  id: string;
+  id: number;
   name: string;
   phone: string;
   routeNumber: string;

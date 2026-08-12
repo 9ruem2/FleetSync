@@ -15,7 +15,7 @@ export function useScheduleViewModel() {
 
   // Active cell modal state for direct editing
   const [activeCell, setActiveCell] = useState<{
-    driverId: string;
+    driverId: number;
     driverName: string;
     routeNumber: string;
     date: string;
@@ -28,7 +28,7 @@ export function useScheduleViewModel() {
   const [backupTarget, setBackupTarget] = useState<{
     date: string;
     routeNumber: string;
-    originalDriverId: string;
+    originalDriverId: number;
     originalDriverName: string;
   } | null>(null);
 
@@ -109,7 +109,7 @@ export function useScheduleViewModel() {
   }, [loadScheduleGrid]);
 
   // Command: Update cell shift status
-  const handleUpdateCellStatus = async (driverId: string, date: string, status: ShiftStatus) => {
+  const handleUpdateCellStatus = async (driverId: number, date: string, status: ShiftStatus) => {
     try {
       await ApiService.updateShiftCell(driverId, date, status);
       showToast('success', '근무 상태가 수정되었습니다.');
@@ -121,7 +121,7 @@ export function useScheduleViewModel() {
   };
 
   // Open Backup Modal
-  const openBackupAssign = (driverId: string, driverName: string, routeNumber: string, date: string) => {
+  const openBackupAssign = (driverId: number, driverName: string, routeNumber: string, date: string) => {
     setActiveCell(null);
     setBackupTarget({
       date,
