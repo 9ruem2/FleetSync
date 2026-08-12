@@ -1,0 +1,223 @@
+import { eq, and, gte, lte } from 'drizzle-orm';
+import { db } from '../../../db';
+import { drivers, scheduleShifts, backupAssignments } from '../../../db/schema';
+import { Driver, CreateDriverDTO, UpdateDriverDTO, ScheduleShift, BackupAssignment, AssignBackupDTO } from '../types';
+
+function toDriver(row: typeof drivers.$inferSelect): Driver {
+  return {
+    id: row.id,
+    name: row.name,
+    phone: row.phone,
+    routeNumber: row.routeNumber,
+    contractType: row.contractType as Driver['contractType'],
+    createdAt: row.createdAt.toISOString(),
+    isDeleted: row.isDeleted,
+  };
+}
+
+function toShift(row: typeof scheduleShifts.$inferSelect): ScheduleShift {
+  return {
+    id: row.id,
+    driverId: row.driverId,
+    date: row.date,
+    status: row.status as ScheduleShift['status'],
+  };
+}
+
+function toBackup(row: typeof backupAssignments.$inferSelect): BackupAssignment {
+  return {
+    id: row.id,
+    date: row.date,
+    routeNumber: row.routeNumber,
+    originalDriverId: row.originalDriverId,
+    originalDriverName: row.originalDriverName,
+    backupDriverId: row.backupDriverId,
+    backupDriverName: row.backupDriverName,
+    note: row.note ?? undefined,
+    createdAt: row.createdAt.toISOString(),
+  };
+}
+
+class DriverRepository {
+  public async findAll(includeDeleted = false): Promise<Driver[]> {
+    const rows = await db.select().from(drivers);
+    const filtered = includeDeleted ? rows : rows.filter(d => !d.isDeleted);
+    return filtered.map(toDriver);
+  }
+
+  public async findById(id: string): Promise<Driver | undefined> {
+    const rows = await db.select().from(drivers).where(eq(drivers.id, id)).limit(1);
+    const row = rows[0];
+    if (!row || row.isDeleted) return undefined;
+    return toDriver(row);
+  }
+
+  public async create(dto: CreateDriverDTO): Promise<Driver> {
+    const newDriver = {
+      id: `drv-${Date.now()}`,
+      name: dto.name,
+      phone: dto.phone,
+      routeNumber: dto.routeNumber,
+      contractType: dto.contractType,
+      createdAt: new Date(),
+      isDeleted: false,
+    };
+    const [row] = await db.insert(drivers).values(newDriver).returning();
+    return toDriver(row);
+  }
+
+  public async update(id: string, dto: UpdateDriverDTO): Promise<Driver | null> {
+    const existing = await this.findById(id);
+    if (!existing) return null;
+
+    const [row] = await db
+      .update(drivers)
+      .set({
+        name: dto.name ?? existing.name,
+        phone: dto.phone ?? existing.phone,
+        routeNumber: dto.routeNumber ?? existing.routeNumber,
+        contractType: dto.contractType ?? existing.contractType,
+      })
+      .where(eq(drivers.id, id))
+      .returning();
+
+    return row ? toDriver(row) : null;
+  }
+
+  public async softDelete(id: string): Promise<boolean> {
+    const existing = await this.findById(id);
+    if (!existing) return false;
+
+    await db.update(drivers).set({ isDeleted: true }).where(eq(drivers.id, id));
+    return true;
+  }
+}
+
+class ScheduleRepository {
+  public async findShifts(startDate?: string, endDate?: string, driverId?: string): Promise<ScheduleShift[]> {
+    const conditions = [];
+    if (startDate) conditions.push(gte(scheduleShifts.date, startDate));
+    if (endDate) conditions.push(lte(scheduleShifts.date, endDate));
+    if (driverId) conditions.push(eq(scheduleShifts.driverId, driverId));
+
+    const rows = conditions.length > 0
+      ? await db.select().from(scheduleShifts).where(and(...conditions))
+      : await db.select().from(scheduleShifts);
+
+    return rows.map(toShift);
+  }
+
+  public async findShift(driverId: string, date: string): Promise<ScheduleShift | undefined> {
+    const rows = await db
+      .select()
+      .from(scheduleShifts)
+      .where(and(eq(scheduleShifts.driverId, driverId), eq(scheduleShifts.date, date)))
+      .limit(1);
+    return rows[0] ? toShift(rows[0]) : undefined;
+  }
+
+  public async upsertShift(driverId: string, date: string, status: ScheduleShift['status']): Promise<ScheduleShift> {
+    const existing = await this.findShift(driverId, date);
+
+    if (existing) {
+      const [row] = await db
+        .update(scheduleShifts)
+        .set({ status })
+        .where(eq(scheduleShifts.id, existing.id))
+        .returning();
+      return toShift(row);
+    }
+
+    const newShift = {
+      id: `shift-${driverId}-${date}`,
+      driverId,
+      date,
+      status,
+    };
+    const [row] = await db.insert(scheduleShifts).values(newShift).returning();
+    return toShift(row);
+  }
+
+  public async getOffDays(startDate?: string, endDate?: string): Promise<ScheduleShift[]> {
+    const conditions = [eq(scheduleShifts.status, '휴무')];
+    if (startDate) conditions.push(gte(scheduleShifts.date, startDate));
+    if (endDate) conditions.push(lte(scheduleShifts.date, endDate));
+
+    const rows = await db.select().from(scheduleShifts).where(and(...conditions));
+    return rows.map(toShift);
+  }
+}
+
+class BackupRepository {
+  public async findAll(): Promise<BackupAssignment[]> {
+    const rows = await db.select().from(backupAssignments);
+    return rows.map(toBackup);
+  }
+
+  public async findByDateAndRoute(date: string, routeNumber: string): Promise<BackupAssignment | undefined> {
+    const rows = await db
+      .select()
+      .from(backupAssignments)
+      .where(and(eq(backupAssignments.date, date), eq(backupAssignments.routeNumber, routeNumber)))
+      .limit(1);
+    return rows[0] ? toBackup(rows[0]) : undefined;
+  }
+
+  public async findByDate(date: string): Promise<BackupAssignment[]> {
+    const rows = await db
+      .select()
+      .from(backupAssignments)
+      .where(eq(backupAssignments.date, date));
+    return rows.map(toBackup);
+  }
+
+  public async assignBackup(dto: AssignBackupDTO): Promise<BackupAssignment | null> {
+    const originalDriver = await driverRepository.findById(dto.originalDriverId);
+    const backupDriver = await driverRepository.findById(dto.backupDriverId);
+
+    if (!originalDriver || !backupDriver) return null;
+
+    await db
+      .delete(backupAssignments)
+      .where(
+        and(
+          eq(backupAssignments.date, dto.date),
+          eq(backupAssignments.routeNumber, dto.routeNumber)
+        )
+      );
+
+    const newAssignment = {
+      id: `bak-${Date.now()}`,
+      date: dto.date,
+      routeNumber: dto.routeNumber,
+      originalDriverId: originalDriver.id,
+      originalDriverName: originalDriver.name,
+      backupDriverId: backupDriver.id,
+      backupDriverName: backupDriver.name,
+      note: dto.note || '수동 지정 완료',
+      createdAt: new Date(),
+    };
+
+    const [row] = await db.insert(backupAssignments).values(newAssignment).returning();
+    return toBackup(row);
+  }
+
+  public async removeAssignment(date: string, routeNumber: string): Promise<boolean> {
+    const existing = await this.findByDateAndRoute(date, routeNumber);
+    if (!existing) return false;
+
+    await db
+      .delete(backupAssignments)
+      .where(
+        and(
+          eq(backupAssignments.date, date),
+          eq(backupAssignments.routeNumber, routeNumber)
+        )
+      );
+    return true;
+  }
+}
+
+export const driverRepository = new DriverRepository();
+export const scheduleRepository = new ScheduleRepository();
+export const backupRepository = new BackupRepository();

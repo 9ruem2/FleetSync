@@ -1,43 +1,35 @@
 import express from 'express';
-import cors from 'cors';
 import dotenv from 'dotenv';
-import { DriverController } from './controllers/driverController';
-import { ScheduleController } from './controllers/scheduleController';
-import { BackupController } from './controllers/backupController';
+import { handleApiRequest } from './api/handler';
 
 dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 4000;
 
-app.use(cors({
-  origin: '*',
-  methods: ['GET', 'POST', 'PUT', 'DELETE'],
-  allowedHeaders: ['Content-Type', 'Authorization']
-}));
 app.use(express.json());
 
-// Routes
-// 1. Driver Management [F-01]
-app.get('/api/drivers', DriverController.getDrivers);
-app.get('/api/drivers/:id', DriverController.getDriverById);
-app.post('/api/drivers', DriverController.createDriver);
-app.put('/api/drivers/:id', DriverController.updateDriver);
-app.delete('/api/drivers/:id', DriverController.deleteDriver);
+app.all('/api/*', async (req, res) => {
+  const url = `${req.protocol}://${req.get('host')}${req.originalUrl}`;
+  const init: RequestInit = {
+    method: req.method,
+    headers: { 'Content-Type': 'application/json' },
+  };
 
-// 2. Schedule Grid & Off-days [F-02-1, F-02-2]
-app.get('/api/schedules/grid', ScheduleController.getGrid);
-app.put('/api/schedules/cell', ScheduleController.updateCell);
-app.get('/api/schedules/offdays', ScheduleController.getOffDays);
+  if (req.method !== 'GET' && req.method !== 'HEAD' && req.body && Object.keys(req.body).length > 0) {
+    init.body = JSON.stringify(req.body);
+  }
 
-// 3. Backup Matching [F-02-3]
-app.get('/api/backups', BackupController.getAllAssignments);
-app.get('/api/backups/candidates', BackupController.getCandidates);
-app.post('/api/backups/assign', BackupController.assignBackup);
+  const response = await handleApiRequest(new Request(url, init));
+  const body = await response.text();
 
-// Health check
-app.get('/api/health', (_req, res) => {
-  res.json({ status: 'ok', system: 'Coupang Fleet Sync API', timestamp: new Date().toISOString() });
+  res.status(response.status);
+  response.headers.forEach((value, key) => {
+    if (key.toLowerCase() !== 'transfer-encoding') {
+      res.setHeader(key, value);
+    }
+  });
+  res.send(body);
 });
 
 app.listen(PORT, () => {
