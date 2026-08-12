@@ -3,14 +3,25 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "dev": "concurrently -k -n \"BACKEND,FRONTEND\" -c \"blue,cyan\" \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "dev": "netlify dev",
+    "dev:legacy": "concurrently -k -n \"BACKEND,FRONTEND\" -c \"blue,cyan\" \"npm run dev:backend\" \"npm run dev:frontend\"",
     "dev:backend": "npm --prefix backend run dev",
     "dev:frontend": "npm --prefix frontend run dev",
+    "build": "npm run build:frontend",
     "build:backend": "npm --prefix backend run build",
     "build:frontend": "npm --prefix frontend run build",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "netlify database migrations apply",
     "install:all": "npm install && npm --prefix backend install && npm --prefix frontend install"
   },
   "devDependencies": {
-    "concurrently": "^8.2.2"
+    "concurrently": "^8.2.2",
+    "drizzle-kit": "^1.0.0-beta.22",
+    "netlify-cli": "^27.1.1"
+  },
+  "dependencies": {
+    "@netlify/database": "^1.1.0",
+    "@netlify/functions": "^5.3.0",
+    "drizzle-orm": "^1.0.0-beta.22"
   }
 }
