@@ -30,10 +30,10 @@ export const DriverListView: React.FC = () => {
         <div>
           <h2 className="text-lg sm:text-xl font-bold text-slate-900 flex items-center gap-2">
             <Users className="w-5 h-5 sm:w-6 sm:h-6 text-blue-600 shrink-0" />
-            <span>기사 목록 및 라우트 통합 관리</span>
+            <span>기사 목록 조회</span>
           </h2>
           <p className="text-xs text-slate-500 mt-1">
-            전체 등록 기사의 기본 정보, 연락처, 담당 라우트 및 계약 형태를 등록·수정·조회·삭제(CRUD)합니다.
+            전체 등록 기사의 기본 정보, 연락처, 계약 형태를 등록·수정·조회·삭제합니다.
           </p>
         </div>
 
@@ -119,10 +119,10 @@ export const DriverListView: React.FC = () => {
                       <div className="flex flex-wrap gap-1">
                         {parseCamps(driver.camp).length > 0
                           ? parseCamps(driver.camp).map((c, i) => (
-                              <span key={i} className="inline-flex items-center px-2.5 py-1 rounded-lg bg-slate-100 text-slate-700 text-xs font-bold border border-slate-200">
-                                {c}
-                              </span>
-                            ))
+                            <span key={i} className="inline-flex items-center px-2.5 py-1 rounded-lg bg-slate-100 text-slate-700 text-xs font-bold border border-slate-200">
+                              {c}
+                            </span>
+                          ))
                           : <span className="text-slate-400 text-xs">-</span>
                         }
                       </div>

@@ -60,7 +60,7 @@ export const DriverFormModal: React.FC<Props> = ({
   };
 
   const handleCampInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') {
+    if (e.key === 'Enter' && !e.nativeEvent.isComposing) {
       e.preventDefault();
       handleAddCamp();
     }
@@ -148,7 +148,7 @@ export const DriverFormModal: React.FC<Props> = ({
           <div>
             <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">
               담당 캠프 <span className="text-red-500">*</span>
-              <span className="ml-1 text-slate-400 font-normal normal-case">(여러 캠프 추가 가능)</span>
+              <span className="ml-1 text-slate-400 font-normal normal-case">(복수선택가능)</span>
             </label>
 
             {/* 캠프 태그 목록 */}

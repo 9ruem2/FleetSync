@@ -36,7 +36,7 @@ export const DriverSearchBar: React.FC<Props> = ({
         <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
         <input
           type="text"
-          placeholder="기사명(초성), 연락처, 캠프, 라우트 검색..."
+          placeholder="기사명(초성), 연락처, 캠프 검색"
           value={searchTerm}
           onChange={e => onSearchChange(e.target.value)}
           className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:ring-2 focus:ring-blue-500 focus:bg-white outline-none transition"
@@ -73,11 +73,10 @@ export const DriverSearchBar: React.FC<Props> = ({
           onChange={e => onRouteChange(e.target.value)}
           disabled={!campFilter}
           title={!campFilter ? '라우트를 조회하려면 먼저 캠프를 선택해야 합니다.' : ''}
-          className={`flex-1 sm:flex-initial px-3 py-2 border rounded-xl text-xs font-semibold transition min-w-[130px] ${
-            !campFilter
+          className={`flex-1 sm:flex-initial px-3 py-2 border rounded-xl text-xs font-semibold transition min-w-[130px] ${!campFilter
               ? 'bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed opacity-70'
               : 'bg-slate-50 border-slate-200 text-slate-700 focus:ring-2 focus:ring-blue-500 cursor-pointer'
-          }`}
+            }`}
         >
           <option value="">
             {!campFilter ? '라우트 (캠프선택필요)' : '라우트 (전체)'}

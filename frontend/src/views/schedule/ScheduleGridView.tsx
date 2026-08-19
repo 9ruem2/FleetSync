@@ -30,7 +30,7 @@ export const ScheduleGridView: React.FC = () => {
         <div>
           <h2 className="text-lg sm:text-xl font-bold text-slate-900 flex items-center gap-2">
             <CalendarRange className="w-5 h-5 sm:w-6 sm:h-6 text-blue-600 shrink-0" />
-            <span>주간/월간 근무 스케줄표 (Grid View)</span>
+            <span>주간/월간 근무 스케줄표</span>
           </h2>
           <p className="text-xs text-slate-500 mt-1">
             기사별 근무 현황과 배정 형태를 매트릭스 형태로 한눈에 파악하고 편집할 수 있습니다. 셀 클릭 시 근무 상태 수정 및 대차 지정이 가능합니다.
