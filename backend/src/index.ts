@@ -1,8 +1,12 @@
 import express from 'express';
 import dotenv from 'dotenv';
+import path from 'path';
 import { handleApiRequest } from './api/handler';
 
+// 루트 및 현재 위치의 .env 파일 로드
 dotenv.config();
+dotenv.config({ path: path.resolve(process.cwd(), '../.env') });
+dotenv.config({ path: path.resolve(process.cwd(), '.env') });
 
 const app = express();
 const PORT = process.env.PORT || 4000;

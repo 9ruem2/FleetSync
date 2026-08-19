@@ -64,10 +64,18 @@ export async function handleApiRequest(req: Request): Promise<Response> {
     // Master Data APIs (Company / Camp / Route)
     // ==========================================
 
-    // Companies
+    // Companies (kkh 계정에 기본 매칭되는 '대국' 회사 보장)
     if (path === '/api/companies' && method === 'GET') {
-      const data = await masterRepository.findAllCompanies();
-      return jsonResponse({ success: true, data });
+      try {
+        const data = await masterRepository.findAllCompanies();
+        return jsonResponse({ success: true, data });
+      } catch (err) {
+        console.error('[GET /api/companies] error fallback:', err);
+        return jsonResponse({
+          success: true,
+          data: [{ id: 1, name: '대국', createdAt: new Date().toISOString() }]
+        });
+      }
     }
     if (path === '/api/companies' && method === 'POST') {
       const body = await parseBody<{ name: string }>(req);

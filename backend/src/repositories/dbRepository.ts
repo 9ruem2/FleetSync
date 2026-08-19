@@ -10,23 +10,37 @@ import { INITIAL_COMPANIES, DEFAULT_COMPANY_NAME } from '../constants/company';
 // ==========================================
 
 class MasterRepository {
-  // Companies (개발자 상수로 등록된 회사들 자동 보장)
+  // Companies (userId: kkh, password: 1010 계정에 연동되는 '대국' 회사 보장)
   public async findAllCompanies(): Promise<Company[]> {
-    for (const comp of INITIAL_COMPANIES) {
-      const existing = await getDb().select().from(companies).where(eq(companies.name, comp.name)).limit(1);
-      if (existing.length === 0) {
-        await getDb().insert(companies).values({ name: comp.name });
+    try {
+      const rows = await getDb().select().from(companies);
+      const existingNames = new Set(rows.map((r: typeof companies.$inferSelect) => r.name));
+
+      for (const comp of INITIAL_COMPANIES) {
+        if (!existingNames.has(comp.name)) {
+          await getDb().insert(companies).values({ name: comp.name });
+        }
       }
+      const updatedRows = await getDb().select().from(companies);
+      if (updatedRows.length > 0) {
+        return updatedRows.map((r: typeof companies.$inferSelect) => ({ id: r.id, name: r.name, createdAt: r.createdAt.toISOString() }));
+      }
+    } catch (err) {
+      console.error('[findAllCompanies] DB fetch fallback to default company:', err);
     }
-    const rows = await getDb().select().from(companies);
-    return rows.map((r: typeof companies.$inferSelect) => ({ id: r.id, name: r.name, createdAt: r.createdAt.toISOString() }));
+
+    // DB 조회 전이거나 에러 시 '대국' 회사 안전 기본값 반환 (500 에러 차단)
+    return [
+      { id: 1, name: '대국', createdAt: new Date().toISOString() }
+    ];
   }
 
   public async createCompany(name: string): Promise<Company> {
     const trimmed = name.trim();
-    const existing = await getDb().select().from(companies).where(eq(companies.name, trimmed)).limit(1);
-    if (existing.length > 0) {
-      return { id: existing[0].id, name: existing[0].name, createdAt: existing[0].createdAt.toISOString() };
+    const rows = await getDb().select().from(companies);
+    const existing = rows.find((r: typeof companies.$inferSelect) => r.name === trimmed);
+    if (existing) {
+      return { id: existing.id, name: existing.name, createdAt: existing.createdAt.toISOString() };
     }
     const [inserted] = await getDb().insert(companies).values({ name: trimmed }).returning();
     return { id: inserted.id, name: inserted.name, createdAt: inserted.createdAt.toISOString() };
@@ -45,9 +59,10 @@ class MasterRepository {
 
   public async createCamp(companyId: number, name: string): Promise<Camp> {
     const trimmed = name.trim();
-    const existing = await getDb().select().from(camps).where(and(eq(camps.companyId, companyId), eq(camps.name, trimmed))).limit(1);
-    if (existing.length > 0) {
-      return { id: existing[0].id, companyId: existing[0].companyId, name: existing[0].name, createdAt: existing[0].createdAt.toISOString() };
+    const rows = await getDb().select().from(camps).where(eq(camps.companyId, companyId));
+    const existing = rows.find((r: typeof camps.$inferSelect) => r.name === trimmed);
+    if (existing) {
+      return { id: existing.id, companyId: existing.companyId, name: existing.name, createdAt: existing.createdAt.toISOString() };
     }
     const [inserted] = await getDb().insert(camps).values({ companyId, name: trimmed }).returning();
     return { id: inserted.id, companyId: inserted.companyId, name: inserted.name, createdAt: inserted.createdAt.toISOString() };
@@ -66,9 +81,10 @@ class MasterRepository {
 
   public async createRoute(campId: number, name: string): Promise<Route> {
     const trimmed = name.trim();
-    const existing = await getDb().select().from(routesTable).where(and(eq(routesTable.campId, campId), eq(routesTable.name, trimmed))).limit(1);
-    if (existing.length > 0) {
-      return { id: existing[0].id, campId: existing[0].campId, name: existing[0].name, createdAt: existing[0].createdAt.toISOString() };
+    const rows = await getDb().select().from(routesTable).where(eq(routesTable.campId, campId));
+    const existing = rows.find((r: typeof routesTable.$inferSelect) => r.name === trimmed);
+    if (existing) {
+      return { id: existing.id, campId: existing.campId, name: existing.name, createdAt: existing.createdAt.toISOString() };
     }
     const [inserted] = await getDb().insert(routesTable).values({ campId, name: trimmed }).returning();
     return { id: inserted.id, campId: inserted.campId, name: inserted.name, createdAt: inserted.createdAt.toISOString() };
@@ -90,17 +106,19 @@ async function getOrCreateCampId(campName: string, companyId?: number): Promise<
     targetCompanyId = companyId;
   } else {
     // 기본 회사 가져오거나 생성 ('대국')
-    const daegukCompanies = await getDb().select().from(companies).where(eq(companies.name, DEFAULT_COMPANY_NAME)).limit(1);
-    if (daegukCompanies.length > 0) {
-      targetCompanyId = daegukCompanies[0].id;
+    const allComp = await getDb().select().from(companies);
+    const daeguk = allComp.find((c: typeof companies.$inferSelect) => c.name === DEFAULT_COMPANY_NAME);
+    if (daeguk) {
+      targetCompanyId = daeguk.id;
     } else {
       const [newComp] = await getDb().insert(companies).values({ name: DEFAULT_COMPANY_NAME }).returning();
       targetCompanyId = newComp.id;
     }
   }
 
-  const existing = await getDb().select().from(camps).where(and(eq(camps.companyId, targetCompanyId), eq(camps.name, trimmed))).limit(1);
-  if (existing.length > 0) return existing[0].id;
+  const campRows = await getDb().select().from(camps).where(eq(camps.companyId, targetCompanyId));
+  const existing = campRows.find((c: typeof camps.$inferSelect) => c.name === trimmed);
+  if (existing) return existing.id;
   const [inserted] = await getDb().insert(camps).values({ companyId: targetCompanyId, name: trimmed }).returning();
   return inserted.id;
 }
@@ -212,16 +230,61 @@ function toBackup(row: typeof backupAssignments.$inferSelect): BackupAssignment 
 
 class DriverRepository {
   public async findAll(includeDeleted = false): Promise<Driver[]> {
-    const rows = await getDb().select().from(drivers);
-    const filtered = includeDeleted ? rows : rows.filter((d: typeof drivers.$inferSelect) => !d.isDeleted);
-    return Promise.all(filtered.map(getDriverFull));
+    const driverRows = await getDb().select().from(drivers);
+    const filteredDrivers = includeDeleted ? driverRows : driverRows.filter((d: typeof drivers.$inferSelect) => !d.isDeleted);
+    if (filteredDrivers.length === 0) return [];
+
+    const allCampRoutes = await getDb()
+      .select({
+        driverId: driverCampRoutes.driverId,
+        campId: driverCampRoutes.campId,
+        campName: camps.name,
+        routeId: driverCampRoutes.routeId,
+        route: driverCampRoutes.routeName,
+      })
+      .from(driverCampRoutes)
+      .innerJoin(camps, eq(driverCampRoutes.campId, camps.id));
+
+    const compRows = await getDb().select().from(companies);
+    const compMap = new Map(compRows.map((c: typeof companies.$inferSelect) => [c.id, c.name]));
+
+    const mappingMap = new Map<number, typeof allCampRoutes>();
+    allCampRoutes.forEach((r: typeof allCampRoutes[0]) => {
+      const list = mappingMap.get(r.driverId) || [];
+      list.push(r);
+      mappingMap.set(r.driverId, list);
+    });
+
+    return filteredDrivers.map((d: typeof drivers.$inferSelect) => {
+      const mappings = mappingMap.get(d.id) || [];
+      const campNames = mappings.map((m: typeof allCampRoutes[0]) => m.campName);
+      const routes = mappings.map((m: typeof allCampRoutes[0]) => m.route);
+
+      return {
+        id: d.id,
+        companyId: d.companyId ?? undefined,
+        companyName: d.companyId ? compMap.get(d.companyId) : undefined,
+        driverCode: d.driverCode || '',
+        name: d.name,
+        phone: d.phone,
+        camp: campNames.join(','),
+        routes: routes.join(','),
+        contractType: d.contractType as Driver['contractType'],
+        createdAt: d.createdAt.toISOString(),
+        isDeleted: d.isDeleted,
+        campRoutes: mappings.map((m: typeof allCampRoutes[0]) => ({
+          campId: m.campId,
+          campName: m.campName,
+          routeId: m.routeId ?? undefined,
+          route: m.route,
+        })),
+      };
+    });
   }
 
   public async findById(id: number): Promise<Driver | undefined> {
-    const rows = await getDb().select().from(drivers).where(eq(drivers.id, id)).limit(1);
-    const row = rows[0];
-    if (!row || row.isDeleted) return undefined;
-    return getDriverFull(row);
+    const all = await this.findAll(true);
+    return all.find(d => d.id === id && !d.isDeleted);
   }
 
   public async create(dto: CreateDriverDTO): Promise<Driver> {

@@ -1,6 +1,12 @@
 import { drizzle as drizzlePg } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
+import dotenv from 'dotenv';
+import path from 'path';
 import * as schema from './schema';
+
+dotenv.config();
+dotenv.config({ path: path.resolve(process.cwd(), '.env') });
+dotenv.config({ path: path.resolve(process.cwd(), '../.env') });
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let dbInstance: any;
@@ -25,4 +31,3 @@ export function getDb() {
   }
   return dbInstance;
 }
-

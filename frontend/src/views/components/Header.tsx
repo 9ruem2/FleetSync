@@ -6,9 +6,18 @@ interface Props {
   subtitle: string;
   onToggleMobileMenu?: () => void;
   onOpenSettings?: () => void;
+  onLogout?: () => void;
+  user?: { userId: string; companyName: string } | null;
 }
 
-export const Header: React.FC<Props> = ({ title, subtitle, onToggleMobileMenu, onOpenSettings }) => {
+export const Header: React.FC<Props> = ({
+  title,
+  subtitle,
+  onToggleMobileMenu,
+  onOpenSettings,
+  onLogout,
+  user
+}) => {
   const todayStr = new Date().toLocaleDateString('ko-KR', {
     year: 'numeric',
     month: 'long',
@@ -40,7 +49,7 @@ export const Header: React.FC<Props> = ({ title, subtitle, onToggleMobileMenu, o
 
       <div className="flex items-center gap-2 sm:gap-4 shrink-0">
         {/* Coupang Admin Quick Link */}
-        <a
+        {/* <a
           href="https://fly.coupang.com"
           target="_blank"
           rel="noopener noreferrer"
@@ -50,9 +59,9 @@ export const Header: React.FC<Props> = ({ title, subtitle, onToggleMobileMenu, o
           <Globe className="w-3.5 h-3.5 text-orange-600" />
           <span>쿠팡 어드민</span>
           <ExternalLink className="w-3 h-3 text-orange-500" />
-        </a>
+        </a> */}
 
-        {/* Date Display (Hidden on very small screens, compact on sm) */}
+        {/* Date Display */}
         <div className="hidden md:flex items-center gap-2 bg-slate-100 px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-600 border border-slate-200">
           <Calendar className="w-4 h-4 text-blue-600" />
           <span>{todayStr}</span>
@@ -60,9 +69,16 @@ export const Header: React.FC<Props> = ({ title, subtitle, onToggleMobileMenu, o
 
         {/* User Profile Badge & Settings */}
         <div className="flex items-center gap-2 sm:gap-3 pl-2 sm:pl-4 border-l border-slate-200">
-          <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-slate-900 text-white flex items-center justify-center font-bold text-xs shadow-xs">
-            AD
-          </div>
+          {/* 아바타 동그라미 클릭 시 로그아웃 */}
+          <button
+            type="button"
+            onClick={onLogout}
+            className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-slate-900 hover:bg-slate-800 text-white flex items-center justify-center font-bold text-xs shadow-xs transition cursor-pointer active:scale-95 border border-slate-700"
+            title="클릭 시 로그아웃"
+          >
+            {user ? user.userId.toUpperCase() : 'AD'}
+          </button>
+
           <div className="text-left text-xs hidden xs:block sm:block">
             <div className="font-bold text-slate-800 flex items-center gap-1">
               <span>권광훈</span>
@@ -70,9 +86,10 @@ export const Header: React.FC<Props> = ({ title, subtitle, onToggleMobileMenu, o
             </div>
             <div className="text-slate-400 font-medium text-[11px] flex items-center gap-1">
               <UserCheck className="w-3 h-3 text-emerald-500" />
-              <span>온라인</span>
+              <span>로그인됨</span>
             </div>
           </div>
+
           {onOpenSettings && (
             <button
               onClick={onOpenSettings}
