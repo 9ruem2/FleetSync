@@ -14,7 +14,9 @@ import {
   Trash2,
   Phone,
   RefreshCw,
-  Users
+  Users,
+  Building2,
+  MapPin
 } from 'lucide-react';
 
 export const DriverListView: React.FC = () => {
@@ -87,8 +89,7 @@ export const DriverListView: React.FC = () => {
               <thead>
                 <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold uppercase tracking-wider">
                   <th className="py-3.5 px-4 sm:px-6">기사명 / 사용 ID</th>
-                  <th className="py-3.5 px-4 sm:px-6">담당 캠프</th>
-                  <th className="py-3.5 px-4 sm:px-6">담당 라우트</th>
+                  <th className="py-3.5 px-4 sm:px-6">담당 캠프 / 라우트</th>
                   <th className="py-3.5 px-4 sm:px-6">연락처</th>
                   <th className="py-3.5 px-4 sm:px-6">계약 형태</th>
                   <th className="py-3.5 px-4 sm:px-6">등록 일시</th>
@@ -114,35 +115,27 @@ export const DriverListView: React.FC = () => {
                       </div>
                     </td>
 
-                    {/* Camp */}
+                    {/* Camp + Route (통합 인라인 표시) */}
                     <td className="py-3.5 px-4 sm:px-6">
-                      <div className="flex flex-wrap gap-1">
-                        {parseCamps(driver.camp).length > 0
-                          ? parseCamps(driver.camp).map((c, i) => (
-                            <span key={i} className="inline-flex items-center px-2.5 py-1 rounded-lg bg-slate-100 text-slate-700 text-xs font-bold border border-slate-200">
+                      <div className="flex flex-wrap gap-1.5">
+                        {(() => {
+                          const camps = (driver.camp || '').split(',').map(s => s.trim()).filter(Boolean);
+                          const routes = (driver.routesWeek13 || '').split(',').map(s => s.trim());
+                          if (camps.length === 0) return <span className="text-slate-400 text-xs">-</span>;
+                          return camps.map((c, i) => (
+                            <span key={i} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-blue-600 text-white text-[11px] font-bold shadow-sm">
+                              <Building2 className="w-3 h-3 opacity-70" />
                               {c}
+                              {routes[i] && (
+                                <>
+                                  <span className="opacity-40 mx-0.5">·</span>
+                                  <MapPin className="w-3 h-3 opacity-70" />
+                                  {routes[i]}
+                                </>
+                              )}
                             </span>
-                          ))
-                          : <span className="text-slate-400 text-xs">-</span>
-                        }
-                      </div>
-                    </td>
-
-                    {/* Route Number */}
-                    <td className="py-3.5 px-4 sm:px-6">
-                      <div className="space-y-1.5">
-                        {(driver.weekPattern === '1,3' || driver.weekPattern === 'both') && (
-                          <RouteBadges
-                            routes={parseRoutes(driver.routesWeek13)}
-                            label="1,3주"
-                          />
-                        )}
-                        {(driver.weekPattern === '2,4' || driver.weekPattern === 'both') && (
-                          <RouteBadges
-                            routes={parseRoutes(driver.routesWeek24)}
-                            label="2,4주"
-                          />
-                        )}
+                          ));
+                        })()}
                       </div>
                     </td>
 

@@ -1,8 +1,12 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Driver, CreateDriverForm, ContractType } from '../../models/driver.model';
 import { formatPhoneNumber, normalizePhoneNumber } from '../../utils/phoneFormat';
-import { parseCamps } from '../../utils/routeUtils';
-import { X, User, Phone, Briefcase, Hash, Building2, Plus } from 'lucide-react';
+import { X, User, Phone, Briefcase, Hash, Building2, MapPin, Plus, Trash2 } from 'lucide-react';
+
+interface CampRoute {
+  camp: string;
+  route: string;
+}
 
 interface Props {
   isOpen: boolean;
@@ -20,8 +24,7 @@ export const DriverFormModal: React.FC<Props> = ({
   const [driverCode, setDriverCode] = useState('');
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
-  const [camp, setCamp] = useState('');
-  const [campInput, setCampInput] = useState('');
+  const [campRoutes, setCampRoutes] = useState<CampRoute[]>([{ camp: '', route: '' }]);
   const [contractType, setContractType] = useState<ContractType>('고정');
 
   useEffect(() => {
@@ -29,46 +32,41 @@ export const DriverFormModal: React.FC<Props> = ({
       setDriverCode(driver.driverCode || '');
       setName(driver.name);
       setPhone(formatPhoneNumber(driver.phone));
-      setCamp(driver.camp || '');
-      setCampInput('');
       setContractType(driver.contractType);
+
+      // 기존 camp, routesWeek13 데이터를 pair 배열로 복원
+      const camps = (driver.camp || '').split(',').map(s => s.trim()).filter(Boolean);
+      const routes = (driver.routesWeek13 || '').split(',').map(s => s.trim());
+      if (camps.length > 0) {
+        setCampRoutes(camps.map((c, i) => ({ camp: c, route: routes[i] || '' })));
+      } else {
+        setCampRoutes([{ camp: '', route: '' }]);
+      }
     } else {
       setDriverCode('');
       setName('');
       setPhone('');
-      setCamp('');
-      setCampInput('');
+      setCampRoutes([{ camp: '', route: '' }]);
       setContractType('고정');
     }
   }, [driver, isOpen]);
 
-  const camps = useMemo(() => parseCamps(camp), [camp]);
-
   if (!isOpen) return null;
 
-  const handleAddCamp = () => {
-    const trimmed = campInput.trim();
-    if (!trimmed) return;
-    const existing = parseCamps(camp);
-    if (existing.map(c => c.toLowerCase()).includes(trimmed.toLowerCase())) {
-      setCampInput('');
-      return;
-    }
-    const next = existing.length > 0 ? `${camp},${trimmed}` : trimmed;
-    setCamp(next);
-    setCampInput('');
+  const handleChange = (index: number, field: 'camp' | 'route', value: string) => {
+    setCampRoutes(prev => prev.map((cr, i) => i === index ? { ...cr, [field]: value } : cr));
   };
 
-  const handleCampInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter' && !e.nativeEvent.isComposing) {
-      e.preventDefault();
-      handleAddCamp();
-    }
+  const handleAddRow = () => {
+    setCampRoutes(prev => [...prev, { camp: '', route: '' }]);
   };
 
-  const handleRemoveCamp = (target: string) => {
-    const next = parseCamps(camp).filter(c => c !== target).join(',');
-    setCamp(next);
+  const handleRemoveRow = (index: number) => {
+    if (campRoutes.length === 1) {
+      setCampRoutes([{ camp: '', route: '' }]);
+    } else {
+      setCampRoutes(prev => prev.filter((_, i) => i !== index));
+    }
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -77,8 +75,15 @@ export const DriverFormModal: React.FC<Props> = ({
       alert('기사명과 연락처는 필수 입력 항목입니다.');
       return;
     }
-    if (camps.length === 0) {
+
+    const validPairs = campRoutes.filter(cr => cr.camp.trim());
+    if (validPairs.length === 0) {
       alert('담당 캠프를 하나 이상 입력해주세요.');
+      return;
+    }
+    const missingRoute = validPairs.find(cr => !cr.route.trim());
+    if (missingRoute) {
+      alert(`'${missingRoute.camp}' 캠프의 라우트를 입력해주세요.`);
       return;
     }
 
@@ -86,29 +91,30 @@ export const DriverFormModal: React.FC<Props> = ({
       driverCode: driverCode.trim(),
       name: name.trim(),
       phone: normalizePhoneNumber(phone),
-      camp: camp.trim(),
+      camp: validPairs.map(cr => cr.camp.trim()).join(','),
+      routes: validPairs.map(cr => cr.route.trim()).join(','),
       contractType
     });
   };
 
+  const completedPairs = campRoutes.filter(cr => cr.camp.trim() && cr.route.trim());
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-3 sm:p-4">
       <div className="bg-white rounded-2xl shadow-2xl border border-slate-100 w-full max-w-lg overflow-hidden animate-in fade-in zoom-in duration-200 max-h-[92vh] overflow-y-auto">
+        {/* Header */}
         <div className="bg-slate-900 text-white px-5 sm:px-6 py-3.5 sm:py-4 flex items-center justify-between sticky top-0 z-10">
           <h2 className="text-base sm:text-lg font-bold flex items-center gap-2">
             <User className="w-5 h-5 text-blue-400" />
             <span>{driver ? '기사 정보 수정' : '신규 기사 등록'}</span>
           </h2>
-          <button
-            onClick={onClose}
-            className="text-slate-400 hover:text-white p-1 rounded-lg transition"
-          >
+          <button onClick={onClose} className="text-slate-400 hover:text-white p-1 rounded-lg transition">
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-4 sm:p-6 space-y-3.5 sm:space-y-4">
-          {/* 1. 기사명 */}
+        <form onSubmit={handleSubmit} className="p-4 sm:p-6 space-y-4">
+          {/* 기사명 */}
           <div>
             <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">
               기사명 <span className="text-red-500">*</span>
@@ -126,7 +132,7 @@ export const DriverFormModal: React.FC<Props> = ({
             </div>
           </div>
 
-          {/* 2. 연락처 */}
+          {/* 연락처 */}
           <div>
             <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">
               연락처 <span className="text-red-500">*</span>
@@ -144,63 +150,94 @@ export const DriverFormModal: React.FC<Props> = ({
             </div>
           </div>
 
-          {/* 3. 담당 캠프 (복수) */}
+          {/* 담당 캠프 / 라우트 */}
           <div>
-            <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">
-              담당 캠프 <span className="text-red-500">*</span>
-              <span className="ml-1 text-slate-400 font-normal normal-case">(복수선택가능)</span>
-            </label>
-
-            {/* 캠프 태그 목록 */}
-            {camps.length > 0 && (
-              <div className="flex flex-wrap gap-1.5 mb-2">
-                {camps.map((c, i) => (
-                  <span
-                    key={i}
-                    className="inline-flex items-center gap-1 px-2.5 py-1 bg-blue-50 text-blue-800 font-bold rounded-lg text-xs border border-blue-200/80"
-                  >
-                    <Building2 className="w-3 h-3" />
-                    {c}
-                    <button
-                      type="button"
-                      onClick={() => handleRemoveCamp(c)}
-                      className="ml-0.5 text-blue-400 hover:text-red-500 transition"
-                    >
-                      <X className="w-3 h-3" />
-                    </button>
-                  </span>
-                ))}
-              </div>
-            )}
-
-            {/* 캠프 입력 */}
-            <div className="flex gap-2">
-              <div className="relative flex-1">
-                <Building2 className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
-                <input
-                  type="text"
-                  placeholder="캠프명 입력 후 추가 또는 Enter"
-                  value={campInput}
-                  onChange={e => setCampInput(e.target.value)}
-                  onKeyDown={handleCampInputKeyDown}
-                  className="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:ring-2 focus:ring-blue-500 focus:bg-white outline-none transition"
-                />
-              </div>
+            <div className="flex items-center justify-between mb-2">
+              <label className="block text-xs font-bold uppercase tracking-wider text-slate-600">
+                담당 캠프 / 라우트 <span className="text-red-500">*</span>
+              </label>
               <button
                 type="button"
-                onClick={handleAddCamp}
-                className="flex items-center gap-1 px-3 py-2.5 bg-blue-600 text-white rounded-xl text-xs font-bold hover:bg-blue-700 transition shadow-sm shadow-blue-500/20 whitespace-nowrap"
+                onClick={handleAddRow}
+                className="flex items-center gap-1 px-2.5 py-1 bg-blue-50 text-blue-700 rounded-lg text-[11px] font-bold hover:bg-blue-100 transition border border-blue-200"
               >
-                <Plus className="w-3.5 h-3.5" />
-                추가
+                <Plus className="w-3 h-3" />
+                캠프/라우트 추가
               </button>
             </div>
+
+            {/* 컬럼 헤더 */}
+            <div className="grid grid-cols-[1fr_1fr_32px] gap-2 mb-1.5 px-1">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1">
+                <Building2 className="w-3 h-3" /> 캠프명
+              </span>
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1">
+                <MapPin className="w-3 h-3" /> 라우트 <span className="text-red-400">(필수)</span>
+              </span>
+              <span />
+            </div>
+
+            {/* 입력 행들 */}
+            <div className="space-y-2">
+              {campRoutes.map((cr, index) => (
+                <div
+                  key={index}
+                  className="grid grid-cols-[1fr_1fr_32px] gap-2 items-center"
+                >
+                  <input
+                    type="text"
+                    placeholder="서울1캠프"
+                    value={cr.camp}
+                    onChange={e => handleChange(index, 'camp', e.target.value)}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:ring-2 focus:ring-blue-500 focus:bg-white outline-none transition min-w-0"
+                  />
+                  <input
+                    type="text"
+                    placeholder="101A"
+                    value={cr.route}
+                    onChange={e => handleChange(index, 'route', e.target.value)}
+                    className={`w-full px-3 py-2 border rounded-xl text-sm font-medium focus:ring-2 outline-none transition min-w-0 ${cr.camp.trim() && !cr.route.trim()
+                        ? 'bg-red-50 border-red-300 focus:ring-red-400'
+                        : 'bg-slate-50 border-slate-200 focus:ring-blue-500 focus:bg-white'
+                      }`}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveRow(index)}
+                    className="flex items-center justify-center w-8 h-8 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              ))}
+            </div>
+
+            {/* 인라인 미리보기 */}
+            {completedPairs.length > 0 && (
+              <div className="mt-2.5 p-2.5 bg-slate-50 rounded-xl border border-slate-200">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">선택된 캠프/라우트</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {completedPairs.map((cr, i) => (
+                    <span
+                      key={i}
+                      className="inline-flex items-center gap-1 px-2.5 py-1 bg-blue-600 text-white font-bold rounded-lg text-[11px] shadow-sm"
+                    >
+                      <Building2 className="w-3 h-3 opacity-70" />
+                      {cr.camp}
+                      <span className="opacity-40 mx-0.5">·</span>
+                      <MapPin className="w-3 h-3 opacity-70" />
+                      {cr.route}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
-          {/* 4. 계약 형태 */}
+          {/* 계약 형태 */}
           <div>
             <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">
-              계약 형태 선택 <span className="text-red-500">*</span>
+              계약 형태 <span className="text-red-500">*</span>
             </label>
             <div className="relative">
               <Briefcase className="w-4 h-4 text-slate-400 absolute left-3 top-3 z-10" />
@@ -216,7 +253,7 @@ export const DriverFormModal: React.FC<Props> = ({
             </div>
           </div>
 
-          {/* 5. 사용 ID (선택) */}
+          {/* 사용 ID */}
           <div>
             <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">
               사용 ID <span className="text-slate-400 font-normal">(선택)</span>

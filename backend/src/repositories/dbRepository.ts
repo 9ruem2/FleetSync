@@ -1,23 +1,69 @@
 import { eq, and, gte, lte } from 'drizzle-orm';
 import { getDb } from '../../../db';
-import { drivers, scheduleShifts, backupAssignments } from '../../../db/schema';
+import { drivers, camps, driverCampRoutes, scheduleShifts, backupAssignments } from '../../../db/schema';
 import { Driver, CreateDriverDTO, UpdateDriverDTO, ScheduleShift, BackupAssignment, AssignBackupDTO } from '../types';
-import { normalizeWeekPattern } from '../utils/routeUtils';
 
-function toDriver(row: typeof drivers.$inferSelect): Driver {
+async function getOrCreateCampId(campName: string): Promise<number> {
+  const trimmed = campName.trim();
+  if (!trimmed) return 0;
+  const existing = await getDb().select().from(camps).where(eq(camps.name, trimmed)).limit(1);
+  if (existing.length > 0) return existing[0].id;
+  const [inserted] = await getDb().insert(camps).values({ name: trimmed }).returning();
+  return inserted.id;
+}
+
+async function saveCampRoutes(driverId: number, campStr: string, routesStr: string) {
+  await getDb().delete(driverCampRoutes).where(eq(driverCampRoutes.driverId, driverId));
+
+  const campArr = (campStr || '').split(',').map(s => s.trim()).filter(Boolean);
+  const routeArr = (routesStr || '').split(',').map(s => s.trim());
+
+  for (let i = 0; i < campArr.length; i++) {
+    const cName = campArr[i];
+    const rName = routeArr[i] || '';
+    if (!cName) continue;
+
+    const campId = await getOrCreateCampId(cName);
+    await getDb().insert(driverCampRoutes).values({
+      driverId,
+      campId,
+      route: rName,
+    });
+  }
+}
+
+async function getDriverFull(driverRow: typeof drivers.$inferSelect): Promise<Driver> {
+  const mappings = await getDb()
+    .select({
+      campId: driverCampRoutes.campId,
+      campName: camps.name,
+      route: driverCampRoutes.route,
+    })
+    .from(driverCampRoutes)
+    .innerJoin(camps, eq(driverCampRoutes.campId, camps.id))
+    .where(eq(driverCampRoutes.driverId, driverRow.id));
+
+  const campNames = mappings.map((m: { campName: string }) => m.campName);
+  const routes = mappings.map((m: { route: string }) => m.route);
+
   return {
-    id: row.id,
-    driverCode: row.driverCode || '',
-    name: row.name,
-    phone: row.phone,
-    camp: row.camp || '',
-    routeNumber: row.routeNumber,
-    routesWeek13: row.routesWeek13,
-    routesWeek24: row.routesWeek24,
-    weekPattern: normalizeWeekPattern(row.weekPattern),
-    contractType: row.contractType as Driver['contractType'],
-    createdAt: row.createdAt.toISOString(),
-    isDeleted: row.isDeleted,
+    id: driverRow.id,
+    driverCode: driverRow.driverCode || '',
+    name: driverRow.name,
+    phone: driverRow.phone,
+    camp: campNames.join(','),
+    routeNumber: routes[0] || '',
+    routesWeek13: routes.join(','),
+    routesWeek24: '',
+    weekPattern: 'both',
+    contractType: driverRow.contractType as Driver['contractType'],
+    createdAt: driverRow.createdAt.toISOString(),
+    isDeleted: driverRow.isDeleted,
+    campRoutes: mappings.map((m: { campId: number; campName: string; route: string }) => ({
+      campId: m.campId,
+      campName: m.campName,
+      route: m.route,
+    })),
   };
 }
 
@@ -48,34 +94,30 @@ class DriverRepository {
   public async findAll(includeDeleted = false): Promise<Driver[]> {
     const rows = await getDb().select().from(drivers);
     const filtered = includeDeleted ? rows : rows.filter((d: typeof drivers.$inferSelect) => !d.isDeleted);
-    return filtered.map(toDriver);
+    return Promise.all(filtered.map(getDriverFull));
   }
 
   public async findById(id: number): Promise<Driver | undefined> {
     const rows = await getDb().select().from(drivers).where(eq(drivers.id, id)).limit(1);
     const row = rows[0];
     if (!row || row.isDeleted) return undefined;
-    return toDriver(row);
+    return getDriverFull(row);
   }
 
   public async create(dto: CreateDriverDTO): Promise<Driver> {
-    const routeNumber = '';
     const [row] = await getDb()
       .insert(drivers)
       .values({
         driverCode: (dto.driverCode ?? '').trim(),
         name: dto.name,
         phone: dto.phone,
-        camp: (dto.camp ?? '').trim(),
-        routeNumber,
-        routesWeek13: '',
-        routesWeek24: '',
-        weekPattern: 'both',
         contractType: dto.contractType,
         isDeleted: false,
       })
       .returning();
-    return toDriver(row);
+
+    await saveCampRoutes(row.id, dto.camp, dto.routes);
+    return getDriverFull(row);
   }
 
   public async update(id: number, dto: UpdateDriverDTO): Promise<Driver | null> {
@@ -88,13 +130,18 @@ class DriverRepository {
         driverCode: dto.driverCode !== undefined ? dto.driverCode.trim() : existing.driverCode,
         name: dto.name ?? existing.name,
         phone: dto.phone ?? existing.phone,
-        camp: dto.camp !== undefined ? dto.camp.trim() : existing.camp,
         contractType: dto.contractType ?? existing.contractType,
       })
       .where(eq(drivers.id, id))
       .returning();
 
-    return row ? toDriver(row) : null;
+    if (row && (dto.camp !== undefined || dto.routes !== undefined)) {
+      const campStr = dto.camp !== undefined ? dto.camp : existing.camp;
+      const routesStr = dto.routes !== undefined ? dto.routes : existing.routesWeek13;
+      await saveCampRoutes(row.id, campStr, routesStr);
+    }
+
+    return row ? getDriverFull(row) : null;
   }
 
   public async softDelete(id: number): Promise<boolean> {

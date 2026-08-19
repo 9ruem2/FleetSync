@@ -12,9 +12,9 @@ export const Sidebar: React.FC<Props> = ({ activeTab, setActiveTab, isOpen = fal
   const menuItems = [
     {
       id: 'drivers',
-      label: '기사 및 라우트 관리',
+      label: '기사 관리',
       icon: Users,
-      description: '기사 조회, 라우트 & 계약 형태',
+      description: '기사 관리 및 계약 형태',
     },
     {
       id: 'schedule',

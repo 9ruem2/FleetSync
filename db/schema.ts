@@ -1,25 +1,34 @@
 import { boolean, integer, pgTable, serial, text, timestamp, unique } from 'drizzle-orm/pg-core';
 
+export const camps = pgTable('camps', {
+  id: serial('id').primaryKey(),
+  name: text('name').notNull().unique(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
 export const drivers = pgTable('drivers', {
   id: serial('id').primaryKey(),
   driverCode: text('driver_code').notNull().default(''),
   name: text('name').notNull(),
   phone: text('phone').notNull(),
-  camp: text('camp').notNull().default(''),
-  routeNumber: text('route_number').notNull().default(''),
-  routesWeek13: text('routes_week13').notNull().default(''),
-  routesWeek24: text('routes_week24').notNull().default(''),
-  weekPattern: text('week_pattern').notNull().default('1,3'),
   contractType: text('contract_type').notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   isDeleted: boolean('is_deleted').notNull().default(false),
+});
+
+export const driverCampRoutes = pgTable('driver_camp_routes', {
+  id: serial('id').primaryKey(),
+  driverId: integer('driver_id').notNull().references(() => drivers.id, { onDelete: 'cascade' }),
+  campId: integer('camp_id').notNull().references(() => camps.id, { onDelete: 'cascade' }),
+  route: text('route').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 });
 
 export const scheduleShifts = pgTable(
   'schedule_shifts',
   {
     id: serial('id').primaryKey(),
-    driverId: integer('driver_id').notNull().references(() => drivers.id),
+    driverId: integer('driver_id').notNull().references(() => drivers.id, { onDelete: 'cascade' }),
     date: text('date').notNull(),
     status: text('status').notNull(),
   },
@@ -38,6 +47,8 @@ export const backupAssignments = pgTable('backup_assignments', {
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 });
 
+export type CampRow = typeof camps.$inferSelect;
 export type DriverRow = typeof drivers.$inferSelect;
+export type DriverCampRouteRow = typeof driverCampRoutes.$inferSelect;
 export type ScheduleShiftRow = typeof scheduleShifts.$inferSelect;
 export type BackupAssignmentRow = typeof backupAssignments.$inferSelect;

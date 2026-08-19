@@ -79,6 +79,7 @@ class DriverService {
       name: dto.name ?? existing.name,
       phone: dto.phone ?? existing.phone,
       camp: dto.camp ?? existing.camp,
+      routes: dto.routes ?? existing.routesWeek13,
       contractType: dto.contractType ?? existing.contractType,
     };
     this.validateDriverInput(merged);
