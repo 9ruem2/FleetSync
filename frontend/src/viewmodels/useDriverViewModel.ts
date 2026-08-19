@@ -67,10 +67,8 @@ export function useDriverViewModel() {
         name: d.name,
         phone: d.phone,
         camp: d.camp,
-        routeNumber: d.routeNumber,
+        routes: d.routes,
         driverCode: d.driverCode,
-        routesWeek13: d.routesWeek13,
-        routesWeek24: d.routesWeek24,
         contractType: d.contractType,
         id: d.id,
       });

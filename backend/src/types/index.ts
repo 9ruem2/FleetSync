@@ -1,6 +1,5 @@
 export type ContractType = '고정' | '용차' | '백업';
 export type ShiftStatus = '고정' | '용차' | '백업' | '휴무';
-export type WeekPattern = '1,3' | '2,4' | 'both';
 
 export interface DriverCampRouteInfo {
   campId: number;
@@ -13,11 +12,8 @@ export interface Driver {
   driverCode: string;
   name: string;
   phone: string;
-  camp: string;          // 콤마 구분 캠프 목록 (뷰 호환)
-  routeNumber: string;   // 메인 라우트 (뷰/백업 호환)
-  routesWeek13: string;  // 콤마 구분 라우트 목록 (뷰 호환)
-  routesWeek24: string;  // 뷰 호환
-  weekPattern: WeekPattern;
+  camp: string;        // 콤마 구분 캠프 목록
+  routes: string;      // 콤마 구분 라우트 목록 (camp와 1:1)
   contractType: ContractType;
   createdAt: string;
   isDeleted: boolean;

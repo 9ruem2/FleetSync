@@ -34,9 +34,9 @@ export const DriverFormModal: React.FC<Props> = ({
       setPhone(formatPhoneNumber(driver.phone));
       setContractType(driver.contractType);
 
-      // 기존 camp, routesWeek13 데이터를 pair 배열로 복원
+      // 기존 camp, routes 데이터를 pair 배열로 복원
       const camps = (driver.camp || '').split(',').map(s => s.trim()).filter(Boolean);
-      const routes = (driver.routesWeek13 || '').split(',').map(s => s.trim());
+      const routes = (driver.routes || '').split(',').map(s => s.trim());
       if (camps.length > 0) {
         setCampRoutes(camps.map((c, i) => ({ camp: c, route: routes[i] || '' })));
       } else {

@@ -2,8 +2,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { ScheduleGridRow, ShiftStatus } from '../models/schedule.model';
 import { ApiService } from '../services/apiService';
 import { matchesDriverSearch } from '../utils/searchFilter';
-import { getAllDriverRoutes, getActiveRoutesForDate, parseCamps } from '../utils/routeUtils';
-import type { WeekPattern } from '../models/driver.model';
+import { getAllDriverRoutes, parseCamps } from '../utils/routeUtils';
 
 export type ScheduleViewMode = 'weekly' | 'monthly';
 
@@ -148,9 +147,7 @@ export function useScheduleViewModel() {
       .filter(row => parseCamps(row.camp).some(c => c.toLowerCase() === campFilter.toLowerCase()))
       .forEach(row => {
         getAllDriverRoutes({
-          routesWeek13: row.routesWeek13,
-          routesWeek24: row.routesWeek24,
-          routeNumber: row.routeNumber,
+          routes: row.routes,
         }).forEach(r => set.add(r));
       });
     return Array.from(set).sort();
@@ -162,10 +159,8 @@ export function useScheduleViewModel() {
         name: row.driverName,
         phone: row.phone,
         camp: row.camp,
-        routeNumber: row.routeNumber,
+        routes: row.routes,
         driverCode: row.driverCode,
-        routesWeek13: row.routesWeek13,
-        routesWeek24: row.routesWeek24,
         contractType: row.contractType,
         id: row.driverId,
       });
@@ -177,9 +172,7 @@ export function useScheduleViewModel() {
         contractTypeFilter === '' || row.contractType === contractTypeFilter;
 
       const allRoutes = getAllDriverRoutes({
-        routesWeek13: row.routesWeek13,
-        routesWeek24: row.routesWeek24,
-        routeNumber: row.routeNumber,
+        routes: row.routes,
       });
       const matchesRoute =
         routeFilter === '' ||
@@ -210,17 +203,9 @@ export function useScheduleViewModel() {
     });
   };
 
-  const getPrimaryRouteForRow = (row: ScheduleGridRow, date: string): string => {
-    const active = getActiveRoutesForDate(
-      {
-        routesWeek13: row.routesWeek13,
-        routesWeek24: row.routesWeek24,
-        weekPattern: row.weekPattern as WeekPattern,
-        routeNumber: row.routeNumber,
-      },
-      date
-    );
-    return active[0] ?? row.routeNumber;
+  const getPrimaryRouteForRow = (row: ScheduleGridRow, _date: string): string => {
+    const active = getAllDriverRoutes({ routes: row.routes });
+    return active[0] ?? '';
   };
 
   const resetFilters = () => {

@@ -121,7 +121,7 @@ export const BackupAssignModal: React.FC<Props> = ({
                               <Phone className="w-3 h-3 text-slate-400" />
                               {formatPhoneNumber(candidate.phone)}
                             </span>
-                            <span>기본 라우트: {candidate.routeNumber}</span>
+                            <span>담당 라우트: {candidate.routes || '-'}</span>
                           </div>
                         </div>
                       </div>

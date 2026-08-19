@@ -1,17 +1,11 @@
 import { driverRepository, scheduleRepository, backupRepository } from '../repositories/dbRepository';
 import { CreateDriverDTO, UpdateDriverDTO, Driver, ShiftStatus, AssignBackupDTO } from '../types';
 import { normalizePhoneNumber } from '../utils/phoneFormat';
-import { parseRoutes, parseCamps, getActiveRoutesForDate } from '../utils/routeUtils';
+import { parseRoutes, parseCamps } from '../utils/routeUtils';
 
 function driverMatchesRoute(driver: Driver, route: string): boolean {
   const q = route.trim().toLowerCase();
-  const all = [
-    driver.routeNumber,
-    driver.routesWeek13,
-    driver.routesWeek24,
-    ...parseRoutes(driver.routesWeek13),
-    ...parseRoutes(driver.routesWeek24),
-  ];
+  const all = parseRoutes(driver.routes);
   return all.some(r => r.toLowerCase().includes(q));
 }
 
@@ -26,9 +20,7 @@ class DriverService {
         d.driverCode.toLowerCase().includes(q) ||
         (d.camp && d.camp.toLowerCase().includes(q)) ||
         String(d.id).includes(q) ||
-        d.routeNumber.toLowerCase().includes(q) ||
-        d.routesWeek13.toLowerCase().includes(q) ||
-        d.routesWeek24.toLowerCase().includes(q) ||
+        (d.routes && d.routes.toLowerCase().includes(q)) ||
         d.phone.includes(q) ||
         normalizePhoneNumber(d.phone).includes(q)
       );
@@ -79,7 +71,7 @@ class DriverService {
       name: dto.name ?? existing.name,
       phone: dto.phone ?? existing.phone,
       camp: dto.camp ?? existing.camp,
-      routes: dto.routes ?? existing.routesWeek13,
+      routes: dto.routes ?? existing.routes,
       contractType: dto.contractType ?? existing.contractType,
     };
     this.validateDriverInput(merged);
@@ -109,10 +101,7 @@ export interface GridRow {
   driverName: string;
   phone: string;
   camp: string;
-  routeNumber: string;
-  routesWeek13: string;
-  routesWeek24: string;
-  weekPattern: string;
+  routes: string;
   contractType: string;
   shifts: {
     [date: string]: {
@@ -155,10 +144,7 @@ class ScheduleService {
         driverName: driver.name,
         phone: driver.phone,
         camp: driver.camp,
-        routeNumber: driver.routeNumber,
-        routesWeek13: driver.routesWeek13,
-        routesWeek24: driver.routesWeek24,
-        weekPattern: driver.weekPattern,
+        routes: driver.routes,
         contractType: driver.contractType,
         shifts: shiftMap,
       };
@@ -172,12 +158,9 @@ class ScheduleService {
     const shift = await scheduleRepository.upsertShift(driverId, date, status);
 
     if (status !== '휴무') {
-      const activeRoutes = getActiveRoutesForDate(driver, date);
+      const activeRoutes = parseRoutes(driver.routes);
       for (const route of activeRoutes) {
         await backupRepository.removeAssignment(date, route);
-      }
-      if (activeRoutes.length === 0 && driver.routeNumber) {
-        await backupRepository.removeAssignment(date, driver.routeNumber);
       }
     }
 
@@ -200,7 +183,7 @@ class ScheduleService {
         id: shift.id,
         driverId: shift.driverId,
         driverName: driver ? driver.name : '미상',
-        routeNumber: driver ? driver.routeNumber : '-',
+        routeNumber: driver ? driver.routes.split(',')[0] || '-' : '-',
         date: shift.date,
         backupAssigned: !!backup,
         backupDriverId: backup?.backupDriverId,

@@ -6,8 +6,7 @@ import { BackupAssignModal } from '../backup/BackupAssignModal';
 import { ToastNotification } from '../components/ToastNotification';
 import { DriverSearchBar } from '../components/DriverSearchBar';
 import { RouteBadges } from '../components/RouteBadges';
-import { getActiveRoutesForDate, parseRoutes } from '../../utils/routeUtils';
-import type { WeekPattern } from '../../models/driver.model';
+import { parseRoutes, parseCamps } from '../../utils/routeUtils';
 import {
   CalendarRange,
   Calendar,
@@ -180,16 +179,8 @@ export const ScheduleGridView: React.FC = () => {
               </thead>
               <tbody className="divide-y divide-slate-200 text-xs">
                 {vm.filteredGridRows.map(row => {
-                  const viewStartDate = vm.dateColumns[0]?.dateStr ?? vm.selectedDate;
-                  const activeRoutes = getActiveRoutesForDate(
-                    {
-                      routesWeek13: row.routesWeek13,
-                      routesWeek24: row.routesWeek24,
-                      weekPattern: row.weekPattern as WeekPattern,
-                      routeNumber: row.routeNumber,
-                    },
-                    viewStartDate
-                  );
+                  const routes = parseRoutes(row.routes);
+                  const camps = parseCamps(row.camp);
 
                   return (
                     <tr key={row.driverId} className="hover:bg-slate-50/80 transition group">
@@ -197,28 +188,19 @@ export const ScheduleGridView: React.FC = () => {
                         <div className="flex flex-col sm:flex-row items-start justify-between gap-1 sm:gap-2">
                           <div className="min-w-0">
                             <div className="font-bold text-slate-900 text-xs sm:text-sm">{row.driverName}</div>
-                            <div className="flex items-center gap-1 mt-0.5">
-                              {row.camp && (
-                                <span className="px-1.5 py-0.5 text-[10px] font-bold bg-slate-100 text-slate-700 rounded border border-slate-200">
-                                  {row.camp}
+                            <div className="flex items-center gap-1 mt-0.5 flex-wrap">
+                              {camps.map((c, i) => (
+                                <span key={i} className="px-1.5 py-0.5 text-[10px] font-bold bg-slate-100 text-slate-700 rounded border border-slate-200">
+                                  {c}
                                 </span>
-                              )}
+                              ))}
                               <span className="text-[10px] sm:text-[11px] text-slate-500 font-mono">
                                 ID: {row.driverCode || '-'}
                               </span>
                             </div>
                             <div className="mt-1.5 space-y-1">
-                              {activeRoutes.length > 0 ? (
-                                <RouteBadges routes={activeRoutes} label="이번 주차" size="sm" />
-                              ) : (
-                                <>
-                                  {(row.weekPattern === '1,3' || row.weekPattern === 'both') && (
-                                    <RouteBadges routes={parseRoutes(row.routesWeek13)} label="1,3주" size="sm" />
-                                  )}
-                                  {(row.weekPattern === '2,4' || row.weekPattern === 'both') && (
-                                    <RouteBadges routes={parseRoutes(row.routesWeek24)} label="2,4주" size="sm" />
-                                  )}
-                                </>
+                              {routes.length > 0 && (
+                                <RouteBadges routes={routes} label="담당 라우트" size="sm" />
                               )}
                             </div>
                           </div>

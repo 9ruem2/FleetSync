@@ -120,7 +120,7 @@ export const DriverListView: React.FC = () => {
                       <div className="flex flex-wrap gap-1.5">
                         {(() => {
                           const camps = (driver.camp || '').split(',').map(s => s.trim()).filter(Boolean);
-                          const routes = (driver.routesWeek13 || '').split(',').map(s => s.trim());
+                          const routes = (driver.routes || '').split(',').map(s => s.trim());
                           if (camps.length === 0) return <span className="text-slate-400 text-xs">-</span>;
                           return camps.map((c, i) => (
                             <span key={i} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-blue-600 text-white text-[11px] font-bold shadow-sm">

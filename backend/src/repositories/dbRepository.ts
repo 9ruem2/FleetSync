@@ -52,10 +52,7 @@ async function getDriverFull(driverRow: typeof drivers.$inferSelect): Promise<Dr
     name: driverRow.name,
     phone: driverRow.phone,
     camp: campNames.join(','),
-    routeNumber: routes[0] || '',
-    routesWeek13: routes.join(','),
-    routesWeek24: '',
-    weekPattern: 'both',
+    routes: routes.join(','),
     contractType: driverRow.contractType as Driver['contractType'],
     createdAt: driverRow.createdAt.toISOString(),
     isDeleted: driverRow.isDeleted,
@@ -137,7 +134,7 @@ class DriverRepository {
 
     if (row && (dto.camp !== undefined || dto.routes !== undefined)) {
       const campStr = dto.camp !== undefined ? dto.camp : existing.camp;
-      const routesStr = dto.routes !== undefined ? dto.routes : existing.routesWeek13;
+      const routesStr = dto.routes !== undefined ? dto.routes : existing.routes;
       await saveCampRoutes(row.id, campStr, routesStr);
     }
 
