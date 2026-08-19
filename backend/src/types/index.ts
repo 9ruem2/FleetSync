@@ -1,14 +1,37 @@
 export type ContractType = '고정' | '용차' | '백업';
 export type ShiftStatus = '고정' | '용차' | '백업' | '휴무';
 
+export interface Company {
+  id: number;
+  name: string;
+  createdAt: string;
+}
+
+export interface Camp {
+  id: number;
+  companyId: number;
+  name: string;
+  createdAt: string;
+}
+
+export interface Route {
+  id: number;
+  campId: number;
+  name: string;
+  createdAt: string;
+}
+
 export interface DriverCampRouteInfo {
   campId: number;
   campName: string;
+  routeId?: number;
   route: string;
 }
 
 export interface Driver {
   id: number;
+  companyId?: number;
+  companyName?: string;
   driverCode: string;
   name: string;
   phone: string;
@@ -50,6 +73,7 @@ export interface OffDayRecord {
 }
 
 export interface CreateDriverDTO {
+  companyId?: number;
   driverCode?: string;
   name: string;
   phone: string;
@@ -59,6 +83,7 @@ export interface CreateDriverDTO {
 }
 
 export interface UpdateDriverDTO {
+  companyId?: number;
   driverCode?: string;
   name?: string;
   phone?: string;

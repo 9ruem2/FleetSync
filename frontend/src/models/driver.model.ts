@@ -3,11 +3,14 @@ export type ContractType = '고정' | '용차' | '백업';
 export interface DriverCampRouteInfo {
   campId: number;
   campName: string;
+  routeId?: number;
   route: string;
 }
 
 export interface Driver {
   id: number;
+  companyId?: number;
+  companyName?: string;
   driverCode: string;
   name: string;
   phone: string;
@@ -20,6 +23,7 @@ export interface Driver {
 }
 
 export interface CreateDriverForm {
+  companyId?: number;
   driverCode?: string;
   name: string;
   phone: string;
@@ -29,6 +33,7 @@ export interface CreateDriverForm {
 }
 
 export interface UpdateDriverForm {
+  companyId?: number;
   driverCode?: string;
   name: string;
   phone: string;

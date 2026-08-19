@@ -1,10 +1,84 @@
 import { Driver, CreateDriverForm, UpdateDriverForm } from '../models/driver.model';
 import { ScheduleGridRow, ShiftStatus, OffDayRecord } from '../models/schedule.model';
 import { BackupAssignment, AssignBackupForm } from '../models/backup.model';
+import { Company, Camp, Route } from '../models/master.model';
 
 const API_BASE = '/api';
 
 export class ApiService {
+  // Master Data API (Company / Camp / Route)
+  public static async getCompanies(): Promise<Company[]> {
+    const res = await fetch(`${API_BASE}/companies`);
+    const json = await res.json();
+    if (!json.success) throw new Error(json.message);
+    return json.data;
+  }
+
+  public static async createCompany(name: string): Promise<Company> {
+    const res = await fetch(`${API_BASE}/companies`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name })
+    });
+    const json = await res.json();
+    if (!json.success) throw new Error(json.message);
+    return json.data;
+  }
+
+  public static async deleteCompany(id: number): Promise<void> {
+    const res = await fetch(`${API_BASE}/companies/${id}`, { method: 'DELETE' });
+    const json = await res.json();
+    if (!json.success) throw new Error(json.message);
+  }
+
+  public static async getCamps(companyId: number): Promise<Camp[]> {
+    const res = await fetch(`${API_BASE}/camps?companyId=${companyId}`);
+    const json = await res.json();
+    if (!json.success) throw new Error(json.message);
+    return json.data;
+  }
+
+  public static async createCamp(companyId: number, name: string): Promise<Camp> {
+    const res = await fetch(`${API_BASE}/camps`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ companyId, name })
+    });
+    const json = await res.json();
+    if (!json.success) throw new Error(json.message);
+    return json.data;
+  }
+
+  public static async deleteCamp(id: number): Promise<void> {
+    const res = await fetch(`${API_BASE}/camps/${id}`, { method: 'DELETE' });
+    const json = await res.json();
+    if (!json.success) throw new Error(json.message);
+  }
+
+  public static async getRoutes(campId: number): Promise<Route[]> {
+    const res = await fetch(`${API_BASE}/routes?campId=${campId}`);
+    const json = await res.json();
+    if (!json.success) throw new Error(json.message);
+    return json.data;
+  }
+
+  public static async createRoute(campId: number, name: string): Promise<Route> {
+    const res = await fetch(`${API_BASE}/routes`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ campId, name })
+    });
+    const json = await res.json();
+    if (!json.success) throw new Error(json.message);
+    return json.data;
+  }
+
+  public static async deleteRoute(id: number): Promise<void> {
+    const res = await fetch(`${API_BASE}/routes/${id}`, { method: 'DELETE' });
+    const json = await res.json();
+    if (!json.success) throw new Error(json.message);
+  }
+
   // Driver Management API [F-01]
   public static async getDrivers(search?: string, route?: string, contractType?: string): Promise<Driver[]> {
     const params = new URLSearchParams();

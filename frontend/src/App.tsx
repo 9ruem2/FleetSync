@@ -4,10 +4,12 @@ import { Header } from './views/components/Header';
 import { DriverListView } from './views/drivers/DriverListView';
 import { ScheduleGridView } from './views/schedule/ScheduleGridView';
 import { VacationCalendarView } from './views/calendar/VacationCalendarView';
+import { SettingsModal } from './views/components/SettingsModal';
 
 export function App() {
   const [activeTab, setActiveTab] = useState<'drivers' | 'schedule' | 'calendar'>('schedule');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   const handleTabChange = (tab: 'drivers' | 'schedule' | 'calendar') => {
     setActiveTab(tab);
@@ -19,7 +21,7 @@ export function App() {
       case 'drivers':
         return {
           title: '계정 및 기사 관리 (User & Fleet Management)',
-          subtitle: '기사 관리, 라우트 번호 연동 및 고정/용차/백업 계약 형태 통합 대시보드'
+          subtitle: '기사 관리, 회사/캠프/라우터 연동 및 고정/용차/백업 계약 형태 통합 대시보드'
         };
       case 'schedule':
         return {
@@ -44,6 +46,7 @@ export function App() {
         setActiveTab={handleTabChange}
         isOpen={isMobileMenuOpen}
         onClose={() => setIsMobileMenuOpen(false)}
+        onOpenSettings={() => setIsSettingsOpen(true)}
       />
 
       {/* Main Content Area */}
@@ -52,6 +55,7 @@ export function App() {
           title={headerMeta.title}
           subtitle={headerMeta.subtitle}
           onToggleMobileMenu={() => setIsMobileMenuOpen(prev => !prev)}
+          onOpenSettings={() => setIsSettingsOpen(true)}
         />
 
         <div className="flex-1">
@@ -60,6 +64,12 @@ export function App() {
           {activeTab === 'calendar' && <VacationCalendarView />}
         </div>
       </main>
+
+      {/* Master Settings Modal (Company -> Camp -> Route) */}
+      <SettingsModal
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
+      />
     </div>
   );
 }

@@ -1,13 +1,14 @@
 import React from 'react';
-import { Calendar, UserCheck, ShieldCheck, Menu, ExternalLink, Globe } from 'lucide-react';
+import { Calendar, UserCheck, ShieldCheck, Menu, ExternalLink, Globe, Settings } from 'lucide-react';
 
 interface Props {
   title: string;
   subtitle: string;
   onToggleMobileMenu?: () => void;
+  onOpenSettings?: () => void;
 }
 
-export const Header: React.FC<Props> = ({ title, subtitle, onToggleMobileMenu }) => {
+export const Header: React.FC<Props> = ({ title, subtitle, onToggleMobileMenu, onOpenSettings }) => {
   const todayStr = new Date().toLocaleDateString('ko-KR', {
     year: 'numeric',
     month: 'long',
@@ -57,7 +58,7 @@ export const Header: React.FC<Props> = ({ title, subtitle, onToggleMobileMenu })
           <span>{todayStr}</span>
         </div>
 
-        {/* User Profile Badge */}
+        {/* User Profile Badge & Settings */}
         <div className="flex items-center gap-2 sm:gap-3 pl-2 sm:pl-4 border-l border-slate-200">
           <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-slate-900 text-white flex items-center justify-center font-bold text-xs shadow-xs">
             AD
@@ -72,6 +73,15 @@ export const Header: React.FC<Props> = ({ title, subtitle, onToggleMobileMenu })
               <span>온라인</span>
             </div>
           </div>
+          {onOpenSettings && (
+            <button
+              onClick={onOpenSettings}
+              className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 transition ml-1"
+              title="마스터 설정 (회사, 캠프, 라우트 관리)"
+            >
+              <Settings className="w-4.5 h-4.5 text-slate-700" />
+            </button>
+          )}
         </div>
       </div>
     </header>

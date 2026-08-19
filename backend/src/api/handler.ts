@@ -1,3 +1,4 @@
+import { masterRepository, driverRepository } from '../repositories/dbRepository';
 import { driverService, scheduleService, backupService } from '../services/index';
 import { CreateDriverDTO, UpdateDriverDTO, UpdateShiftStatusDTO, AssignBackupDTO } from '../types';
 import { getDb } from '../../../db';
@@ -24,7 +25,7 @@ async function parseBody<T>(req: Request): Promise<T> {
   return JSON.parse(text) as T;
 }
 
-function parseDriverId(raw: string): number | null {
+function parseId(raw: string): number | null {
   const id = Number(raw);
   return Number.isInteger(id) && id > 0 ? id : null;
 }
@@ -59,7 +60,78 @@ export async function handleApiRequest(req: Request): Promise<Response> {
       }
     }
 
+    // ==========================================
+    // Master Data APIs (Company / Camp / Route)
+    // ==========================================
+
+    // Companies
+    if (path === '/api/companies' && method === 'GET') {
+      const data = await masterRepository.findAllCompanies();
+      return jsonResponse({ success: true, data });
+    }
+    if (path === '/api/companies' && method === 'POST') {
+      const body = await parseBody<{ name: string }>(req);
+      if (!body.name?.trim()) return errorResponse('회사명을 입력해주세요', 400);
+      const data = await masterRepository.createCompany(body.name);
+      return jsonResponse({ success: true, data, message: '회사가 생성되었습니다' }, 201);
+    }
+    const companyMatch = path.match(/^\/api\/companies\/([^/]+)$/);
+    if (companyMatch && method === 'DELETE') {
+      const id = parseId(companyMatch[1]);
+      if (id === null) return errorResponse('유효하지 않은 회사 ID입니다', 400);
+      await masterRepository.deleteCompany(id);
+      return jsonResponse({ success: true, message: '회사가 삭제되었습니다' });
+    }
+
+    // Camps
+    if (path === '/api/camps' && method === 'GET') {
+      const companyIdStr = url.searchParams.get('companyId');
+      if (!companyIdStr) return errorResponse('companyId 파라미터가 필요합니다', 400);
+      const companyId = parseId(companyIdStr);
+      if (companyId === null) return errorResponse('유효하지 않은 companyId입니다', 400);
+      const data = await masterRepository.findCampsByCompany(companyId);
+      return jsonResponse({ success: true, data });
+    }
+    if (path === '/api/camps' && method === 'POST') {
+      const body = await parseBody<{ companyId: number; name: string }>(req);
+      if (!body.companyId || !body.name?.trim()) return errorResponse('companyId와 캠프명을 입력해주세요', 400);
+      const data = await masterRepository.createCamp(body.companyId, body.name);
+      return jsonResponse({ success: true, data, message: '캠프가 생성되었습니다' }, 201);
+    }
+    const campMatch = path.match(/^\/api\/camps\/([^/]+)$/);
+    if (campMatch && method === 'DELETE') {
+      const id = parseId(campMatch[1]);
+      if (id === null) return errorResponse('유효하지 않은 캠프 ID입니다', 400);
+      await masterRepository.deleteCamp(id);
+      return jsonResponse({ success: true, message: '캠프가 삭제되었습니다' });
+    }
+
+    // Routes
+    if (path === '/api/routes' && method === 'GET') {
+      const campIdStr = url.searchParams.get('campId');
+      if (!campIdStr) return errorResponse('campId 파라미터가 필요합니다', 400);
+      const campId = parseId(campIdStr);
+      if (campId === null) return errorResponse('유효하지 않은 campId입니다', 400);
+      const data = await masterRepository.findRoutesByCamp(campId);
+      return jsonResponse({ success: true, data });
+    }
+    if (path === '/api/routes' && method === 'POST') {
+      const body = await parseBody<{ campId: number; name: string }>(req);
+      if (!body.campId || !body.name?.trim()) return errorResponse('campId와 라우트명을 입력해주세요', 400);
+      const data = await masterRepository.createRoute(body.campId, body.name);
+      return jsonResponse({ success: true, data, message: '라우트가 생성되었습니다' }, 201);
+    }
+    const routeMatch = path.match(/^\/api\/routes\/([^/]+)$/);
+    if (routeMatch && method === 'DELETE') {
+      const id = parseId(routeMatch[1]);
+      if (id === null) return errorResponse('유효하지 않은 라우트 ID입니다', 400);
+      await masterRepository.deleteRoute(id);
+      return jsonResponse({ success: true, message: '라우트가 삭제되었습니다' });
+    }
+
+    // ==========================================
     // Drivers
+    // ==========================================
     if (path === '/api/drivers' && method === 'GET') {
       const drivers = await driverService.getAllDrivers(
         url.searchParams.get('search') ?? undefined,
@@ -71,7 +143,7 @@ export async function handleApiRequest(req: Request): Promise<Response> {
 
     const driverMatch = path.match(/^\/api\/drivers\/([^/]+)$/);
     if (driverMatch) {
-      const id = parseDriverId(driverMatch[1]);
+      const id = parseId(driverMatch[1]);
       if (id === null) return errorResponse('유효하지 않은 기사 ID입니다', 400);
 
       if (method === 'GET') {

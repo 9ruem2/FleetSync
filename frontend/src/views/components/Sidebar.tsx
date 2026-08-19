@@ -1,14 +1,15 @@
 import React from 'react';
-import { Users, CalendarRange, CalendarDays, Truck, X, ExternalLink } from 'lucide-react';
+import { Users, CalendarRange, CalendarDays, Truck, X, ExternalLink, Settings } from 'lucide-react';
 
 interface Props {
   activeTab: 'drivers' | 'schedule' | 'calendar';
   setActiveTab: (tab: 'drivers' | 'schedule' | 'calendar') => void;
   isOpen?: boolean;
   onClose?: () => void;
+  onOpenSettings?: () => void;
 }
 
-export const Sidebar: React.FC<Props> = ({ activeTab, setActiveTab, isOpen = false, onClose }) => {
+export const Sidebar: React.FC<Props> = ({ activeTab, setActiveTab, isOpen = false, onClose, onOpenSettings }) => {
   const menuItems = [
     {
       id: 'drivers',
@@ -140,10 +141,21 @@ export const Sidebar: React.FC<Props> = ({ activeTab, setActiveTab, isOpen = fal
         {/* Footer Info */}
         <div className="p-3 bg-slate-800/60 rounded-xl border border-slate-800 text-xs text-slate-400 space-y-1">
           <div className="flex justify-between items-center text-slate-300 font-semibold">
-            <span>관리자 모드</span>
-            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+            <div className="flex items-center gap-1.5">
+              <span>관리자 모드</span>
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+            </div>
+            {onOpenSettings && (
+              <button
+                onClick={onOpenSettings}
+                className="p-1 rounded-lg hover:bg-slate-700 text-slate-400 hover:text-white transition"
+                title="마스터 설정 (회사, 캠프, 라우트 관리)"
+              >
+                <Settings className="w-4 h-4 text-blue-400 hover:text-white transition" />
+              </button>
+            )}
           </div>
-          <p className="text-[11px] text-slate-400">캠프 노선 & 대차 실시간 시스템</p>
+          <p className="text-[11px] text-slate-400">회사 · 캠프 · 라우트 통합 관리</p>
         </div>
       </aside>
     </>

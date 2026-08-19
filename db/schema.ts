@@ -1,13 +1,28 @@
 import { boolean, integer, pgTable, serial, text, timestamp, unique } from 'drizzle-orm/pg-core';
 
-export const camps = pgTable('camps', {
+export const companies = pgTable('companies', {
   id: serial('id').primaryKey(),
   name: text('name').notNull().unique(),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 });
 
+export const camps = pgTable('camps', {
+  id: serial('id').primaryKey(),
+  companyId: integer('company_id').notNull().references(() => companies.id, { onDelete: 'cascade' }),
+  name: text('name').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [unique('company_camp_name_unique').on(table.companyId, table.name)]);
+
+export const routes = pgTable('routes', {
+  id: serial('id').primaryKey(),
+  campId: integer('camp_id').notNull().references(() => camps.id, { onDelete: 'cascade' }),
+  name: text('name').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [unique('camp_route_name_unique').on(table.campId, table.name)]);
+
 export const drivers = pgTable('drivers', {
   id: serial('id').primaryKey(),
+  companyId: integer('company_id').references(() => companies.id),
   driverCode: text('driver_code').notNull().default(''),
   name: text('name').notNull(),
   phone: text('phone').notNull(),
@@ -20,7 +35,8 @@ export const driverCampRoutes = pgTable('driver_camp_routes', {
   id: serial('id').primaryKey(),
   driverId: integer('driver_id').notNull().references(() => drivers.id, { onDelete: 'cascade' }),
   campId: integer('camp_id').notNull().references(() => camps.id, { onDelete: 'cascade' }),
-  route: text('route').notNull(),
+  routeId: integer('route_id').references(() => routes.id, { onDelete: 'set null' }),
+  routeName: text('route_name').notNull().default(''),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 });
 
@@ -47,7 +63,9 @@ export const backupAssignments = pgTable('backup_assignments', {
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 });
 
+export type CompanyRow = typeof companies.$inferSelect;
 export type CampRow = typeof camps.$inferSelect;
+export type RouteRow = typeof routes.$inferSelect;
 export type DriverRow = typeof drivers.$inferSelect;
 export type DriverCampRouteRow = typeof driverCampRoutes.$inferSelect;
 export type ScheduleShiftRow = typeof scheduleShifts.$inferSelect;
