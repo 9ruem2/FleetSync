@@ -43,20 +43,43 @@ export function useScheduleViewModel() {
     setTimeout(() => setToastMessage(null), 3500);
   };
 
+  const weekOfYearInfo = useMemo(() => {
+    const [y, m, dNum] = selectedDate.split('-').map(Number);
+    const base = new Date(y, m - 1, dNum);
+    const currentDay = base.getDay(); // 0 = Sun, 6 = Sat
+    const sunday = new Date(y, m - 1, dNum - currentDay);
+
+    // Using Thursday of the week to get reference year
+    const thursday = new Date(sunday.getFullYear(), sunday.getMonth(), sunday.getDate() + 4);
+    const year = thursday.getFullYear();
+
+    // First Sunday of the year (on or before Jan 1)
+    const jan1 = new Date(year, 0, 1);
+    const jan1Sunday = new Date(year, 0, 1 - jan1.getDay());
+
+    const diffMs = sunday.getTime() - jan1Sunday.getTime();
+    const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24));
+    const weekNumber = Math.floor(diffDays / 7) + 1;
+
+    return { year, weekNumber };
+  }, [selectedDate]);
+
   const dateColumns = useMemo(() => {
     const dates: { dateStr: string; dayName: string; dayNumber: number; isWeekend: boolean }[] = [];
-    const base = new Date(selectedDate);
+    const [y, m, dNum] = selectedDate.split('-').map(Number);
+    const base = new Date(y, m - 1, dNum);
     const dayNames = ['일', '월', '화', '수', '목', '금', '토'];
 
     if (viewMode === 'weekly') {
-      const currentDay = base.getDay();
-      const diffToMon = base.getDate() - currentDay + (currentDay === 0 ? -6 : 1);
-      const monday = new Date(base.setDate(diffToMon));
+      const currentDay = base.getDay(); // 0 = Sun, 1 = Mon, ..., 6 = Sat
+      const sunday = new Date(y, m - 1, dNum - currentDay);
 
       for (let i = 0; i < 7; i++) {
-        const d = new Date(monday);
-        d.setDate(monday.getDate() + i);
-        const dateStr = d.toISOString().split('T')[0];
+        const d = new Date(sunday.getFullYear(), sunday.getMonth(), sunday.getDate() + i);
+        const yearStr = d.getFullYear();
+        const monthStr = String(d.getMonth() + 1).padStart(2, '0');
+        const dayStr = String(d.getDate()).padStart(2, '0');
+        const dateStr = `${yearStr}-${monthStr}-${dayStr}`;
         const dayIdx = d.getDay();
         dates.push({
           dateStr,
@@ -204,6 +227,7 @@ export function useScheduleViewModel() {
     setRouteFilter,
     resetFilters,
     dateColumns,
+    weekOfYearInfo,
     loading,
     error,
     activeCell,

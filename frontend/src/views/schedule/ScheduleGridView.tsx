@@ -87,17 +87,27 @@ export const ScheduleGridView: React.FC = () => {
         <div className="flex items-center justify-between sm:justify-start gap-2">
           <button
             onClick={() => {
-              const d = new Date(vm.selectedDate);
+              const [y, m, dNum] = vm.selectedDate.split('-').map(Number);
+              const d = new Date(y, m - 1, dNum);
               d.setDate(d.getDate() - (vm.viewMode === 'weekly' ? 7 : 30));
-              vm.setSelectedDate(d.toISOString().split('T')[0]);
+              const yearStr = d.getFullYear();
+              const monthStr = String(d.getMonth() + 1).padStart(2, '0');
+              const dayStr = String(d.getDate()).padStart(2, '0');
+              vm.setSelectedDate(`${yearStr}-${monthStr}-${dayStr}`);
             }}
             className="p-2 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-600 transition"
+            title="이전"
           >
             <ChevronLeft className="w-4 h-4" />
           </button>
 
           <div className="flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 bg-slate-50 rounded-xl border border-slate-200 font-mono text-[11px] sm:text-xs font-bold text-slate-800">
             <Calendar className="w-4 h-4 text-blue-600 shrink-0" />
+            {vm.viewMode === 'weekly' && (
+              <span className="inline-flex items-center px-2 py-0.5 bg-blue-600 text-white rounded-md font-sans text-[11px] sm:text-xs font-extrabold shadow-2xs">
+                {vm.weekOfYearInfo.year}년 {vm.weekOfYearInfo.weekNumber}주차
+              </span>
+            )}
             <span>
               {vm.dateColumns[0]?.dateStr} ~ {vm.dateColumns[vm.dateColumns.length - 1]?.dateStr}
             </span>
@@ -105,11 +115,16 @@ export const ScheduleGridView: React.FC = () => {
 
           <button
             onClick={() => {
-              const d = new Date(vm.selectedDate);
+              const [y, m, dNum] = vm.selectedDate.split('-').map(Number);
+              const d = new Date(y, m - 1, dNum);
               d.setDate(d.getDate() + (vm.viewMode === 'weekly' ? 7 : 30));
-              vm.setSelectedDate(d.toISOString().split('T')[0]);
+              const yearStr = d.getFullYear();
+              const monthStr = String(d.getMonth() + 1).padStart(2, '0');
+              const dayStr = String(d.getDate()).padStart(2, '0');
+              vm.setSelectedDate(`${yearStr}-${monthStr}-${dayStr}`);
             }}
             className="p-2 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-600 transition"
+            title="다음"
           >
             <ChevronRight className="w-4 h-4" />
           </button>
