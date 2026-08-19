@@ -60,6 +60,9 @@ export const DriverListView: React.FC = () => {
       <DriverSearchBar
         searchTerm={vm.searchTerm}
         onSearchChange={vm.setSearchTerm}
+        campFilter={vm.campFilter}
+        onCampChange={vm.setCampFilter}
+        availableCamps={vm.availableCamps}
         contractTypeFilter={vm.contractTypeFilter}
         onContractTypeChange={vm.setContractTypeFilter}
         routeFilter={vm.routeFilter}
@@ -84,6 +87,7 @@ export const DriverListView: React.FC = () => {
               <thead>
                 <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold uppercase tracking-wider">
                   <th className="py-3.5 px-4 sm:px-6">기사명 / 사용 ID</th>
+                  <th className="py-3.5 px-4 sm:px-6">담당 캠프</th>
                   <th className="py-3.5 px-4 sm:px-6">담당 라우트</th>
                   <th className="py-3.5 px-4 sm:px-6">연락처</th>
                   <th className="py-3.5 px-4 sm:px-6">계약 형태</th>
@@ -108,6 +112,13 @@ export const DriverListView: React.FC = () => {
                           <span className="block text-[10px] text-slate-400">키 #{driver.id}</span>
                         </div>
                       </div>
+                    </td>
+
+                    {/* Camp */}
+                    <td className="py-3.5 px-4 sm:px-6">
+                      <span className="inline-flex items-center px-2.5 py-1 rounded-lg bg-slate-100 text-slate-700 text-xs font-bold border border-slate-200">
+                        {driver.camp || '-'}
+                      </span>
                     </td>
 
                     {/* Route Number */}

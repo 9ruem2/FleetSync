@@ -14,6 +14,7 @@ export function useScheduleViewModel() {
   const [error, setError] = useState<string | null>(null);
 
   const [searchTerm, setSearchTerm] = useState<string>('');
+  const [campFilter, setCampFilter] = useState<string>('');
   const [contractTypeFilter, setContractTypeFilter] = useState<string>('');
   const [routeFilter, setRouteFilter] = useState<string>('');
 
@@ -130,23 +131,37 @@ export function useScheduleViewModel() {
     loadScheduleGrid();
   }, [loadScheduleGrid]);
 
-  const availableRoutes = useMemo(() => {
+  const availableCamps = useMemo(() => {
     const set = new Set<string>();
     gridRows.forEach(row => {
-      getAllDriverRoutes({
-        routesWeek13: row.routesWeek13,
-        routesWeek24: row.routesWeek24,
-        routeNumber: row.routeNumber,
-      }).forEach(r => set.add(r));
+      if (row.camp && row.camp.trim()) set.add(row.camp.trim());
     });
     return Array.from(set).sort();
   }, [gridRows]);
+
+  const availableRoutes = useMemo(() => {
+    // Route filter disabled if Camp is not selected
+    if (!campFilter) return [];
+
+    const set = new Set<string>();
+    gridRows
+      .filter(row => row.camp && row.camp.trim() === campFilter)
+      .forEach(row => {
+        getAllDriverRoutes({
+          routesWeek13: row.routesWeek13,
+          routesWeek24: row.routesWeek24,
+          routeNumber: row.routeNumber,
+        }).forEach(r => set.add(r));
+      });
+    return Array.from(set).sort();
+  }, [gridRows, campFilter]);
 
   const filteredGridRows = useMemo(() => {
     return gridRows.filter(row => {
       const matchesSearch = matchesDriverSearch(searchTerm, {
         name: row.driverName,
         phone: row.phone,
+        camp: row.camp,
         routeNumber: row.routeNumber,
         driverCode: row.driverCode,
         routesWeek13: row.routesWeek13,
@@ -154,6 +169,9 @@ export function useScheduleViewModel() {
         contractType: row.contractType,
         id: row.driverId,
       });
+
+      const matchesCamp =
+        campFilter === '' || (row.camp && row.camp.trim() === campFilter);
 
       const matchesContract =
         contractTypeFilter === '' || row.contractType === contractTypeFilter;
@@ -167,9 +185,9 @@ export function useScheduleViewModel() {
         routeFilter === '' ||
         allRoutes.some(r => r.toLowerCase().includes(routeFilter.toLowerCase()));
 
-      return matchesSearch && matchesContract && matchesRoute;
+      return matchesSearch && matchesCamp && matchesContract && matchesRoute;
     });
-  }, [gridRows, searchTerm, contractTypeFilter, routeFilter]);
+  }, [gridRows, searchTerm, campFilter, contractTypeFilter, routeFilter]);
 
   const handleUpdateCellStatus = async (driverId: number, date: string, status: ShiftStatus) => {
     try {
@@ -207,6 +225,7 @@ export function useScheduleViewModel() {
 
   const resetFilters = () => {
     setSearchTerm('');
+    setCampFilter('');
     setContractTypeFilter('');
     setRouteFilter('');
   };
@@ -218,9 +237,12 @@ export function useScheduleViewModel() {
     setSelectedDate,
     gridRows,
     filteredGridRows,
+    availableCamps,
     availableRoutes,
     searchTerm,
     setSearchTerm,
+    campFilter,
+    setCampFilter,
     contractTypeFilter,
     setContractTypeFilter,
     routeFilter,

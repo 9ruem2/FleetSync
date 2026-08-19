@@ -6,6 +6,7 @@ export interface Driver {
   driverCode: string;
   name: string;
   phone: string;
+  camp: string;
   routeNumber: string;
   routesWeek13: string;
   routesWeek24: string;
@@ -16,9 +17,10 @@ export interface Driver {
 }
 
 export interface CreateDriverForm {
-  driverCode: string;
+  driverCode?: string;
   name: string;
   phone: string;
+  camp: string;
   routesWeek13: string;
   routesWeek24: string;
   weekPattern: WeekPattern;
@@ -26,9 +28,10 @@ export interface CreateDriverForm {
 }
 
 export interface UpdateDriverForm {
-  driverCode: string;
+  driverCode?: string;
   name: string;
   phone: string;
+  camp: string;
   routesWeek13: string;
   routesWeek24: string;
   weekPattern: WeekPattern;

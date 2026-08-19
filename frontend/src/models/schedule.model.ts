@@ -12,6 +12,7 @@ export interface ScheduleGridRow {
   driverCode: string;
   driverName: string;
   phone: string;
+  camp: string;
   routeNumber: string;
   routesWeek13: string;
   routesWeek24: string;

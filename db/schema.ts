@@ -5,6 +5,7 @@ export const drivers = pgTable('drivers', {
   driverCode: text('driver_code').notNull().default(''),
   name: text('name').notNull(),
   phone: text('phone').notNull(),
+  camp: text('camp').notNull().default(''),
   routeNumber: text('route_number').notNull().default(''),
   routesWeek13: text('routes_week13').notNull().default(''),
   routesWeek24: text('routes_week24').notNull().default(''),

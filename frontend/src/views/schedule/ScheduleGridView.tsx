@@ -74,6 +74,9 @@ export const ScheduleGridView: React.FC = () => {
       <DriverSearchBar
         searchTerm={vm.searchTerm}
         onSearchChange={vm.setSearchTerm}
+        campFilter={vm.campFilter}
+        onCampChange={vm.setCampFilter}
+        availableCamps={vm.availableCamps}
         contractTypeFilter={vm.contractTypeFilter}
         onContractTypeChange={vm.setContractTypeFilter}
         routeFilter={vm.routeFilter}
@@ -194,8 +197,15 @@ export const ScheduleGridView: React.FC = () => {
                         <div className="flex flex-col sm:flex-row items-start justify-between gap-1 sm:gap-2">
                           <div className="min-w-0">
                             <div className="font-bold text-slate-900 text-xs sm:text-sm">{row.driverName}</div>
-                            <div className="text-[10px] sm:text-[11px] text-slate-500 font-mono mt-0.5">
-                              ID: {row.driverCode || '-'}
+                            <div className="flex items-center gap-1 mt-0.5">
+                              {row.camp && (
+                                <span className="px-1.5 py-0.5 text-[10px] font-bold bg-slate-100 text-slate-700 rounded border border-slate-200">
+                                  {row.camp}
+                                </span>
+                              )}
+                              <span className="text-[10px] sm:text-[11px] text-slate-500 font-mono">
+                                ID: {row.driverCode || '-'}
+                              </span>
                             </div>
                             <div className="mt-1.5 space-y-1">
                               {activeRoutes.length > 0 ? (

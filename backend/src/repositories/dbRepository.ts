@@ -7,9 +7,10 @@ import { derivePrimaryRoute, normalizeWeekPattern } from '../utils/routeUtils';
 function toDriver(row: typeof drivers.$inferSelect): Driver {
   return {
     id: row.id,
-    driverCode: row.driverCode,
+    driverCode: row.driverCode || '',
     name: row.name,
     phone: row.phone,
+    camp: row.camp || '',
     routeNumber: row.routeNumber,
     routesWeek13: row.routesWeek13,
     routesWeek24: row.routesWeek24,
@@ -62,9 +63,10 @@ class DriverRepository {
     const [row] = await getDb()
       .insert(drivers)
       .values({
-        driverCode: dto.driverCode.trim(),
+        driverCode: (dto.driverCode ?? '').trim(),
         name: dto.name,
         phone: dto.phone,
+        camp: (dto.camp ?? '').trim(),
         routeNumber,
         routesWeek13: dto.routesWeek13,
         routesWeek24: dto.routesWeek24,
@@ -93,6 +95,7 @@ class DriverRepository {
         driverCode: dto.driverCode !== undefined ? dto.driverCode.trim() : existing.driverCode,
         name: dto.name ?? existing.name,
         phone: dto.phone ?? existing.phone,
+        camp: dto.camp !== undefined ? dto.camp.trim() : existing.camp,
         routeNumber,
         routesWeek13: merged.routesWeek13,
         routesWeek24: merged.routesWeek24,

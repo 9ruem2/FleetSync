@@ -20,6 +20,7 @@ export interface SearchableDriverFields {
   name: string;
   phone: string;
   routeNumber: string;
+  camp?: string;
   driverCode?: string;
   routesWeek13?: string;
   routesWeek24?: string;
@@ -28,7 +29,7 @@ export interface SearchableDriverFields {
 }
 
 /**
- * 기사명(초성 포함), 연락처(일부 번호), 라우트, ID 등 통합 검색.
+ * 기사명(초성 포함), 연락처(일부 번호), 캠프, 라우트, ID 등 통합 검색.
  * query가 비어 있으면 true.
  */
 export function matchesDriverSearch(query: string, fields: SearchableDriverFields): boolean {
@@ -49,6 +50,7 @@ export function matchesDriverSearch(query: string, fields: SearchableDriverField
     fields.driverCode ?? '',
   ].join(' ');
   const routeLower = route.toLowerCase();
+  const campLower = (fields.camp ?? '').toLowerCase();
   const phone = fields.phone;
   const phoneFormatted = formatPhoneNumber(phone);
   const phoneDigits = extractPhoneDigits(phone);
@@ -60,6 +62,9 @@ export function matchesDriverSearch(query: string, fields: SearchableDriverField
 
   // 이름: 초성 검색 (예: "ㅎㄱ" → "홍길동")
   if (qChosung.length > 0 && nameChosung.includes(qChosung)) return true;
+
+  // 캠프: 부분 일치
+  if (campLower.includes(qLower)) return true;
 
   // 라우트: 부분 일치 (예: "101" → "101A")
   if (routeLower.includes(qLower)) return true;

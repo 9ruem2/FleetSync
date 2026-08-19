@@ -3,7 +3,7 @@ import { Driver, CreateDriverForm, ContractType, WeekPattern } from '../../model
 import { formatPhoneNumber, normalizePhoneNumber } from '../../utils/phoneFormat';
 import { parseRoutes } from '../../utils/routeUtils';
 import { RouteBadges } from '../components/RouteBadges';
-import { X, User, Phone, MapPin, Briefcase, Hash } from 'lucide-react';
+import { X, User, Phone, MapPin, Briefcase, Hash, Building2 } from 'lucide-react';
 
 interface Props {
   isOpen: boolean;
@@ -27,6 +27,7 @@ export const DriverFormModal: React.FC<Props> = ({
   const [driverCode, setDriverCode] = useState('');
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
+  const [camp, setCamp] = useState('');
   const [weekPattern, setWeekPattern] = useState<WeekPattern>('1,3');
   const [routesWeek13, setRoutesWeek13] = useState('');
   const [routesWeek24, setRoutesWeek24] = useState('');
@@ -34,9 +35,10 @@ export const DriverFormModal: React.FC<Props> = ({
 
   useEffect(() => {
     if (driver) {
-      setDriverCode(driver.driverCode);
+      setDriverCode(driver.driverCode || '');
       setName(driver.name);
       setPhone(formatPhoneNumber(driver.phone));
+      setCamp(driver.camp || '');
       setWeekPattern(driver.weekPattern);
       setRoutesWeek13(driver.routesWeek13);
       setRoutesWeek24(driver.routesWeek24);
@@ -45,6 +47,7 @@ export const DriverFormModal: React.FC<Props> = ({
       setDriverCode('');
       setName('');
       setPhone('');
+      setCamp('');
       setWeekPattern('1,3');
       setRoutesWeek13('');
       setRoutesWeek24('');
@@ -59,8 +62,8 @@ export const DriverFormModal: React.FC<Props> = ({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!driverCode.trim() || !name.trim() || !phone.trim()) {
-      alert('사용 ID, 기사명, 연락처는 필수입니다.');
+    if (!name.trim() || !phone.trim() || !camp.trim()) {
+      alert('기사명, 연락처, 담당 캠프는 필수 입력 항목입니다.');
       return;
     }
     if (weekPattern === '1,3' && !routesWeek13.trim()) {
@@ -80,6 +83,7 @@ export const DriverFormModal: React.FC<Props> = ({
       driverCode: driverCode.trim(),
       name: name.trim(),
       phone: normalizePhoneNumber(phone),
+      camp: camp.trim(),
       routesWeek13: routesWeek13.trim(),
       routesWeek24: routesWeek24.trim(),
       weekPattern,
@@ -107,26 +111,6 @@ export const DriverFormModal: React.FC<Props> = ({
         </div>
 
         <form onSubmit={handleSubmit} className="p-4 sm:p-6 space-y-3.5 sm:space-y-4">
-          <div>
-            <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">
-              사용 ID <span className="text-red-500">*</span>
-            </label>
-            <div className="relative">
-              <Hash className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
-              <input
-                type="text"
-                placeholder="실제 업무에서 사용하는 기사 ID"
-                value={driverCode}
-                onChange={e => setDriverCode(e.target.value)}
-                required
-                className="w-full pl-9 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:ring-2 focus:ring-blue-500 focus:bg-white outline-none transition"
-              />
-            </div>
-            {driver && (
-              <p className="text-[11px] text-slate-400 mt-1">시스템 키 번호: #{driver.id}</p>
-            )}
-          </div>
-
           <div>
             <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">
               기사명 <span className="text-red-500">*</span>
@@ -159,6 +143,42 @@ export const DriverFormModal: React.FC<Props> = ({
                 className="w-full pl-9 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:ring-2 focus:ring-blue-500 focus:bg-white outline-none transition"
               />
             </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">
+              담당 캠프 <span className="text-red-500">*</span>
+            </label>
+            <div className="relative">
+              <Building2 className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
+              <input
+                type="text"
+                placeholder="예: 서울1캠프, 경기캠프"
+                value={camp}
+                onChange={e => setCamp(e.target.value)}
+                required
+                className="w-full pl-9 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:ring-2 focus:ring-blue-500 focus:bg-white outline-none transition"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">
+              사용 ID <span className="text-slate-400 font-normal">(선택)</span>
+            </label>
+            <div className="relative">
+              <Hash className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
+              <input
+                type="text"
+                placeholder="실제 업무 기사 ID (선택사항)"
+                value={driverCode}
+                onChange={e => setDriverCode(e.target.value)}
+                className="w-full pl-9 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:ring-2 focus:ring-blue-500 focus:bg-white outline-none transition"
+              />
+            </div>
+            {driver && (
+              <p className="text-[11px] text-slate-400 mt-1">시스템 키 번호: #{driver.id}</p>
+            )}
           </div>
 
           <div>

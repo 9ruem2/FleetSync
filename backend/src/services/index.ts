@@ -16,7 +16,7 @@ function driverMatchesRoute(driver: Driver, route: string): boolean {
 }
 
 class DriverService {
-  public async getAllDrivers(search?: string, route?: string, contractType?: string): Promise<Driver[]> {
+  public async getAllDrivers(search?: string, camp?: string, route?: string, contractType?: string): Promise<Driver[]> {
     let drivers = await driverRepository.findAll();
 
     if (search && search.trim() !== '') {
@@ -24,6 +24,7 @@ class DriverService {
       drivers = drivers.filter(d =>
         d.name.toLowerCase().includes(q) ||
         d.driverCode.toLowerCase().includes(q) ||
+        (d.camp && d.camp.toLowerCase().includes(q)) ||
         String(d.id).includes(q) ||
         d.routeNumber.toLowerCase().includes(q) ||
         d.routesWeek13.toLowerCase().includes(q) ||
@@ -31,6 +32,10 @@ class DriverService {
         d.phone.includes(q) ||
         normalizePhoneNumber(d.phone).includes(q)
       );
+    }
+
+    if (camp && camp.trim() !== '') {
+      drivers = drivers.filter(d => d.camp && d.camp.trim() === camp.trim());
     }
 
     if (route && route.trim() !== '') {
@@ -49,8 +54,8 @@ class DriverService {
   }
 
   private validateDriverInput(dto: CreateDriverDTO): void {
-    if (!dto.driverCode?.trim() || !dto.name?.trim() || !dto.phone?.trim() || !dto.contractType) {
-      throw new Error('필수 입력값이 누락되었습니다 (사용 ID, 기사명, 연락처, 계약형태)');
+    if (!dto.name?.trim() || !dto.phone?.trim() || !dto.camp?.trim() || !dto.contractType) {
+      throw new Error('필수 입력값이 누락되었습니다 (기사명, 연락처, 캠프, 계약형태)');
     }
     if (dto.weekPattern === '1,3' && !dto.routesWeek13?.trim()) {
       throw new Error('1,3주 담당 라우트를 입력해주세요');
@@ -67,7 +72,8 @@ class DriverService {
     this.validateDriverInput(dto);
     return driverRepository.create({
       ...dto,
-      driverCode: dto.driverCode.trim(),
+      driverCode: (dto.driverCode ?? '').trim(),
+      camp: dto.camp.trim(),
       phone: normalizePhoneNumber(dto.phone),
     });
   }
@@ -80,6 +86,7 @@ class DriverService {
       driverCode: dto.driverCode ?? existing.driverCode,
       name: dto.name ?? existing.name,
       phone: dto.phone ?? existing.phone,
+      camp: dto.camp ?? existing.camp,
       routesWeek13: dto.routesWeek13 ?? existing.routesWeek13,
       routesWeek24: dto.routesWeek24 ?? existing.routesWeek24,
       weekPattern: dto.weekPattern ?? existing.weekPattern,
@@ -111,6 +118,7 @@ export interface GridRow {
   driverCode: string;
   driverName: string;
   phone: string;
+  camp: string;
   routeNumber: string;
   routesWeek13: string;
   routesWeek24: string;
@@ -156,6 +164,7 @@ class ScheduleService {
         driverCode: driver.driverCode,
         driverName: driver.name,
         phone: driver.phone,
+        camp: driver.camp,
         routeNumber: driver.routeNumber,
         routesWeek13: driver.routesWeek13,
         routesWeek24: driver.routesWeek24,
