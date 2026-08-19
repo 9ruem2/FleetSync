@@ -19,7 +19,7 @@ export function App() {
       case 'drivers':
         return {
           title: '계정 및 기사 관리 (User & Fleet Management)',
-          subtitle: '기사 CRUD, 라우트 번호 연동 및 고정/용차/백업 계약 형태 통합 대시보드'
+          subtitle: '기사 조회, 라우트 번호 연동 및 고정/용차/백업 계약 형태 통합 대시보드'
         };
       case 'schedule':
         return {
