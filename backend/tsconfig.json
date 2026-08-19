@@ -2,7 +2,14 @@
   "compilerOptions": {
     "target": "ES2022",
     "module": "CommonJS",
-    // "moduleResolution": "node",
+    "moduleResolution": "node",
+    "baseUrl": ".",
+    "paths": {
+      "drizzle-orm": ["node_modules/drizzle-orm"],
+      "drizzle-orm/*": ["node_modules/drizzle-orm/*"],
+      "@netlify/database": ["node_modules/@netlify/database"],
+      "@netlify/database/*": ["node_modules/@netlify/database/*"]
+    },
     "outDir": "./dist",
     "rootDir": "..",
     "strict": true,

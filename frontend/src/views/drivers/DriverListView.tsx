@@ -2,6 +2,8 @@ import React from 'react';
 import { useDriverViewModel } from '../../viewmodels/useDriverViewModel';
 import { formatPhoneNumber } from '../../utils/phoneFormat';
 import { StatusBadge } from '../components/StatusBadge';
+import { RouteBadges } from '../components/RouteBadges';
+import { parseRoutes } from '../../utils/routeUtils';
 import { DriverFormModal } from './DriverFormModal';
 import { DriverDeleteModal } from './DriverDeleteModal';
 import { ToastNotification } from '../components/ToastNotification';
@@ -11,7 +13,6 @@ import {
   Edit2,
   Trash2,
   Phone,
-  MapPin,
   RefreshCw,
   Users
 } from 'lucide-react';
@@ -82,7 +83,7 @@ export const DriverListView: React.FC = () => {
             <table className="w-full text-left border-collapse text-xs">
               <thead>
                 <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold uppercase tracking-wider">
-                  <th className="py-3.5 px-6">기사명</th>
+                  <th className="py-3.5 px-6">기사명 / 사용 ID</th>
                   <th className="py-3.5 px-6">담당 라우트</th>
                   <th className="py-3.5 px-6">연락처</th>
                   <th className="py-3.5 px-6">계약 형태</th>
@@ -101,16 +102,29 @@ export const DriverListView: React.FC = () => {
                         </div>
                         <div>
                           <span className="font-bold text-slate-900 text-sm">{driver.name}</span>
-                          <span className="block text-[11px] text-slate-400">ID: {driver.id}</span>
+                          <span className="block text-[11px] text-slate-500 font-mono">
+                            ID: {driver.driverCode || '-'}
+                          </span>
+                          <span className="block text-[10px] text-slate-400">키 #{driver.id}</span>
                         </div>
                       </div>
                     </td>
 
                     {/* Route Number */}
                     <td className="py-4 px-6">
-                      <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-100 text-slate-800 font-mono font-bold text-xs">
-                        <MapPin className="w-3.5 h-3.5 text-blue-600" />
-                        <span>{driver.routeNumber}</span>
+                      <div className="space-y-2">
+                        {(driver.weekPattern === '1,3' || driver.weekPattern === 'both') && (
+                          <RouteBadges
+                            routes={parseRoutes(driver.routesWeek13)}
+                            label="1,3주"
+                          />
+                        )}
+                        {(driver.weekPattern === '2,4' || driver.weekPattern === 'both') && (
+                          <RouteBadges
+                            routes={parseRoutes(driver.routesWeek24)}
+                            label="2,4주"
+                          />
+                        )}
                       </div>
                     </td>
 

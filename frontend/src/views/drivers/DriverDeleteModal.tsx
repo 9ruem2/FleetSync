@@ -1,5 +1,6 @@
 import React from 'react';
 import { Driver } from '../../models/driver.model';
+import { getAllDriverRoutes } from '../../utils/routeUtils';
 import { AlertTriangle, X } from 'lucide-react';
 
 interface Props {
@@ -30,7 +31,12 @@ export const DriverDeleteModal: React.FC<Props> = ({
           </h3>
 
           <p className="text-xs text-slate-500 mt-2 leading-relaxed">
-            <strong className="text-slate-800">{driver.name}</strong> ({driver.routeNumber} / {driver.contractType}) 기사의 정보를 삭제하시겠습니까?
+            <strong className="text-slate-800">{driver.name}</strong> (ID: {driver.driverCode || '-'} / {driver.contractType}) 기사의 정보를 삭제하시겠습니까?
+            {getAllDriverRoutes(driver).length > 0 && (
+              <span className="block mt-1 font-mono text-slate-600">
+                담당 라우트: {getAllDriverRoutes(driver).join(', ')}
+              </span>
+            )}
           </p>
 
           <div className="mt-3 p-3 bg-amber-50 rounded-xl border border-amber-200 text-left text-[11px] text-amber-800 leading-snug">

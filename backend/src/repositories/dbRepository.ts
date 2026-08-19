@@ -2,13 +2,18 @@ import { eq, and, gte, lte } from 'drizzle-orm';
 import { getDb } from '../../../db';
 import { drivers, scheduleShifts, backupAssignments } from '../../../db/schema';
 import { Driver, CreateDriverDTO, UpdateDriverDTO, ScheduleShift, BackupAssignment, AssignBackupDTO } from '../types';
+import { derivePrimaryRoute, normalizeWeekPattern } from '../utils/routeUtils';
 
 function toDriver(row: typeof drivers.$inferSelect): Driver {
   return {
     id: row.id,
+    driverCode: row.driverCode,
     name: row.name,
     phone: row.phone,
     routeNumber: row.routeNumber,
+    routesWeek13: row.routesWeek13,
+    routesWeek24: row.routesWeek24,
+    weekPattern: normalizeWeekPattern(row.weekPattern),
     contractType: row.contractType as Driver['contractType'],
     createdAt: row.createdAt.toISOString(),
     isDeleted: row.isDeleted,
@@ -41,7 +46,7 @@ function toBackup(row: typeof backupAssignments.$inferSelect): BackupAssignment 
 class DriverRepository {
   public async findAll(includeDeleted = false): Promise<Driver[]> {
     const rows = await getDb().select().from(drivers);
-    const filtered = includeDeleted ? rows : rows.filter(d => !d.isDeleted);
+    const filtered = includeDeleted ? rows : rows.filter((d: typeof drivers.$inferSelect) => !d.isDeleted);
     return filtered.map(toDriver);
   }
 
@@ -53,12 +58,17 @@ class DriverRepository {
   }
 
   public async create(dto: CreateDriverDTO): Promise<Driver> {
+    const routeNumber = derivePrimaryRoute(dto);
     const [row] = await getDb()
       .insert(drivers)
       .values({
+        driverCode: dto.driverCode.trim(),
         name: dto.name,
         phone: dto.phone,
-        routeNumber: dto.routeNumber,
+        routeNumber,
+        routesWeek13: dto.routesWeek13,
+        routesWeek24: dto.routesWeek24,
+        weekPattern: dto.weekPattern,
         contractType: dto.contractType,
         isDeleted: false,
       })
@@ -70,12 +80,23 @@ class DriverRepository {
     const existing = await this.findById(id);
     if (!existing) return null;
 
+    const merged = {
+      routesWeek13: dto.routesWeek13 ?? existing.routesWeek13,
+      routesWeek24: dto.routesWeek24 ?? existing.routesWeek24,
+      weekPattern: dto.weekPattern ?? existing.weekPattern,
+    };
+    const routeNumber = derivePrimaryRoute(merged);
+
     const [row] = await getDb()
       .update(drivers)
       .set({
+        driverCode: dto.driverCode !== undefined ? dto.driverCode.trim() : existing.driverCode,
         name: dto.name ?? existing.name,
         phone: dto.phone ?? existing.phone,
-        routeNumber: dto.routeNumber ?? existing.routeNumber,
+        routeNumber,
+        routesWeek13: merged.routesWeek13,
+        routesWeek24: merged.routesWeek24,
+        weekPattern: merged.weekPattern,
         contractType: dto.contractType ?? existing.contractType,
       })
       .where(eq(drivers.id, id))

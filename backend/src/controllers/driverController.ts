@@ -19,7 +19,7 @@ export class DriverController {
   public static getDriverById(req: Request, res: Response): void {
     try {
       const { id } = req.params;
-      const driver = driverService.getDriverById(id);
+      const driver = driverService.getDriverById(Number(id));
       if (!driver) {
         res.status(404).json({ success: false, message: '기사를 찾을 수 없습니다' });
         return;
@@ -42,7 +42,7 @@ export class DriverController {
   public static updateDriver(req: Request, res: Response): void {
     try {
       const { id } = req.params;
-      const updated = driverService.updateDriver(id, req.body);
+      const updated = driverService.updateDriver(Number(id), req.body);
       res.status(200).json({ success: true, data: updated, message: '기사 정보가 수정되었습니다' });
     } catch (error: any) {
       res.status(400).json({ success: false, message: error.message });
@@ -52,7 +52,7 @@ export class DriverController {
   public static deleteDriver(req: Request, res: Response): void {
     try {
       const { id } = req.params;
-      driverService.deleteDriver(id);
+      driverService.deleteDriver(Number(id));
       res.status(200).json({ success: true, message: '기사 정보가 소프트 삭제 처리되었습니다' });
     } catch (error: any) {
       res.status(400).json({ success: false, message: error.message });

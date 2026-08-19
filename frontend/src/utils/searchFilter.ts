@@ -20,6 +20,9 @@ export interface SearchableDriverFields {
   name: string;
   phone: string;
   routeNumber: string;
+  driverCode?: string;
+  routesWeek13?: string;
+  routesWeek24?: string;
   contractType?: string;
   id?: number;
 }
@@ -39,7 +42,12 @@ export function matchesDriverSearch(query: string, fields: SearchableDriverField
   const name = fields.name;
   const nameLower = name.toLowerCase();
   const nameChosung = getKoreanChosung(name);
-  const route = fields.routeNumber;
+  const route = [
+    fields.routeNumber,
+    fields.routesWeek13 ?? '',
+    fields.routesWeek24 ?? '',
+    fields.driverCode ?? '',
+  ].join(' ');
   const routeLower = route.toLowerCase();
   const phone = fields.phone;
   const phoneFormatted = formatPhoneNumber(phone);
@@ -58,6 +66,10 @@ export function matchesDriverSearch(query: string, fields: SearchableDriverField
 
   // 계약 형태
   if (contractType.includes(q)) return true;
+
+  // 사용 ID
+  const driverCode = fields.driverCode ?? '';
+  if (driverCode.toLowerCase().includes(qLower)) return true;
 
   // ID
   if (idStr.includes(q)) return true;
