@@ -91,10 +91,10 @@ export const DriverFormModal: React.FC<Props> = ({
   const showWeek24 = weekPattern === '2,4' || weekPattern === 'both';
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
-      <div className="bg-white rounded-2xl shadow-2xl border border-slate-100 w-full max-w-lg overflow-hidden animate-in fade-in zoom-in duration-200 max-h-[90vh] overflow-y-auto">
-        <div className="bg-slate-900 text-white px-6 py-4 flex items-center justify-between sticky top-0 z-10">
-          <h2 className="text-lg font-bold flex items-center gap-2">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-3 sm:p-4">
+      <div className="bg-white rounded-2xl shadow-2xl border border-slate-100 w-full max-w-lg overflow-hidden animate-in fade-in zoom-in duration-200 max-h-[92vh] overflow-y-auto">
+        <div className="bg-slate-900 text-white px-5 sm:px-6 py-3.5 sm:py-4 flex items-center justify-between sticky top-0 z-10">
+          <h2 className="text-base sm:text-lg font-bold flex items-center gap-2">
             <User className="w-5 h-5 text-blue-400" />
             <span>{driver ? '기사 정보 수정' : '신규 기사 등록'}</span>
           </h2>
@@ -106,7 +106,7 @@ export const DriverFormModal: React.FC<Props> = ({
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+        <form onSubmit={handleSubmit} className="p-4 sm:p-6 space-y-3.5 sm:space-y-4">
           <div>
             <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">
               사용 ID <span className="text-red-500">*</span>
@@ -165,13 +165,13 @@ export const DriverFormModal: React.FC<Props> = ({
             <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-2">
               담당 주차 <span className="text-red-500">*</span>
             </label>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
               {WEEK_PATTERN_OPTIONS.map(opt => (
                 <button
                   key={opt.value}
                   type="button"
                   onClick={() => setWeekPattern(opt.value)}
-                  className={`px-3 py-2.5 rounded-xl border text-xs font-bold transition ${
+                  className={`px-3 py-2.5 rounded-xl border text-xs font-bold transition text-left sm:text-center ${
                     weekPattern === opt.value
                       ? 'bg-blue-600 text-white border-blue-600 shadow-md shadow-blue-500/20'
                       : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
