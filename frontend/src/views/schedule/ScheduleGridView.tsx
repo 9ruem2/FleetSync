@@ -5,13 +5,15 @@ import { CellStatusModal } from './CellStatusModal';
 import { BackupAssignModal } from '../backup/BackupAssignModal';
 import { ToastNotification } from '../components/ToastNotification';
 import { DriverSearchBar } from '../components/DriverSearchBar';
+import { RouteBadges } from '../components/RouteBadges';
+import { getActiveRoutesForDate, parseRoutes } from '../../utils/routeUtils';
+import type { WeekPattern } from '../../models/driver.model';
 import {
   CalendarRange,
   Calendar,
   ChevronLeft,
   ChevronRight,
   RefreshCw,
-  MapPin,
   UserCheck
 } from 'lucide-react';
 
@@ -143,8 +145,8 @@ export const ScheduleGridView: React.FC = () => {
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="bg-slate-900 text-white text-xs font-bold divide-x divide-slate-800">
-                  <th className="py-4 px-5 min-w-[200px] sticky left-0 z-20 bg-slate-900 shadow-md">
-                    기사명 / 라우트 번호
+                  <th className="py-4 px-5 min-w-[240px] sticky left-0 z-20 bg-slate-900 shadow-md">
+                    기사명 / 담당 라우트
                   </th>
 
                   {/* X-Axis Headers: Dates */}
@@ -162,16 +164,40 @@ export const ScheduleGridView: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200 text-xs">
-                {vm.filteredGridRows.map(row => (
+                {vm.filteredGridRows.map(row => {
+                  const viewStartDate = vm.dateColumns[0]?.dateStr ?? vm.selectedDate;
+                  const activeRoutes = getActiveRoutesForDate(
+                    {
+                      routesWeek13: row.routesWeek13,
+                      routesWeek24: row.routesWeek24,
+                      weekPattern: row.weekPattern as WeekPattern,
+                      routeNumber: row.routeNumber,
+                    },
+                    viewStartDate
+                  );
+
+                  return (
                   <tr key={row.driverId} className="hover:bg-slate-50/80 transition group">
-                    {/* Y-Axis Column: Driver Name & Route Number [F-02-03] */}
                     <td className="py-3 px-5 sticky left-0 bg-white group-hover:bg-slate-50 border-r border-slate-200 z-10 shadow-sm">
-                      <div className="flex items-center justify-between">
-                        <div>
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
                           <div className="font-bold text-slate-900 text-sm">{row.driverName}</div>
-                          <div className="text-[11px] text-slate-400 mt-0.5 flex items-center gap-1 font-mono">
-                            <MapPin className="w-3 h-3 text-blue-600" />
-                            <span>라우트: {row.routeNumber}</span>
+                          <div className="text-[11px] text-slate-500 font-mono mt-0.5">
+                            ID: {row.driverCode || '-'}
+                          </div>
+                          <div className="mt-2 space-y-1.5">
+                            {activeRoutes.length > 0 ? (
+                              <RouteBadges routes={activeRoutes} label="이번 주차" size="sm" />
+                            ) : (
+                              <>
+                                {(row.weekPattern === '1,3' || row.weekPattern === 'both') && (
+                                  <RouteBadges routes={parseRoutes(row.routesWeek13)} label="1,3주" size="sm" />
+                                )}
+                                {(row.weekPattern === '2,4' || row.weekPattern === 'both') && (
+                                  <RouteBadges routes={parseRoutes(row.routesWeek24)} label="2,4주" size="sm" />
+                                )}
+                              </>
+                            )}
                           </div>
                         </div>
                         <StatusBadge status={row.contractType as any} size="sm" />
@@ -188,7 +214,7 @@ export const ScheduleGridView: React.FC = () => {
                             vm.setActiveCell({
                               driverId: row.driverId,
                               driverName: row.driverName,
-                              routeNumber: row.routeNumber,
+                              routeNumber: vm.getPrimaryRouteForRow(row, col.dateStr),
                               date: col.dateStr,
                               currentStatus: shift.status,
                               backupAssigned: shift.backupAssigned,
@@ -215,7 +241,7 @@ export const ScheduleGridView: React.FC = () => {
                                   vm.openBackupAssign(
                                     row.driverId,
                                     row.driverName,
-                                    row.routeNumber,
+                                    vm.getPrimaryRouteForRow(row, col.dateStr),
                                     col.dateStr
                                   );
                                 }}
@@ -230,7 +256,8 @@ export const ScheduleGridView: React.FC = () => {
                       );
                     })}
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>

@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Driver, CreateDriverForm, UpdateDriverForm } from '../models/driver.model';
 import { ApiService } from '../services/apiService';
 import { matchesDriverSearch } from '../utils/searchFilter';
+import { getAllDriverRoutes } from '../utils/routeUtils';
 
 export function useDriverViewModel() {
   const [drivers, setDrivers] = useState<Driver[]>([]);
@@ -46,6 +47,9 @@ export function useDriverViewModel() {
         name: d.name,
         phone: d.phone,
         routeNumber: d.routeNumber,
+        driverCode: d.driverCode,
+        routesWeek13: d.routesWeek13,
+        routesWeek24: d.routesWeek24,
         contractType: d.contractType,
         id: d.id,
       });
@@ -53,15 +57,18 @@ export function useDriverViewModel() {
       const matchesContract =
         contractTypeFilter === '' || d.contractType === contractTypeFilter;
 
+      const allRoutes = getAllDriverRoutes(d);
       const matchesRoute =
-        routeFilter === '' || d.routeNumber.toLowerCase().includes(routeFilter.toLowerCase());
+        routeFilter === '' ||
+        allRoutes.some(r => r.toLowerCase().includes(routeFilter.toLowerCase()));
 
       return matchesSearch && matchesContract && matchesRoute;
     });
   }, [drivers, searchTerm, contractTypeFilter, routeFilter]);
 
   const availableRoutes = useMemo(() => {
-    const set = new Set(drivers.map(d => d.routeNumber));
+    const set = new Set<string>();
+    drivers.forEach(d => getAllDriverRoutes(d).forEach(r => set.add(r)));
     return Array.from(set).sort();
   }, [drivers]);
 

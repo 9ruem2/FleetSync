@@ -2,9 +2,13 @@ import { boolean, integer, pgTable, serial, text, timestamp, unique } from 'driz
 
 export const drivers = pgTable('drivers', {
   id: serial('id').primaryKey(),
+  driverCode: text('driver_code').notNull().default(''),
   name: text('name').notNull(),
   phone: text('phone').notNull(),
-  routeNumber: text('route_number').notNull(),
+  routeNumber: text('route_number').notNull().default(''),
+  routesWeek13: text('routes_week13').notNull().default(''),
+  routesWeek24: text('routes_week24').notNull().default(''),
+  weekPattern: text('week_pattern').notNull().default('1,3'),
   contractType: text('contract_type').notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   isDeleted: boolean('is_deleted').notNull().default(false),

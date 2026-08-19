@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Driver } from '../../models/driver.model';
-import { X, Calendar, User, MapPin } from 'lucide-react';
+import { getActiveRoutesForDate } from '../../utils/routeUtils';
+import { X, Calendar, User } from 'lucide-react';
 
 interface Props {
   isOpen: boolean;
@@ -71,9 +72,11 @@ export const QuickVacationModal: React.FC<Props> = ({
                       <User className="w-4 h-4 text-slate-500" />
                       <span className="font-bold text-sm text-slate-900">{driver.name}</span>
                     </div>
-                    <div className="flex items-center gap-2 text-xs font-mono text-slate-600">
-                      <MapPin className="w-3.5 h-3.5 text-blue-600" />
-                      <span>{driver.routeNumber}</span>
+                    <div className="flex flex-col items-end gap-0.5 text-xs font-mono text-slate-600">
+                      <span>ID: {driver.driverCode || '-'}</span>
+                      <span className="text-blue-700">
+                        {getActiveRoutesForDate(driver, date).join(', ') || driver.routeNumber || '-'}
+                      </span>
                     </div>
                   </div>
                 );
