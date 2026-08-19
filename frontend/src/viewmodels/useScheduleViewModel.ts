@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { ScheduleGridRow, ShiftStatus } from '../models/schedule.model';
 import { ApiService } from '../services/apiService';
 import { matchesDriverSearch } from '../utils/searchFilter';
-import { getAllDriverRoutes, getActiveRoutesForDate } from '../utils/routeUtils';
+import { getAllDriverRoutes, getActiveRoutesForDate, parseCamps } from '../utils/routeUtils';
 import type { WeekPattern } from '../models/driver.model';
 
 export type ScheduleViewMode = 'weekly' | 'monthly';
@@ -134,7 +134,7 @@ export function useScheduleViewModel() {
   const availableCamps = useMemo(() => {
     const set = new Set<string>();
     gridRows.forEach(row => {
-      if (row.camp && row.camp.trim()) set.add(row.camp.trim());
+      parseCamps(row.camp).forEach(c => set.add(c));
     });
     return Array.from(set).sort();
   }, [gridRows]);
@@ -145,7 +145,7 @@ export function useScheduleViewModel() {
 
     const set = new Set<string>();
     gridRows
-      .filter(row => row.camp && row.camp.trim() === campFilter)
+      .filter(row => parseCamps(row.camp).some(c => c.toLowerCase() === campFilter.toLowerCase()))
       .forEach(row => {
         getAllDriverRoutes({
           routesWeek13: row.routesWeek13,
@@ -171,7 +171,7 @@ export function useScheduleViewModel() {
       });
 
       const matchesCamp =
-        campFilter === '' || (row.camp && row.camp.trim() === campFilter);
+        campFilter === '' || parseCamps(row.camp).some(c => c.toLowerCase() === campFilter.toLowerCase());
 
       const matchesContract =
         contractTypeFilter === '' || row.contractType === contractTypeFilter;

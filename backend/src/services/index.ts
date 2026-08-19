@@ -1,7 +1,7 @@
 import { driverRepository, scheduleRepository, backupRepository } from '../repositories/dbRepository';
 import { CreateDriverDTO, UpdateDriverDTO, Driver, ShiftStatus, AssignBackupDTO } from '../types';
 import { normalizePhoneNumber } from '../utils/phoneFormat';
-import { parseRoutes, getActiveRoutesForDate } from '../utils/routeUtils';
+import { parseRoutes, parseCamps, getActiveRoutesForDate } from '../utils/routeUtils';
 
 function driverMatchesRoute(driver: Driver, route: string): boolean {
   const q = route.trim().toLowerCase();
@@ -35,7 +35,8 @@ class DriverService {
     }
 
     if (camp && camp.trim() !== '') {
-      drivers = drivers.filter(d => d.camp && d.camp.trim() === camp.trim());
+      const q = camp.trim().toLowerCase();
+      drivers = drivers.filter(d => parseCamps(d.camp).some(c => c.toLowerCase() === q));
     }
 
     if (route && route.trim() !== '') {

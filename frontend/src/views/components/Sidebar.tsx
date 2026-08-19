@@ -1,5 +1,5 @@
 import React from 'react';
-import { Users, CalendarRange, CalendarDays, Truck, X } from 'lucide-react';
+import { Users, CalendarRange, CalendarDays, Truck, X, ExternalLink } from 'lucide-react';
 
 interface Props {
   activeTab: 'drivers' | 'schedule' | 'calendar';
@@ -109,6 +109,32 @@ export const Sidebar: React.FC<Props> = ({ activeTab, setActiveTab, isOpen = fal
               );
             })}
           </nav>
+
+          {/* External Links Section */}
+          <div className="mt-6 pt-4 border-t border-slate-800 space-y-2">
+            <div className="px-3 text-[11px] font-bold uppercase tracking-wider text-slate-400">
+              외부 바로가기
+            </div>
+            <a
+              href="https://fly.coupang.com"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="w-full flex items-center justify-between p-3 rounded-xl bg-slate-800/80 hover:bg-slate-800 border border-slate-700/80 hover:border-slate-600 text-slate-200 hover:text-white transition-all duration-200 group shadow-xs"
+            >
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="w-8 h-8 rounded-lg bg-orange-500/20 text-orange-400 flex items-center justify-center shrink-0 font-extrabold text-xs group-hover:bg-orange-500 group-hover:text-white transition-colors">
+                  C
+                </div>
+                <div className="flex flex-col min-w-0">
+                  <span className="text-xs font-bold text-slate-100 group-hover:text-white truncate">
+                    쿠팡 어드민 페이지
+                  </span>
+                  <span className="text-[10px] text-slate-400 font-mono truncate">fly.coupang.com</span>
+                </div>
+              </div>
+              <ExternalLink className="w-4 h-4 text-slate-400 group-hover:text-white shrink-0 ml-1 transition-colors" />
+            </a>
+          </div>
         </div>
 
         {/* Footer Info */}

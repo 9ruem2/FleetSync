@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Driver, CreateDriverForm, UpdateDriverForm } from '../models/driver.model';
 import { ApiService } from '../services/apiService';
 import { matchesDriverSearch } from '../utils/searchFilter';
-import { getAllDriverRoutes } from '../utils/routeUtils';
+import { getAllDriverRoutes, parseCamps } from '../utils/routeUtils';
 
 export function useDriverViewModel() {
   const [drivers, setDrivers] = useState<Driver[]>([]);
@@ -45,7 +45,7 @@ export function useDriverViewModel() {
   const availableCamps = useMemo(() => {
     const set = new Set<string>();
     drivers.forEach(d => {
-      if (d.camp && d.camp.trim()) set.add(d.camp.trim());
+      parseCamps(d.camp).forEach(c => set.add(c));
     });
     return Array.from(set).sort();
   }, [drivers]);
@@ -56,7 +56,7 @@ export function useDriverViewModel() {
 
     const set = new Set<string>();
     drivers
-      .filter(d => d.camp && d.camp.trim() === campFilter)
+      .filter(d => parseCamps(d.camp).some(c => c.toLowerCase() === campFilter.toLowerCase()))
       .forEach(d => getAllDriverRoutes(d).forEach(r => set.add(r)));
     return Array.from(set).sort();
   }, [drivers, campFilter]);
@@ -76,7 +76,7 @@ export function useDriverViewModel() {
       });
 
       const matchesCamp =
-        campFilter === '' || (d.camp && d.camp.trim() === campFilter);
+        campFilter === '' || parseCamps(d.camp).some(c => c.toLowerCase() === campFilter.toLowerCase());
 
       const matchesContract =
         contractTypeFilter === '' || d.contractType === contractTypeFilter;

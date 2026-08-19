@@ -1,5 +1,14 @@
 export type WeekPattern = '1,3' | '2,4' | 'both';
 
+/** 쉼표 구분 캠프 문자열 → 배열 */
+export function parseCamps(input?: string): string[] {
+  if (!input) return [];
+  return input
+    .split(',')
+    .map(c => c.trim())
+    .filter(Boolean);
+}
+
 /** 쉼표 구분 라우트 문자열 → 배열 */
 export function parseRoutes(input: string): string[] {
   return input
