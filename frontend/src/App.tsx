@@ -24,7 +24,7 @@ export function App() {
       case 'schedule':
         return {
           title: '스케줄 및 배차 관리 (Shift & Schedule Management)',
-          subtitle: '주간(7일) / 월간(전체) 그리드 스케줄 매트릭스 및 셀 단위 실시간 변경'
+          subtitle: '주간 / 월간 그리드 스케줄 매트릭스 및 셀 단위 실시간 변경'
         };
       case 'calendar':
         return {

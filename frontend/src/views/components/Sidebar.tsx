@@ -14,11 +14,11 @@ export const Sidebar: React.FC<Props> = ({ activeTab, setActiveTab, isOpen = fal
       id: 'drivers',
       label: '기사 및 라우트 관리',
       icon: Users,
-      description: '기사 CRUD, 라우트 & 계약 형태',
+      description: '기사 조회, 라우트 & 계약 형태',
     },
     {
       id: 'schedule',
-      label: '근무 스케줄표 (Grid)',
+      label: '근무 스케줄표',
       icon: CalendarRange,
       description: '주간/월간 근무 & 대차 지정',
     },
@@ -41,9 +41,8 @@ export const Sidebar: React.FC<Props> = ({ activeTab, setActiveTab, isOpen = fal
       )}
 
       <aside
-        className={`fixed md:static inset-y-0 left-0 z-50 w-64 bg-slate-900 text-white min-h-screen p-4 flex flex-col justify-between shrink-0 shadow-2xl transition-transform duration-300 ease-in-out ${
-          isOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
-        }`}
+        className={`fixed md:static inset-y-0 left-0 z-50 w-64 bg-slate-900 text-white min-h-screen p-4 flex flex-col justify-between shrink-0 shadow-2xl transition-transform duration-300 ease-in-out ${isOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
+          }`}
       >
         <div>
           {/* Brand Header */}
@@ -86,25 +85,22 @@ export const Sidebar: React.FC<Props> = ({ activeTab, setActiveTab, isOpen = fal
                 <button
                   key={item.id}
                   onClick={() => setActiveTab(item.id)}
-                  className={`w-full flex items-start gap-3 p-3 rounded-xl transition-all duration-200 text-left group ${
-                    isActive
-                      ? 'bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-md shadow-blue-600/30 font-semibold'
-                      : 'text-slate-300 hover:bg-slate-800/80 hover:text-white'
-                  }`}
+                  className={`w-full flex items-start gap-3 p-3 rounded-xl transition-all duration-200 text-left group ${isActive
+                    ? 'bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-md shadow-blue-600/30 font-semibold'
+                    : 'text-slate-300 hover:bg-slate-800/80 hover:text-white'
+                    }`}
                 >
                   <Icon
-                    className={`w-5 h-5 mt-0.5 transition-colors ${
-                      isActive ? 'text-white' : 'text-slate-400 group-hover:text-blue-400'
-                    }`}
+                    className={`w-5 h-5 mt-0.5 transition-colors ${isActive ? 'text-white' : 'text-slate-400 group-hover:text-blue-400'
+                      }`}
                   />
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between">
                       <span className="text-sm">{item.label}</span>
                     </div>
                     <p
-                      className={`text-[11px] truncate mt-0.5 ${
-                        isActive ? 'text-blue-100/80' : 'text-slate-400'
-                      }`}
+                      className={`text-[11px] truncate mt-0.5 ${isActive ? 'text-blue-100/80' : 'text-slate-400'
+                        }`}
                     >
                       {item.description}
                     </p>

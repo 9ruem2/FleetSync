@@ -1,7 +1,14 @@
 import { defineConfig } from 'drizzle-kit';
+import dotenv from 'dotenv';
+
+dotenv.config();
 
 export default defineConfig({
   dialect: 'postgresql',
   schema: './db/schema.ts',
-  out: 'netlify/database/migrations',
+  out: './db/migrations',
+  dbCredentials: {
+    url: process.env.DATABASE_URL || process.env.SUPABASE_DATABASE_URL || '',
+  },
 });
+

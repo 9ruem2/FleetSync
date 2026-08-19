@@ -11,17 +11,20 @@
     "build:backend": "npm --prefix backend run build",
     "build:frontend": "npm --prefix frontend run build",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "netlify database migrations apply",
+    "db:push": "drizzle-kit push",
+    "db:studio": "drizzle-kit studio",
+    "db:migrate": "drizzle-kit migrate",
     "install:all": "npm install && npm --prefix backend install && npm --prefix frontend install"
   },
   "devDependencies": {
     "concurrently": "^8.2.2",
+    "dotenv": "^17.4.2",
     "drizzle-kit": "^1.0.0-beta.22",
     "netlify-cli": "^27.1.1"
   },
   "dependencies": {
-    "@netlify/database": "^1.1.0",
     "@netlify/functions": "^5.3.0",
-    "drizzle-orm": "^1.0.0-beta.22"
+    "drizzle-orm": "^1.0.0-beta.22",
+    "postgres": "^3.4.9"
   }
 }
