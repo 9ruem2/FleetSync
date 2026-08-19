@@ -2,7 +2,7 @@ import { eq, and, gte, lte } from 'drizzle-orm';
 import { getDb } from '../../../db';
 import { drivers, scheduleShifts, backupAssignments } from '../../../db/schema';
 import { Driver, CreateDriverDTO, UpdateDriverDTO, ScheduleShift, BackupAssignment, AssignBackupDTO } from '../types';
-import { derivePrimaryRoute, normalizeWeekPattern } from '../utils/routeUtils';
+import { normalizeWeekPattern } from '../utils/routeUtils';
 
 function toDriver(row: typeof drivers.$inferSelect): Driver {
   return {
@@ -59,7 +59,7 @@ class DriverRepository {
   }
 
   public async create(dto: CreateDriverDTO): Promise<Driver> {
-    const routeNumber = derivePrimaryRoute(dto);
+    const routeNumber = '';
     const [row] = await getDb()
       .insert(drivers)
       .values({
@@ -68,9 +68,9 @@ class DriverRepository {
         phone: dto.phone,
         camp: (dto.camp ?? '').trim(),
         routeNumber,
-        routesWeek13: dto.routesWeek13,
-        routesWeek24: dto.routesWeek24,
-        weekPattern: dto.weekPattern,
+        routesWeek13: '',
+        routesWeek24: '',
+        weekPattern: 'both',
         contractType: dto.contractType,
         isDeleted: false,
       })
@@ -82,13 +82,6 @@ class DriverRepository {
     const existing = await this.findById(id);
     if (!existing) return null;
 
-    const merged = {
-      routesWeek13: dto.routesWeek13 ?? existing.routesWeek13,
-      routesWeek24: dto.routesWeek24 ?? existing.routesWeek24,
-      weekPattern: dto.weekPattern ?? existing.weekPattern,
-    };
-    const routeNumber = derivePrimaryRoute(merged);
-
     const [row] = await getDb()
       .update(drivers)
       .set({
@@ -96,10 +89,6 @@ class DriverRepository {
         name: dto.name ?? existing.name,
         phone: dto.phone ?? existing.phone,
         camp: dto.camp !== undefined ? dto.camp.trim() : existing.camp,
-        routeNumber,
-        routesWeek13: merged.routesWeek13,
-        routesWeek24: merged.routesWeek24,
-        weekPattern: merged.weekPattern,
         contractType: dto.contractType ?? existing.contractType,
       })
       .where(eq(drivers.id, id))

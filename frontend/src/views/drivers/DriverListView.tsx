@@ -3,7 +3,7 @@ import { useDriverViewModel } from '../../viewmodels/useDriverViewModel';
 import { formatPhoneNumber } from '../../utils/phoneFormat';
 import { StatusBadge } from '../components/StatusBadge';
 import { RouteBadges } from '../components/RouteBadges';
-import { parseRoutes } from '../../utils/routeUtils';
+import { parseRoutes, parseCamps } from '../../utils/routeUtils';
 import { DriverFormModal } from './DriverFormModal';
 import { DriverDeleteModal } from './DriverDeleteModal';
 import { ToastNotification } from '../components/ToastNotification';
@@ -116,9 +116,16 @@ export const DriverListView: React.FC = () => {
 
                     {/* Camp */}
                     <td className="py-3.5 px-4 sm:px-6">
-                      <span className="inline-flex items-center px-2.5 py-1 rounded-lg bg-slate-100 text-slate-700 text-xs font-bold border border-slate-200">
-                        {driver.camp || '-'}
-                      </span>
+                      <div className="flex flex-wrap gap-1">
+                        {parseCamps(driver.camp).length > 0
+                          ? parseCamps(driver.camp).map((c, i) => (
+                              <span key={i} className="inline-flex items-center px-2.5 py-1 rounded-lg bg-slate-100 text-slate-700 text-xs font-bold border border-slate-200">
+                                {c}
+                              </span>
+                            ))
+                          : <span className="text-slate-400 text-xs">-</span>
+                        }
+                      </div>
                     </td>
 
                     {/* Route Number */}

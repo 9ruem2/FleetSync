@@ -21,9 +21,6 @@ export interface CreateDriverForm {
   name: string;
   phone: string;
   camp: string;
-  routesWeek13: string;
-  routesWeek24: string;
-  weekPattern: WeekPattern;
   contractType: ContractType;
 }
 
@@ -32,8 +29,5 @@ export interface UpdateDriverForm {
   name: string;
   phone: string;
   camp: string;
-  routesWeek13: string;
-  routesWeek24: string;
-  weekPattern: WeekPattern;
   contractType: ContractType;
 }

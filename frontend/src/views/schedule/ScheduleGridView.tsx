@@ -108,7 +108,7 @@ export const ScheduleGridView: React.FC = () => {
             <Calendar className="w-4 h-4 text-blue-600 shrink-0" />
             {vm.viewMode === 'weekly' && (
               <span className="inline-flex items-center px-2 py-0.5 bg-blue-600 text-white rounded-md font-sans text-[11px] sm:text-xs font-extrabold shadow-2xs">
-                {vm.weekOfYearInfo.year}년 {vm.weekOfYearInfo.weekNumber}주차
+                {vm.weekOfYearInfo.weekNumber}주차
               </span>
             )}
             <span>

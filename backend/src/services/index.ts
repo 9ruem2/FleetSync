@@ -58,15 +58,6 @@ class DriverService {
     if (!dto.name?.trim() || !dto.phone?.trim() || !dto.camp?.trim() || !dto.contractType) {
       throw new Error('필수 입력값이 누락되었습니다 (기사명, 연락처, 캠프, 계약형태)');
     }
-    if (dto.weekPattern === '1,3' && !dto.routesWeek13?.trim()) {
-      throw new Error('1,3주 담당 라우트를 입력해주세요');
-    }
-    if (dto.weekPattern === '2,4' && !dto.routesWeek24?.trim()) {
-      throw new Error('2,4주 담당 라우트를 입력해주세요');
-    }
-    if (dto.weekPattern === 'both' && !dto.routesWeek13?.trim() && !dto.routesWeek24?.trim()) {
-      throw new Error('1,3주 또는 2,4주 담당 라우트를 입력해주세요');
-    }
   }
 
   public async createDriver(dto: CreateDriverDTO): Promise<Driver> {
@@ -88,9 +79,6 @@ class DriverService {
       name: dto.name ?? existing.name,
       phone: dto.phone ?? existing.phone,
       camp: dto.camp ?? existing.camp,
-      routesWeek13: dto.routesWeek13 ?? existing.routesWeek13,
-      routesWeek24: dto.routesWeek24 ?? existing.routesWeek24,
-      weekPattern: dto.weekPattern ?? existing.weekPattern,
       contractType: dto.contractType ?? existing.contractType,
     };
     this.validateDriverInput(merged);
