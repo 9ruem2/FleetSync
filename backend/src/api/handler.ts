@@ -43,15 +43,32 @@ export async function handleApiRequest(req: Request): Promise<Response> {
   const method = req.method;
 
   try {
-    // Health check
+    // Health check (상세 진단 정보 포함)
     if (path === '/api/health' && method === 'GET') {
       try {
-        await getDb().from('companies').select('id').limit(1);
+        const sb = getDb();
+        const { count: companyCount, error: compErr } = await sb.from('companies').select('*', { count: 'exact', head: true });
+        const { count: driverCount, error: driverErr } = await sb.from('drivers').select('*', { count: 'exact', head: true });
+        const { count: campCount, error: campErr } = await sb.from('camps').select('*', { count: 'exact', head: true });
+        
+        const hasServiceKey = !!(process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY);
+
         return jsonResponse({
           success: true,
           data: {
             status: 'ok',
             db: 'connected',
+            keyType: hasServiceKey ? 'service_role (RLS bypass)' : 'publishable / anon',
+            stats: {
+              companies: companyCount ?? 0,
+              drivers: driverCount ?? 0,
+              camps: campCount ?? 0,
+            },
+            errors: {
+              company: compErr ? compErr.message : null,
+              driver: driverErr ? driverErr.message : null,
+              camp: campErr ? campErr.message : null,
+            },
             system: 'Coupang Fleet Sync API',
             timestamp: new Date().toISOString(),
           },
