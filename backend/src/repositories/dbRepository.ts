@@ -115,6 +115,21 @@ class MasterRepository {
   }
 
   // Camps
+  public async findAllCamps(): Promise<Camp[]> {
+    try {
+      const { data, error } = await getDb()
+        .from('camps')
+        .select('*')
+        .order('name', { ascending: true });
+      if (error) throw error;
+      const rows = (data || []) as { id: number; company_id: number; name: string; created_at: string }[];
+      return rows.map(r => ({ id: r.id, companyId: r.company_id, name: r.name, createdAt: r.created_at }));
+    } catch (err) {
+      console.error('[findAllCamps] error:', err);
+      return [];
+    }
+  }
+
   public async findCampsByCompany(companyId: number): Promise<Camp[]> {
     try {
       const validCompanyId = await this.getValidCompanyId(companyId);
@@ -122,7 +137,7 @@ class MasterRepository {
         .from('camps')
         .select('*')
         .eq('company_id', validCompanyId)
-        .order('name', { ascending: false });
+        .order('name', { ascending: true });
       if (error) throw error;
       const rows = (data || []) as { id: number; company_id: number; name: string; created_at: string }[];
       return rows.map(r => ({ id: r.id, companyId: r.company_id, name: r.name, createdAt: r.created_at }));
@@ -160,6 +175,7 @@ class MasterRepository {
 
   public async deleteCamp(id: number): Promise<boolean> {
     try {
+      await getDb().from('routes').delete().eq('camp_id', id);
       const { error } = await getDb().from('camps').delete().eq('id', id);
       if (error) throw error;
     } catch (err) {
@@ -169,13 +185,28 @@ class MasterRepository {
   }
 
   // Routes
+  public async findAllRoutes(): Promise<Route[]> {
+    try {
+      const { data, error } = await getDb()
+        .from('routes')
+        .select('*')
+        .order('name', { ascending: true });
+      if (error) throw error;
+      const rows = (data || []) as { id: number; camp_id: number; name: string; created_at: string }[];
+      return rows.map(r => ({ id: r.id, campId: r.camp_id, name: r.name, createdAt: r.created_at }));
+    } catch (err) {
+      console.error('[findAllRoutes] error:', err);
+      return [];
+    }
+  }
+
   public async findRoutesByCamp(campId: number): Promise<Route[]> {
     try {
       const { data, error } = await getDb()
         .from('routes')
         .select('*')
         .eq('camp_id', campId)
-        .order('name', { ascending: false });
+        .order('name', { ascending: true });
       if (error) throw error;
       const rows = (data || []) as { id: number; camp_id: number; name: string; created_at: string }[];
       return rows.map(r => ({ id: r.id, campId: r.camp_id, name: r.name, createdAt: r.created_at }));

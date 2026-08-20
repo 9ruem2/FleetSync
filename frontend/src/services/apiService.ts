@@ -43,8 +43,9 @@ export class ApiService {
     if (!json.success) throw new Error(json.message);
   }
 
-  public static async getCamps(companyId: number): Promise<Camp[]> {
-    const res = await fetch(`${API_BASE}/camps?companyId=${companyId}`);
+  public static async getCamps(companyId?: number): Promise<Camp[]> {
+    const url = companyId ? `${API_BASE}/camps?companyId=${companyId}` : `${API_BASE}/camps`;
+    const res = await fetch(url);
     const json = await res.json();
     if (!json.success) throw new Error(json.message);
     return json.data;
@@ -67,8 +68,9 @@ export class ApiService {
     if (!json.success) throw new Error(json.message);
   }
 
-  public static async getRoutes(campId: number): Promise<Route[]> {
-    const res = await fetch(`${API_BASE}/routes?campId=${campId}`);
+  public static async getRoutes(campId?: number): Promise<Route[]> {
+    const url = campId ? `${API_BASE}/routes?campId=${campId}` : `${API_BASE}/routes`;
+    const res = await fetch(url);
     const json = await res.json();
     if (!json.success) throw new Error(json.message);
     return json.data;

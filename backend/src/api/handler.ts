@@ -137,21 +137,17 @@ export async function handleApiRequest(req: Request): Promise<Response> {
     // Camps
     if (path === '/api/camps' && method === 'GET') {
       const companyIdStr = url.searchParams.get('companyId');
-      if (!companyIdStr) return errorResponse('companyId 파라미터가 필요합니다', 400);
-      const companyId = parseId(companyIdStr);
-      if (companyId === null) return errorResponse('유효하지 않은 companyId입니다', 400);
-      const data = await masterRepository.findCampsByCompany(companyId);
+      const companyId = companyIdStr ? parseId(companyIdStr) : null;
+      const data = companyId !== null
+        ? await masterRepository.findCampsByCompany(companyId)
+        : await masterRepository.findAllCamps();
       return jsonResponse({ success: true, data });
     }
     if (path === '/api/camps' && method === 'POST') {
       const body = await parseBody<{ companyId: number; name: string }>(req);
-      if (!body.companyId || !body.name?.trim()) return errorResponse('companyId와 캠프명을 입력해주세요', 400);
-      try {
-        const data = await masterRepository.createCamp(body.companyId, body.name);
-        return jsonResponse({ success: true, data, message: '캠프가 생성되었습니다' }, 201);
-      } catch (err: any) {
-        return errorResponse(err.message || '캠프 등록 실패', 400);
-      }
+      if (!body.name?.trim()) return errorResponse('캠프명을 입력해주세요', 400);
+      const data = await masterRepository.createCamp(body.companyId, body.name);
+      return jsonResponse({ success: true, data, message: '캠프가 생성되었습니다' }, 201);
     }
     const campMatch = path.match(/^\/api\/camps\/([^/]+)$/);
     if (campMatch && method === 'DELETE') {
@@ -164,10 +160,10 @@ export async function handleApiRequest(req: Request): Promise<Response> {
     // Routes
     if (path === '/api/routes' && method === 'GET') {
       const campIdStr = url.searchParams.get('campId');
-      if (!campIdStr) return errorResponse('campId 파라미터가 필요합니다', 400);
-      const campId = parseId(campIdStr);
-      if (campId === null) return errorResponse('유효하지 않은 campId입니다', 400);
-      const data = await masterRepository.findRoutesByCamp(campId);
+      const campId = campIdStr ? parseId(campIdStr) : null;
+      const data = campId !== null
+        ? await masterRepository.findRoutesByCamp(campId)
+        : await masterRepository.findAllRoutes();
       return jsonResponse({ success: true, data });
     }
     if (path === '/api/routes' && method === 'POST') {
