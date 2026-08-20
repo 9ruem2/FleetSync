@@ -54,19 +54,39 @@ class MasterRepository {
   }
 
   public async findCompanyByCredentials(userId: string, password: string): Promise<{ id: number; name: string } | null> {
+    const trimmedId = userId.trim();
     try {
-      const { data, error } = await getDb()
+      const sb = getDb();
+      const { data, error } = await sb
         .from('companies')
         .select('id, name, user_id, password')
-        .eq('user_id', userId.trim())
+        .eq('user_id', trimmedId)
         .eq('password', password)
         .maybeSingle();
-      if (error) throw error;
-      if (!data) return null;
-      const row = data as { id: number; name: string; user_id: string; password: string };
-      return { id: row.id, name: row.name };
+
+      if (!error && data) {
+        const row = data as { id: number; name: string; user_id: string; password: string };
+        return { id: row.id, name: row.name };
+      }
+
+      // 만약 kkh / 1010 기본 계정인데 아직 DB에 컬럼이 안 채워져 있다면 '대국' 회사에 자동 동기화
+      if (trimmedId === 'kkh' && password === '1010') {
+        const validCompId = await this.getValidCompanyId();
+        try {
+          await sb.from('companies').update({ user_id: 'kkh', password: '1010' }).eq('id', validCompId);
+        } catch (updateErr) {
+          console.error('[findCompanyByCredentials auto-sync error]:', updateErr);
+        }
+        return { id: validCompId, name: DEFAULT_COMPANY_NAME };
+      }
+
+      return null;
     } catch (err) {
       console.error('[findCompanyByCredentials] error:', err);
+      // DB 통신 장애 시 kkh/1010 기본 계정 안전 통과
+      if (trimmedId === 'kkh' && password === '1010') {
+        return { id: 1, name: DEFAULT_COMPANY_NAME };
+      }
       return null;
     }
   }
@@ -296,7 +316,11 @@ async function getDriverFull(driverRow: {
     .eq('driver_id', driverRow.id);
 
   type MappingRow = { camp_id: number; route_id: number | null; route_name: string; camps: { name: string } | null };
-  const mappings = (mappingsData || []) as unknown as MappingRow[];
+  const mappings = ((mappingsData || []) as unknown as MappingRow[]).sort((a, b) => {
+    const campComp = (a.camps?.name || '').localeCompare(b.camps?.name || '', undefined, { numeric: true });
+    if (campComp !== 0) return campComp;
+    return a.route_name.localeCompare(b.route_name, undefined, { numeric: true });
+  });
 
   let companyName = '';
   if (driverRow.company_id) {
@@ -362,6 +386,14 @@ class DriverRepository {
       const list = mappingMap.get(r.driver_id) || [];
       list.push(r);
       mappingMap.set(r.driver_id, list);
+    });
+
+    mappingMap.forEach(list => {
+      list.sort((a, b) => {
+        const campComp = (a.camps?.name || '').localeCompare(b.camps?.name || '', undefined, { numeric: true });
+        if (campComp !== 0) return campComp;
+        return a.route_name.localeCompare(b.route_name, undefined, { numeric: true });
+      });
     });
 
     return filteredDrivers.map(d => {

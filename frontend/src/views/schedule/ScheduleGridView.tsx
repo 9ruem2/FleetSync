@@ -194,8 +194,8 @@ export const ScheduleGridView: React.FC = () => {
               </thead>
               <tbody className="divide-y divide-slate-200 text-xs">
                 {vm.filteredGridRows.map((row) => {
-                  const routes = parseRoutes(row.routes);
-                  const camps = parseCamps(row.camp);
+                  const routes = parseRoutes(row.routes).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+                  const camps = parseCamps(row.camp).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
 
                   return (
                     <tr
