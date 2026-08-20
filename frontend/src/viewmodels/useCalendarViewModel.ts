@@ -82,12 +82,25 @@ export function useCalendarViewModel() {
       const mergedMap = new Map<string, OffDayRecord>();
       offDaysData.forEach(r => {
         const dObj = driversData.find(d => d.id === r.driverId);
-        const camp = dObj?.camp || '';
-        const shortCamp = camp.replace('남양주', '남').replace('구리', '구');
-        const displayRoute = r.routeNumber ? (shortCamp ? `${shortCamp}/${r.routeNumber}` : r.routeNumber) : camp;
+        const campList = (dObj?.camp || '').split(',').map(s => s.trim()).filter(Boolean);
+        const routeList = (dObj?.routes || '').split(',').map(s => s.trim()).filter(Boolean);
+        
+        let matchedCamp = campList[0] || '';
+        if (r.routeNumber) {
+          const rIdx = routeList.indexOf(r.routeNumber);
+          if (rIdx !== -1 && campList[rIdx]) {
+            matchedCamp = campList[rIdx];
+          } else if (campList.length > 0) {
+            matchedCamp = campList[campList.length - 1];
+          }
+        }
+        
+        const shortCamp = matchedCamp.replace('남양주', '남').replace('구리', '구');
+        const displayRoute = r.routeNumber ? (shortCamp ? `${shortCamp}/${r.routeNumber}` : r.routeNumber) : shortCamp;
+        
         mergedMap.set(`${r.date}_${r.driverId}`, {
           ...r,
-          campName: camp,
+          campName: matchedCamp,
           routeName: r.routeNumber,
           displayRoute,
         });
