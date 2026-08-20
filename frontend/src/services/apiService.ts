@@ -6,6 +6,18 @@ import { Company, Camp, Route } from '../models/master.model';
 const API_BASE = '/api';
 
 export class ApiService {
+  // Auth
+  public static async login(userId: string, password: string): Promise<{ userId: string; companyId: number; companyName: string }> {
+    const res = await fetch(`${API_BASE}/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId, password })
+    });
+    const json = await res.json();
+    if (!json.success) throw new Error(json.message || '로그인에 실패했습니다.');
+    return json.data;
+  }
+
   // Master Data API (Company / Camp / Route)
   public static async getCompanies(): Promise<Company[]> {
     const res = await fetch(`${API_BASE}/companies`);

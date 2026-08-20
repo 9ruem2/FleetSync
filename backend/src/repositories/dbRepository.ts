@@ -43,14 +43,32 @@ class MasterRepository {
       await this.getValidCompanyId();
       const { data, error } = await getDb().from('companies').select('*').order('id');
       if (error) throw error;
-      const rows = (data || []) as { id: number; name: string; created_at: string }[];
+      const rows = (data || []) as { id: number; name: string; user_id: string | null; created_at: string }[];
       if (rows.length > 0) {
-        return rows.map(r => ({ id: r.id, name: r.name, createdAt: r.created_at }));
+        return rows.map(r => ({ id: r.id, name: r.name, userId: r.user_id ?? undefined, createdAt: r.created_at }));
       }
     } catch (err) {
       console.error('[findAllCompanies] error:', err);
     }
     return [{ id: 1, name: DEFAULT_COMPANY_NAME, createdAt: new Date().toISOString() }];
+  }
+
+  public async findCompanyByCredentials(userId: string, password: string): Promise<{ id: number; name: string } | null> {
+    try {
+      const { data, error } = await getDb()
+        .from('companies')
+        .select('id, name, user_id, password')
+        .eq('user_id', userId.trim())
+        .eq('password', password)
+        .maybeSingle();
+      if (error) throw error;
+      if (!data) return null;
+      const row = data as { id: number; name: string; user_id: string; password: string };
+      return { id: row.id, name: row.name };
+    } catch (err) {
+      console.error('[findCompanyByCredentials] error:', err);
+      return null;
+    }
   }
 
   public async createCompany(name: string): Promise<Company> {

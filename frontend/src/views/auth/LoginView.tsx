@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { Lock, User, KeyRound, ArrowRight, ShieldCheck, Truck, Sparkles } from 'lucide-react';
+import { Lock, User, KeyRound, ArrowRight, ShieldCheck, Truck } from 'lucide-react';
+import { ApiService } from '../../services/apiService';
 
 interface Props {
-  onLoginSuccess: (userInfo: { userId: string; companyName: string }) => void;
+  onLoginSuccess: (userInfo: { userId: string; companyId: number; companyName: string }) => void;
 }
 
 export const LoginView: React.FC<Props> = ({ onLoginSuccess }) => {
@@ -11,23 +12,18 @@ export const LoginView: React.FC<Props> = ({ onLoginSuccess }) => {
   const [errorMessage, setErrorMessage] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage('');
     setLoading(true);
-
-    setTimeout(() => {
-      // kkh / 1010 로그인 검증
-      if (userId.trim() === 'kkh' && password === '1010') {
-        onLoginSuccess({
-          userId: 'kkh',
-          companyName: '대국'
-        });
-      } else {
-        setErrorMessage('아이디 또는 비밀번호가 올바르지 않습니다. (아이디: kkh / 암호: 1010)');
-      }
+    try {
+      const result = await ApiService.login(userId.trim(), password);
+      onLoginSuccess(result);
+    } catch (err: unknown) {
+      setErrorMessage(err instanceof Error ? err.message : '아이디 또는 비밀번호가 올바르지 않습니다.');
+    } finally {
       setLoading(false);
-    }, 400);
+    }
   };
 
   return (
@@ -113,15 +109,7 @@ export const LoginView: React.FC<Props> = ({ onLoginSuccess }) => {
               </div>
             </div>
 
-            {/* 계정 안내 가이드 팁 */}
-            <div className="p-3 bg-blue-950/40 border border-blue-900/50 rounded-xl flex items-start gap-2.5">
-              <Sparkles className="w-4 h-4 text-blue-400 shrink-0 mt-0.5" />
-              <p className="text-[11px] text-blue-300/80 leading-relaxed font-medium">
-                테스트 관리자 계정: 아이디 <span className="font-bold text-white bg-blue-900/60 px-1.5 py-0.5 rounded">kkh</span> / 비밀번호 <span className="font-bold text-white bg-blue-900/60 px-1.5 py-0.5 rounded">1010</span>
-              </p>
-            </div>
 
-            {/* 로그인 제출 버튼 */}
             <button
               type="submit"
               disabled={loading}

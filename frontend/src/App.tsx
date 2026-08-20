@@ -9,6 +9,7 @@ import { LoginView } from './views/auth/LoginView';
 
 interface UserSession {
   userId: string;
+  companyId: number;
   companyName: string;
 }
 

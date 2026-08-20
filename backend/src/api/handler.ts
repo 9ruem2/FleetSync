@@ -60,10 +60,33 @@ export async function handleApiRequest(req: Request): Promise<Response> {
     }
 
     // ==========================================
+    // Auth API
+    // ==========================================
+
+    if (path === '/api/auth/login' && method === 'POST') {
+      const body = await parseBody<{ userId: string; password: string }>(req);
+      if (!body.userId || !body.password) {
+        return errorResponse('아이디와 비밀번호를 모두 입력해주세요.', 400);
+      }
+      const company = await masterRepository.findCompanyByCredentials(body.userId, body.password);
+      if (!company) {
+        return errorResponse('아이디 또는 비밀번호가 올바르지 않습니다.', 401);
+      }
+      return jsonResponse({
+        success: true,
+        data: {
+          userId: body.userId,
+          companyId: company.id,
+          companyName: company.name,
+        }
+      });
+    }
+
+    // ==========================================
     // Master Data APIs (Company / Camp / Route)
     // ==========================================
 
-    // Companies (kkh 계정에 기본 매칭되는 '대국' 회사 보장)
+    // Companies
     if (path === '/api/companies' && method === 'GET') {
       try {
         const data = await masterRepository.findAllCompanies();

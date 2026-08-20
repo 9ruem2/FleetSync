@@ -3,6 +3,8 @@ import { boolean, integer, pgTable, serial, text, timestamp, unique } from 'driz
 export const companies = pgTable('companies', {
   id: serial('id').primaryKey(),
   name: text('name').notNull().unique(),
+  userId: text('user_id').unique(),
+  password: text('password'),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 });
 
