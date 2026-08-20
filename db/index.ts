@@ -10,6 +10,22 @@ dotenv.config({ path: path.resolve(process.cwd(), '../.env') });
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let supabaseInstance: SupabaseClient<any> | null = null;
 
+// Node.js 환경에서 Supabase Realtime의 WebSocket 누락 에러 방지용 안전 폴백
+if (typeof globalThis.WebSocket === 'undefined') {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  (globalThis as any).WebSocket = class MockWebSocket {
+    public static readonly CONNECTING = 0;
+    public static readonly OPEN = 1;
+    public static readonly CLOSING = 2;
+    public static readonly CLOSED = 3;
+    constructor() {}
+    close() {}
+    send() {}
+    addEventListener() {}
+    removeEventListener() {}
+  };
+}
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function getDb(): SupabaseClient<any> {
   if (!supabaseInstance) {
@@ -33,7 +49,13 @@ export function getDb(): SupabaseClient<any> {
       );
     }
 
-    supabaseInstance = createClient(url, key);
+    supabaseInstance = createClient(url, key, {
+      auth: {
+        persistSession: false,
+        autoRefreshToken: false,
+        detectSessionInUrl: false,
+      },
+    });
   }
   return supabaseInstance;
 }
