@@ -8,8 +8,6 @@
 [functions]
   directory = "netlify/functions"
   node_bundler = "esbuild"
-  external_node_modules = ["drizzle-orm", "postgres"]
-  included_files = ["backend/src/**", "db/**"]
 
 [dev]
   command = "npm run dev:frontend"
@@ -18,6 +16,12 @@
   autoLaunch = false
 
 [[redirects]]
+  from = "/api/*"
+  to = "/.netlify/functions/api/:splat"
+  status = 200
+
+[[redirects]]
   from = "/*"
   to = "/index.html"
   status = 200
+
