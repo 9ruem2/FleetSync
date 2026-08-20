@@ -214,7 +214,7 @@ export const ScheduleGridView: React.FC = () => {
           <div className="p-4 bg-slate-900 text-white flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Users className="w-4 h-4 text-blue-400" />
-              <span className="font-bold text-sm">미배정 / 가용 기사</span>
+              <span className="font-bold text-sm">가용 기사</span>
             </div>
             <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-blue-600 text-white">
               {vm.unassignedDrivers.length}명
@@ -224,8 +224,7 @@ export const ScheduleGridView: React.FC = () => {
           <div className="p-3 bg-blue-50/50 border-b border-blue-100 flex items-center gap-2 text-[11px] text-blue-800">
             <Sparkles className="w-3.5 h-3.5 shrink-0 text-blue-600" />
             <span>
-              기사 카드를 우측 표의 날짜/구역 셀로 <strong>드래그</strong>하여
-              배정하세요.
+              날짜/구역 셀로 <strong>드래그</strong>하여 배정하세요.
             </span>
           </div>
 
