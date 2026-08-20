@@ -8,9 +8,12 @@ export default async function handler(req: any, res?: any) {
 
   // 2. Node.js (IncomingMessage & ServerResponse) 형태인 경우
   try {
-    const protocol = req.headers['x-forwarded-proto'] || 'https';
-    const host = req.headers['x-forwarded-host'] || req.headers.host || 'localhost';
-    const fullUrl = `${protocol}://${host}${req.url}`;
+    const protocol = req.headers?.['x-forwarded-proto'] || 'https';
+    const host = req.headers?.['x-forwarded-host'] || req.headers?.host || 'localhost';
+    
+    // Vercel이 전달하는 원본 URL 경로 추출
+    const originalPath = req.url || '/';
+    const fullUrl = `${protocol}://${host}${originalPath}`;
     const method = req.method || 'GET';
 
     let bodyData: string | undefined = undefined;
@@ -53,6 +56,7 @@ export default async function handler(req: any, res?: any) {
         res.setHeader(key, value);
       });
       const responseText = await webRes.text();
+      res.setHeader('Content-Type', 'application/json');
       res.end(responseText);
       return;
     }
@@ -60,10 +64,15 @@ export default async function handler(req: any, res?: any) {
     return webRes;
   } catch (error: any) {
     console.error('[Vercel API Adapter Error]:', error);
+    const msg = error instanceof Error ? error.message : 'Internal Server Error';
     if (res && typeof res.status === 'function') {
-      res.status(500).json({ success: false, message: error.message || 'Internal Server Error' });
+      res.status(500).setHeader('Content-Type', 'application/json');
+      res.end(JSON.stringify({ success: false, message: msg }));
       return;
     }
-    return new Response(JSON.stringify({ success: false, message: error.message }), { status: 500 });
+    return new Response(JSON.stringify({ success: false, message: msg }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' },
+    });
   }
 }
