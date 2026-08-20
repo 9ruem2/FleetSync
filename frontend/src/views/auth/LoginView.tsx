@@ -84,6 +84,7 @@ export const LoginView: React.FC<Props> = ({ onLoginSuccess }) => {
                   placeholder="아이디 입력"
                   value={userId}
                   onChange={e => setUserId(e.target.value)}
+                  autoComplete="username"
                   required
                   autoFocus
                   className="w-full pl-10 pr-4 py-3 bg-slate-950/70 border border-slate-800 rounded-xl text-sm text-white placeholder-slate-600 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition font-medium"
@@ -103,6 +104,7 @@ export const LoginView: React.FC<Props> = ({ onLoginSuccess }) => {
                   placeholder="비밀번호 입력"
                   value={password}
                   onChange={e => setPassword(e.target.value)}
+                  autoComplete="current-password"
                   required
                   className="w-full pl-10 pr-4 py-3 bg-slate-950/70 border border-slate-800 rounded-xl text-sm text-white placeholder-slate-600 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition font-medium"
                 />

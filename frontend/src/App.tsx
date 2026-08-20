@@ -54,7 +54,7 @@ export function App() {
     switch (activeTab) {
       case "drivers":
         return {
-          title: "계정 및 기사 관리 (User & Fleet Management)",
+          title: "기사 관리 (User & Fleet Management)",
           subtitle:
             "기사 관리, 회사/캠프/라우터 연동 및 고정/용차/백업 계약 형태 통합 대시보드",
         };
