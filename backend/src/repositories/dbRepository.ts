@@ -102,7 +102,7 @@ class MasterRepository {
         .from('camps')
         .select('*')
         .eq('company_id', validCompanyId)
-        .order('id');
+        .order('name', { ascending: false });
       if (error) throw error;
       const rows = (data || []) as { id: number; company_id: number; name: string; created_at: string }[];
       return rows.map(r => ({ id: r.id, companyId: r.company_id, name: r.name, createdAt: r.created_at }));
@@ -155,7 +155,7 @@ class MasterRepository {
         .from('routes')
         .select('*')
         .eq('camp_id', campId)
-        .order('id');
+        .order('name', { ascending: false });
       if (error) throw error;
       const rows = (data || []) as { id: number; camp_id: number; name: string; created_at: string }[];
       return rows.map(r => ({ id: r.id, campId: r.camp_id, name: r.name, createdAt: r.created_at }));
@@ -447,7 +447,20 @@ class DriverRepository {
   public async softDelete(id: number): Promise<boolean> {
     const existing = await this.findById(id);
     if (!existing) return false;
-    const { error } = await getDb().from('drivers').update({ is_deleted: true }).eq('id', id);
+    const sb = getDb();
+    // 기사와 연결된 driver_camp_routes 데이터 함께 삭제
+    await sb.from('driver_camp_routes').delete().eq('driver_id', id);
+    const { error } = await sb.from('drivers').update({ is_deleted: true }).eq('id', id);
+    if (error) throw error;
+    return true;
+  }
+
+  public async delete(id: number): Promise<boolean> {
+    const sb = getDb();
+    // 기사와 연결된 driver_camp_routes 및 스케줄 데이터 함께 삭제
+    await sb.from('driver_camp_routes').delete().eq('driver_id', id);
+    await sb.from('schedule_shifts').delete().eq('driver_id', id);
+    const { error } = await sb.from('drivers').delete().eq('id', id);
     if (error) throw error;
     return true;
   }

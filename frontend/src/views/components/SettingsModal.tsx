@@ -58,9 +58,10 @@ export const SettingsModal: React.FC<Props> = ({ isOpen, onClose }) => {
   const loadCamps = async (companyId: number) => {
     try {
       const data = await ApiService.getCamps(companyId);
-      setCamps(data);
-      if (data.length > 0) {
-        setSelectedCamp(data[0]);
+      const sorted = [...data].sort((a, b) => b.name.localeCompare(a.name, undefined, { numeric: true }));
+      setCamps(sorted);
+      if (sorted.length > 0) {
+        setSelectedCamp(sorted[0]);
       } else {
         setSelectedCamp(null);
       }
@@ -80,7 +81,8 @@ export const SettingsModal: React.FC<Props> = ({ isOpen, onClose }) => {
   const loadRoutes = async (campId: number) => {
     try {
       const data = await ApiService.getRoutes(campId);
-      setRoutes(data);
+      const sorted = [...data].sort((a, b) => b.name.localeCompare(a.name, undefined, { numeric: true }));
+      setRoutes(sorted);
     } catch (err) {
       console.error(err);
     }

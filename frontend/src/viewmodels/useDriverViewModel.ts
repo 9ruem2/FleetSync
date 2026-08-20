@@ -47,7 +47,7 @@ export function useDriverViewModel() {
     drivers.forEach(d => {
       parseCamps(d.camp).forEach(c => set.add(c));
     });
-    return Array.from(set).sort();
+    return Array.from(set).sort((a, b) => b.localeCompare(a, undefined, { numeric: true }));
   }, [drivers]);
 
   const availableRoutes = useMemo(() => {
@@ -58,7 +58,7 @@ export function useDriverViewModel() {
     drivers
       .filter(d => parseCamps(d.camp).some(c => c.toLowerCase() === campFilter.toLowerCase()))
       .forEach(d => getAllDriverRoutes(d).forEach(r => set.add(r)));
-    return Array.from(set).sort();
+    return Array.from(set).sort((a, b) => b.localeCompare(a, undefined, { numeric: true }));
   }, [drivers, campFilter]);
 
   const filteredDrivers = useMemo(() => {

@@ -74,7 +74,8 @@ export const DriverFormModal: React.FC<Props> = ({
     if (!comp) return;
     try {
       const campList = await ApiService.getCamps(comp);
-      setAvailableCamps(campList);
+      const sorted = [...campList].sort((a, b) => b.name.localeCompare(a.name, undefined, { numeric: true }));
+      setAvailableCamps(sorted);
     } catch (err) {
       console.error(err);
     }
@@ -121,13 +122,14 @@ export const DriverFormModal: React.FC<Props> = ({
 
     try {
       const routeList = await ApiService.getRoutes(campObj.id);
+      const sortedRoutes = [...routeList].sort((a, b) => b.name.localeCompare(a.name, undefined, { numeric: true }));
       setCampRoutes(prev => prev.map((cr, i) => i === index ? {
         ...cr,
         campId: campObj.id,
         campName: campObj.name,
         routeId: undefined,
         routeName: '',
-        availableRoutes: routeList
+        availableRoutes: sortedRoutes
       } : cr));
     } catch (err) {
       console.error(err);

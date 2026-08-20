@@ -135,7 +135,7 @@ export function useScheduleViewModel() {
     gridRows.forEach(row => {
       parseCamps(row.camp).forEach(c => set.add(c));
     });
-    return Array.from(set).sort();
+    return Array.from(set).sort((a, b) => b.localeCompare(a, undefined, { numeric: true }));
   }, [gridRows]);
 
   const availableRoutes = useMemo(() => {
@@ -150,7 +150,7 @@ export function useScheduleViewModel() {
           routes: row.routes,
         }).forEach(r => set.add(r));
       });
-    return Array.from(set).sort();
+    return Array.from(set).sort((a, b) => b.localeCompare(a, undefined, { numeric: true }));
   }, [gridRows, campFilter]);
 
   const filteredGridRows = useMemo(() => {
