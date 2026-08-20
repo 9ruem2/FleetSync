@@ -8,7 +8,7 @@
 [functions]
   directory = "netlify/functions"
   node_bundler = "esbuild"
-  external_node_modules = ["@netlify/database", "drizzle-orm"]
+  external_node_modules = ["drizzle-orm", "postgres"]
   included_files = ["backend/src/**", "db/**"]
 
 [dev]

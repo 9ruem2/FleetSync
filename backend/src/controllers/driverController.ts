@@ -4,9 +4,10 @@ import { driverService } from '../services/driverService';
 export class DriverController {
   public static getDrivers(req: Request, res: Response): void {
     try {
-      const { search, route, contractType } = req.query;
+      const { search, camp, route, contractType } = req.query;
       const drivers = driverService.getAllDrivers(
         search as string,
+        camp as string,
         route as string,
         contractType as string
       );

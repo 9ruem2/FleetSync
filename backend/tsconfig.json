@@ -6,9 +6,7 @@
     "baseUrl": ".",
     "paths": {
       "drizzle-orm": ["node_modules/drizzle-orm"],
-      "drizzle-orm/*": ["node_modules/drizzle-orm/*"],
-      "@netlify/database": ["node_modules/@netlify/database"],
-      "@netlify/database/*": ["node_modules/@netlify/database/*"]
+      "drizzle-orm/*": ["node_modules/drizzle-orm/*"]
     },
     "outDir": "./dist",
     "rootDir": "..",

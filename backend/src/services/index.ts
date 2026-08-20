@@ -1,22 +1,16 @@
 import { driverRepository, scheduleRepository, backupRepository } from '../repositories/dbRepository';
 import { CreateDriverDTO, UpdateDriverDTO, Driver, ShiftStatus, AssignBackupDTO } from '../types';
 import { normalizePhoneNumber } from '../utils/phoneFormat';
-import { parseRoutes, getActiveRoutesForDate } from '../utils/routeUtils';
+import { parseRoutes, parseCamps } from '../utils/routeUtils';
 
 function driverMatchesRoute(driver: Driver, route: string): boolean {
   const q = route.trim().toLowerCase();
-  const all = [
-    driver.routeNumber,
-    driver.routesWeek13,
-    driver.routesWeek24,
-    ...parseRoutes(driver.routesWeek13),
-    ...parseRoutes(driver.routesWeek24),
-  ];
+  const all = parseRoutes(driver.routes);
   return all.some(r => r.toLowerCase().includes(q));
 }
 
 class DriverService {
-  public async getAllDrivers(search?: string, route?: string, contractType?: string): Promise<Driver[]> {
+  public async getAllDrivers(search?: string, camp?: string, route?: string, contractType?: string): Promise<Driver[]> {
     let drivers = await driverRepository.findAll();
 
     if (search && search.trim() !== '') {
@@ -24,13 +18,17 @@ class DriverService {
       drivers = drivers.filter(d =>
         d.name.toLowerCase().includes(q) ||
         d.driverCode.toLowerCase().includes(q) ||
+        (d.camp && d.camp.toLowerCase().includes(q)) ||
         String(d.id).includes(q) ||
-        d.routeNumber.toLowerCase().includes(q) ||
-        d.routesWeek13.toLowerCase().includes(q) ||
-        d.routesWeek24.toLowerCase().includes(q) ||
+        (d.routes && d.routes.toLowerCase().includes(q)) ||
         d.phone.includes(q) ||
         normalizePhoneNumber(d.phone).includes(q)
       );
+    }
+
+    if (camp && camp.trim() !== '') {
+      const q = camp.trim().toLowerCase();
+      drivers = drivers.filter(d => parseCamps(d.camp).some(c => c.toLowerCase() === q));
     }
 
     if (route && route.trim() !== '') {
@@ -49,17 +47,8 @@ class DriverService {
   }
 
   private validateDriverInput(dto: CreateDriverDTO): void {
-    if (!dto.driverCode?.trim() || !dto.name?.trim() || !dto.phone?.trim() || !dto.contractType) {
-      throw new Error('필수 입력값이 누락되었습니다 (사용 ID, 기사명, 연락처, 계약형태)');
-    }
-    if (dto.weekPattern === '1,3' && !dto.routesWeek13?.trim()) {
-      throw new Error('1,3주 담당 라우트를 입력해주세요');
-    }
-    if (dto.weekPattern === '2,4' && !dto.routesWeek24?.trim()) {
-      throw new Error('2,4주 담당 라우트를 입력해주세요');
-    }
-    if (dto.weekPattern === 'both' && !dto.routesWeek13?.trim() && !dto.routesWeek24?.trim()) {
-      throw new Error('1,3주 또는 2,4주 담당 라우트를 입력해주세요');
+    if (!dto.name?.trim() || !dto.phone?.trim() || !dto.camp?.trim() || !dto.contractType) {
+      throw new Error('필수 입력값이 누락되었습니다 (기사명, 연락처, 캠프, 계약형태)');
     }
   }
 
@@ -67,7 +56,8 @@ class DriverService {
     this.validateDriverInput(dto);
     return driverRepository.create({
       ...dto,
-      driverCode: dto.driverCode.trim(),
+      driverCode: (dto.driverCode ?? '').trim(),
+      camp: dto.camp.trim(),
       phone: normalizePhoneNumber(dto.phone),
     });
   }
@@ -80,9 +70,8 @@ class DriverService {
       driverCode: dto.driverCode ?? existing.driverCode,
       name: dto.name ?? existing.name,
       phone: dto.phone ?? existing.phone,
-      routesWeek13: dto.routesWeek13 ?? existing.routesWeek13,
-      routesWeek24: dto.routesWeek24 ?? existing.routesWeek24,
-      weekPattern: dto.weekPattern ?? existing.weekPattern,
+      camp: dto.camp ?? existing.camp,
+      routes: dto.routes ?? existing.routes,
       contractType: dto.contractType ?? existing.contractType,
     };
     this.validateDriverInput(merged);
@@ -111,10 +100,8 @@ export interface GridRow {
   driverCode: string;
   driverName: string;
   phone: string;
-  routeNumber: string;
-  routesWeek13: string;
-  routesWeek24: string;
-  weekPattern: string;
+  camp: string;
+  routes: string;
   contractType: string;
   shifts: {
     [date: string]: {
@@ -156,10 +143,8 @@ class ScheduleService {
         driverCode: driver.driverCode,
         driverName: driver.name,
         phone: driver.phone,
-        routeNumber: driver.routeNumber,
-        routesWeek13: driver.routesWeek13,
-        routesWeek24: driver.routesWeek24,
-        weekPattern: driver.weekPattern,
+        camp: driver.camp,
+        routes: driver.routes,
         contractType: driver.contractType,
         shifts: shiftMap,
       };
@@ -173,12 +158,9 @@ class ScheduleService {
     const shift = await scheduleRepository.upsertShift(driverId, date, status);
 
     if (status !== '휴무') {
-      const activeRoutes = getActiveRoutesForDate(driver, date);
+      const activeRoutes = parseRoutes(driver.routes);
       for (const route of activeRoutes) {
         await backupRepository.removeAssignment(date, route);
-      }
-      if (activeRoutes.length === 0 && driver.routeNumber) {
-        await backupRepository.removeAssignment(date, driver.routeNumber);
       }
     }
 
@@ -201,7 +183,7 @@ class ScheduleService {
         id: shift.id,
         driverId: shift.driverId,
         driverName: driver ? driver.name : '미상',
-        routeNumber: driver ? driver.routeNumber : '-',
+        routeNumber: driver ? driver.routes.split(',')[0] || '-' : '-',
         date: shift.date,
         backupAssigned: !!backup,
         backupDriverId: backup?.backupDriverId,

@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Driver, CreateDriverForm, UpdateDriverForm } from '../models/driver.model';
 import { ApiService } from '../services/apiService';
 import { matchesDriverSearch } from '../utils/searchFilter';
-import { getAllDriverRoutes } from '../utils/routeUtils';
+import { getAllDriverRoutes, parseCamps } from '../utils/routeUtils';
 
 export function useDriverViewModel() {
   const [drivers, setDrivers] = useState<Driver[]>([]);
@@ -10,6 +10,7 @@ export function useDriverViewModel() {
   const [error, setError] = useState<string | null>(null);
 
   const [searchTerm, setSearchTerm] = useState<string>('');
+  const [campFilter, setCampFilter] = useState<string>('');
   const [contractTypeFilter, setContractTypeFilter] = useState<string>('');
   const [routeFilter, setRouteFilter] = useState<string>('');
 
@@ -41,18 +42,39 @@ export function useDriverViewModel() {
     loadDrivers();
   }, [loadDrivers]);
 
+  const availableCamps = useMemo(() => {
+    const set = new Set<string>();
+    drivers.forEach(d => {
+      parseCamps(d.camp).forEach(c => set.add(c));
+    });
+    return Array.from(set).sort((a, b) => b.localeCompare(a, undefined, { numeric: true }));
+  }, [drivers]);
+
+  const availableRoutes = useMemo(() => {
+    // Route filter is disabled if Camp is not selected
+    if (!campFilter) return [];
+
+    const set = new Set<string>();
+    drivers
+      .filter(d => parseCamps(d.camp).some(c => c.toLowerCase() === campFilter.toLowerCase()))
+      .forEach(d => getAllDriverRoutes(d).forEach(r => set.add(r)));
+    return Array.from(set).sort((a, b) => b.localeCompare(a, undefined, { numeric: true }));
+  }, [drivers, campFilter]);
+
   const filteredDrivers = useMemo(() => {
     return drivers.filter(d => {
       const matchesSearch = matchesDriverSearch(searchTerm, {
         name: d.name,
         phone: d.phone,
-        routeNumber: d.routeNumber,
+        camp: d.camp,
+        routes: d.routes,
         driverCode: d.driverCode,
-        routesWeek13: d.routesWeek13,
-        routesWeek24: d.routesWeek24,
         contractType: d.contractType,
         id: d.id,
       });
+
+      const matchesCamp =
+        campFilter === '' || parseCamps(d.camp).some(c => c.toLowerCase() === campFilter.toLowerCase());
 
       const matchesContract =
         contractTypeFilter === '' || d.contractType === contractTypeFilter;
@@ -62,15 +84,9 @@ export function useDriverViewModel() {
         routeFilter === '' ||
         allRoutes.some(r => r.toLowerCase().includes(routeFilter.toLowerCase()));
 
-      return matchesSearch && matchesContract && matchesRoute;
+      return matchesSearch && matchesCamp && matchesContract && matchesRoute;
     });
-  }, [drivers, searchTerm, contractTypeFilter, routeFilter]);
-
-  const availableRoutes = useMemo(() => {
-    const set = new Set<string>();
-    drivers.forEach(d => getAllDriverRoutes(d).forEach(r => set.add(r)));
-    return Array.from(set).sort();
-  }, [drivers]);
+  }, [drivers, searchTerm, campFilter, contractTypeFilter, routeFilter]);
 
   const handleCreateDriver = async (form: CreateDriverForm) => {
     try {
@@ -107,6 +123,7 @@ export function useDriverViewModel() {
 
   const resetFilters = () => {
     setSearchTerm('');
+    setCampFilter('');
     setContractTypeFilter('');
     setRouteFilter('');
   };
@@ -114,11 +131,14 @@ export function useDriverViewModel() {
   return {
     drivers,
     filteredDrivers,
+    availableCamps,
     availableRoutes,
     loading,
     error,
     searchTerm,
     setSearchTerm,
+    campFilter,
+    setCampFilter,
     contractTypeFilter,
     setContractTypeFilter,
     routeFilter,

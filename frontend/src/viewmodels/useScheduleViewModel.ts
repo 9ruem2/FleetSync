@@ -2,8 +2,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { ScheduleGridRow, ShiftStatus } from '../models/schedule.model';
 import { ApiService } from '../services/apiService';
 import { matchesDriverSearch } from '../utils/searchFilter';
-import { getAllDriverRoutes, getActiveRoutesForDate } from '../utils/routeUtils';
-import type { WeekPattern } from '../models/driver.model';
+import { getAllDriverRoutes, parseCamps } from '../utils/routeUtils';
 
 export type ScheduleViewMode = 'weekly' | 'monthly';
 
@@ -14,6 +13,7 @@ export function useScheduleViewModel() {
   const [error, setError] = useState<string | null>(null);
 
   const [searchTerm, setSearchTerm] = useState<string>('');
+  const [campFilter, setCampFilter] = useState<string>('');
   const [contractTypeFilter, setContractTypeFilter] = useState<string>('');
   const [routeFilter, setRouteFilter] = useState<string>('');
 
@@ -43,20 +43,43 @@ export function useScheduleViewModel() {
     setTimeout(() => setToastMessage(null), 3500);
   };
 
+  const weekOfYearInfo = useMemo(() => {
+    const [y, m, dNum] = selectedDate.split('-').map(Number);
+    const base = new Date(y, m - 1, dNum);
+    const currentDay = base.getDay(); // 0 = Sun, 6 = Sat
+    const sunday = new Date(y, m - 1, dNum - currentDay);
+
+    // Using Thursday of the week to get reference year
+    const thursday = new Date(sunday.getFullYear(), sunday.getMonth(), sunday.getDate() + 4);
+    const year = thursday.getFullYear();
+
+    // First Sunday of the year (on or before Jan 1)
+    const jan1 = new Date(year, 0, 1);
+    const jan1Sunday = new Date(year, 0, 1 - jan1.getDay());
+
+    const diffMs = sunday.getTime() - jan1Sunday.getTime();
+    const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24));
+    const weekNumber = Math.floor(diffDays / 7) + 1;
+
+    return { year, weekNumber };
+  }, [selectedDate]);
+
   const dateColumns = useMemo(() => {
     const dates: { dateStr: string; dayName: string; dayNumber: number; isWeekend: boolean }[] = [];
-    const base = new Date(selectedDate);
+    const [y, m, dNum] = selectedDate.split('-').map(Number);
+    const base = new Date(y, m - 1, dNum);
     const dayNames = ['일', '월', '화', '수', '목', '금', '토'];
 
     if (viewMode === 'weekly') {
-      const currentDay = base.getDay();
-      const diffToMon = base.getDate() - currentDay + (currentDay === 0 ? -6 : 1);
-      const monday = new Date(base.setDate(diffToMon));
+      const currentDay = base.getDay(); // 0 = Sun, 1 = Mon, ..., 6 = Sat
+      const sunday = new Date(y, m - 1, dNum - currentDay);
 
       for (let i = 0; i < 7; i++) {
-        const d = new Date(monday);
-        d.setDate(monday.getDate() + i);
-        const dateStr = d.toISOString().split('T')[0];
+        const d = new Date(sunday.getFullYear(), sunday.getMonth(), sunday.getDate() + i);
+        const yearStr = d.getFullYear();
+        const monthStr = String(d.getMonth() + 1).padStart(2, '0');
+        const dayStr = String(d.getDate()).padStart(2, '0');
+        const dateStr = `${yearStr}-${monthStr}-${dayStr}`;
         const dayIdx = d.getDay();
         dates.push({
           dateStr,
@@ -107,46 +130,57 @@ export function useScheduleViewModel() {
     loadScheduleGrid();
   }, [loadScheduleGrid]);
 
-  const availableRoutes = useMemo(() => {
+  const availableCamps = useMemo(() => {
     const set = new Set<string>();
     gridRows.forEach(row => {
-      getAllDriverRoutes({
-        routesWeek13: row.routesWeek13,
-        routesWeek24: row.routesWeek24,
-        routeNumber: row.routeNumber,
-      }).forEach(r => set.add(r));
+      parseCamps(row.camp).forEach(c => set.add(c));
     });
-    return Array.from(set).sort();
+    return Array.from(set).sort((a, b) => b.localeCompare(a, undefined, { numeric: true }));
   }, [gridRows]);
+
+  const availableRoutes = useMemo(() => {
+    // Route filter disabled if Camp is not selected
+    if (!campFilter) return [];
+
+    const set = new Set<string>();
+    gridRows
+      .filter(row => parseCamps(row.camp).some(c => c.toLowerCase() === campFilter.toLowerCase()))
+      .forEach(row => {
+        getAllDriverRoutes({
+          routes: row.routes,
+        }).forEach(r => set.add(r));
+      });
+    return Array.from(set).sort((a, b) => b.localeCompare(a, undefined, { numeric: true }));
+  }, [gridRows, campFilter]);
 
   const filteredGridRows = useMemo(() => {
     return gridRows.filter(row => {
       const matchesSearch = matchesDriverSearch(searchTerm, {
         name: row.driverName,
         phone: row.phone,
-        routeNumber: row.routeNumber,
+        camp: row.camp,
+        routes: row.routes,
         driverCode: row.driverCode,
-        routesWeek13: row.routesWeek13,
-        routesWeek24: row.routesWeek24,
         contractType: row.contractType,
         id: row.driverId,
       });
+
+      const matchesCamp =
+        campFilter === '' || parseCamps(row.camp).some(c => c.toLowerCase() === campFilter.toLowerCase());
 
       const matchesContract =
         contractTypeFilter === '' || row.contractType === contractTypeFilter;
 
       const allRoutes = getAllDriverRoutes({
-        routesWeek13: row.routesWeek13,
-        routesWeek24: row.routesWeek24,
-        routeNumber: row.routeNumber,
+        routes: row.routes,
       });
       const matchesRoute =
         routeFilter === '' ||
         allRoutes.some(r => r.toLowerCase().includes(routeFilter.toLowerCase()));
 
-      return matchesSearch && matchesContract && matchesRoute;
+      return matchesSearch && matchesCamp && matchesContract && matchesRoute;
     });
-  }, [gridRows, searchTerm, contractTypeFilter, routeFilter]);
+  }, [gridRows, searchTerm, campFilter, contractTypeFilter, routeFilter]);
 
   const handleUpdateCellStatus = async (driverId: number, date: string, status: ShiftStatus) => {
     try {
@@ -169,21 +203,14 @@ export function useScheduleViewModel() {
     });
   };
 
-  const getPrimaryRouteForRow = (row: ScheduleGridRow, date: string): string => {
-    const active = getActiveRoutesForDate(
-      {
-        routesWeek13: row.routesWeek13,
-        routesWeek24: row.routesWeek24,
-        weekPattern: row.weekPattern as WeekPattern,
-        routeNumber: row.routeNumber,
-      },
-      date
-    );
-    return active[0] ?? row.routeNumber;
+  const getPrimaryRouteForRow = (row: ScheduleGridRow, _date: string): string => {
+    const active = getAllDriverRoutes({ routes: row.routes });
+    return active[0] ?? '';
   };
 
   const resetFilters = () => {
     setSearchTerm('');
+    setCampFilter('');
     setContractTypeFilter('');
     setRouteFilter('');
   };
@@ -195,15 +222,19 @@ export function useScheduleViewModel() {
     setSelectedDate,
     gridRows,
     filteredGridRows,
+    availableCamps,
     availableRoutes,
     searchTerm,
     setSearchTerm,
+    campFilter,
+    setCampFilter,
     contractTypeFilter,
     setContractTypeFilter,
     routeFilter,
     setRouteFilter,
     resetFilters,
     dateColumns,
+    weekOfYearInfo,
     loading,
     error,
     activeCell,

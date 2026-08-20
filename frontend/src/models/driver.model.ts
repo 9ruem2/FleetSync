@@ -1,36 +1,43 @@
 export type ContractType = '고정' | '용차' | '백업';
-export type WeekPattern = '1,3' | '2,4' | 'both';
+
+export interface DriverCampRouteInfo {
+  campId: number;
+  campName: string;
+  routeId?: number;
+  route: string;
+}
 
 export interface Driver {
   id: number;
+  companyId?: number;
+  companyName?: string;
   driverCode: string;
   name: string;
   phone: string;
-  routeNumber: string;
-  routesWeek13: string;
-  routesWeek24: string;
-  weekPattern: WeekPattern;
+  camp: string;        // 콤마 구분 캠프 목록
+  routes: string;      // 콤마 구분 라우트 목록 (camp와 1:1)
   contractType: ContractType;
   createdAt: string;
   isDeleted: boolean;
+  campRoutes?: DriverCampRouteInfo[];
 }
 
 export interface CreateDriverForm {
-  driverCode: string;
+  companyId?: number;
+  driverCode?: string;
   name: string;
   phone: string;
-  routesWeek13: string;
-  routesWeek24: string;
-  weekPattern: WeekPattern;
+  camp: string;    // 콤마구분 캠프명 목록
+  routes: string;  // 콤마구분 라우트 목록 (camp와 1:1 대응)
   contractType: ContractType;
 }
 
 export interface UpdateDriverForm {
-  driverCode: string;
+  companyId?: number;
+  driverCode?: string;
   name: string;
   phone: string;
-  routesWeek13: string;
-  routesWeek24: string;
-  weekPattern: WeekPattern;
+  camp: string;
+  routes: string;
   contractType: ContractType;
 }

@@ -12,10 +12,8 @@ export interface ScheduleGridRow {
   driverCode: string;
   driverName: string;
   phone: string;
-  routeNumber: string;
-  routesWeek13: string;
-  routesWeek24: string;
-  weekPattern: string;
+  camp: string;
+  routes: string;
   contractType: string;
   shifts: {
     [date: string]: GridShiftCell;

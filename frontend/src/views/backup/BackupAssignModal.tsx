@@ -28,16 +28,16 @@ export const BackupAssignModal: React.FC<Props> = ({
   if (!target) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
-      <div className="bg-white rounded-2xl shadow-2xl border border-slate-100 w-full max-w-lg overflow-hidden animate-in fade-in zoom-in duration-200">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-3 sm:p-4">
+      <div className="bg-white rounded-2xl shadow-2xl border border-slate-100 w-full max-w-lg overflow-hidden animate-in fade-in zoom-in duration-200 max-h-[92vh] overflow-y-auto">
         {/* Header */}
-        <div className="bg-gradient-to-r from-slate-900 to-slate-800 text-white px-6 py-4 flex items-center justify-between">
+        <div className="bg-gradient-to-r from-slate-900 to-slate-800 text-white px-5 sm:px-6 py-3.5 sm:py-4 flex items-center justify-between sticky top-0 z-10">
           <div>
-            <h2 className="text-base font-bold flex items-center gap-2">
-              <UserCheck className="w-5 h-5 text-amber-400" />
+            <h2 className="text-sm sm:text-base font-bold flex items-center gap-2">
+              <UserCheck className="w-5 h-5 text-amber-400 shrink-0" />
               <span>대차(백업 기사) 지정</span>
             </h2>
-            <p className="text-xs text-slate-300 mt-0.5">
+            <p className="text-[11px] sm:text-xs text-slate-300 mt-0.5">
               휴무가 발생한 라우트에 대체 근무할 백업 기사를 선택하여 배정합니다.
             </p>
           </div>
@@ -50,7 +50,7 @@ export const BackupAssignModal: React.FC<Props> = ({
         </div>
 
         {/* Modal Body */}
-        <div className="p-6 space-y-5">
+        <div className="p-4 sm:p-6 space-y-4 sm:space-y-5">
           {/* Target Info Summary */}
           <div className="bg-amber-50 rounded-xl p-4 border border-amber-200 text-xs space-y-2">
             <div className="flex items-center justify-between text-amber-900 font-bold">
@@ -121,7 +121,7 @@ export const BackupAssignModal: React.FC<Props> = ({
                               <Phone className="w-3 h-3 text-slate-400" />
                               {formatPhoneNumber(candidate.phone)}
                             </span>
-                            <span>기본 라우트: {candidate.routeNumber}</span>
+                            <span>담당 라우트: {candidate.routes || '-'}</span>
                           </div>
                         </div>
                       </div>
