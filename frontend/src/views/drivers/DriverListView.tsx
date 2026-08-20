@@ -32,7 +32,7 @@ export const DriverListView: React.FC = () => {
         <div>
           <h2 className="text-lg sm:text-xl font-bold text-slate-900 flex items-center gap-2">
             <Users className="w-5 h-5 sm:w-6 sm:h-6 text-blue-600 shrink-0" />
-            <span>기사 목록 조회</span>
+            <span>기사 관리</span>
           </h2>
           <p className="text-xs text-slate-500 mt-1">
             전체 등록 기사의 기본 정보, 연락처, 계약 형태를
@@ -134,7 +134,7 @@ export const DriverListView: React.FC = () => {
                         </div>
                       </td>
 
-                      {/* Camp + Route (통합 인라인 표시 - 오름차순 정렬) */}
+                      {/* Camp + Route (통합 인라인 표시 - 필터 조건 적용 및 오름차순 정렬) */}
                       <td className="py-3.5 px-4 sm:px-6">
                         <div className="flex flex-wrap gap-1.5 max-w-[360px]">
                           {(() => {
@@ -152,11 +152,36 @@ export const DriverListView: React.FC = () => {
                                 </span>
                               );
 
-                            // 캠프명 오름차순 -> 라우터명 오름차순 정렬
-                            const pairs = camps.map((c, i) => ({
+                            let pairs = camps.map((c, i) => ({
                               camp: c,
                               route: routes[i] || "",
                             }));
+
+                            // 필터가 선택되어 있는 경우 해당 필터에 맞는 캠프/라우트만 선별
+                            if (vm.campFilter) {
+                              pairs = pairs.filter(
+                                (p) =>
+                                  p.camp.toLowerCase() ===
+                                  vm.campFilter.toLowerCase(),
+                              );
+                            }
+                            if (vm.routeFilter) {
+                              pairs = pairs.filter((p) =>
+                                p.route
+                                  .toLowerCase()
+                                  .includes(vm.routeFilter.toLowerCase()),
+                              );
+                            }
+
+                            if (pairs.length === 0) {
+                              return (
+                                <span className="text-slate-400 text-xs">
+                                  -
+                                </span>
+                              );
+                            }
+
+                            // 캠프명 오름차순 -> 라우터명 오름차순 정렬
                             pairs.sort((a, b) => {
                               const campComp = a.camp.localeCompare(
                                 b.camp,
@@ -277,7 +302,7 @@ export const DriverListView: React.FC = () => {
                     </div>
                   </div>
 
-                  {/* Camps & Routes (오름차순 정렬) */}
+                  {/* Camps & Routes (필터 조건 적용 및 오름차순 정렬) */}
                   <div className="flex flex-wrap gap-1.5 pt-0.5">
                     {(() => {
                       const camps = (driver.camp || "")
@@ -294,10 +319,35 @@ export const DriverListView: React.FC = () => {
                           </span>
                         );
 
-                      const pairs = camps.map((c, i) => ({
+                      let pairs = camps.map((c, i) => ({
                         camp: c,
                         route: routes[i] || "",
                       }));
+
+                      // 필터가 선택되어 있는 경우 해당 필터에 맞는 캠프/라우트만 선별
+                      if (vm.campFilter) {
+                        pairs = pairs.filter(
+                          (p) =>
+                            p.camp.toLowerCase() ===
+                            vm.campFilter.toLowerCase(),
+                        );
+                      }
+                      if (vm.routeFilter) {
+                        pairs = pairs.filter((p) =>
+                          p.route
+                            .toLowerCase()
+                            .includes(vm.routeFilter.toLowerCase()),
+                        );
+                      }
+
+                      if (pairs.length === 0) {
+                        return (
+                          <span className="text-slate-400 text-xs">
+                            해당 필터 라우트 없음
+                          </span>
+                        );
+                      }
+
                       pairs.sort((a, b) => {
                         const campComp = a.camp.localeCompare(
                           b.camp,

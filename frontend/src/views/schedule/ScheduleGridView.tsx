@@ -194,8 +194,19 @@ export const ScheduleGridView: React.FC = () => {
               </thead>
               <tbody className="divide-y divide-slate-200 text-xs">
                 {vm.filteredGridRows.map((row) => {
-                  const routes = parseRoutes(row.routes).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
-                  const camps = parseCamps(row.camp).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+                  let routes = parseRoutes(row.routes);
+                  let camps = parseCamps(row.camp);
+
+                  // 캠프 / 라우트 필터가 선택되어 있는 경우 해당 필터 항목만 선별
+                  if (vm.campFilter) {
+                    camps = camps.filter(c => c.toLowerCase() === vm.campFilter.toLowerCase());
+                  }
+                  if (vm.routeFilter) {
+                    routes = routes.filter(r => r.toLowerCase().includes(vm.routeFilter.toLowerCase()));
+                  }
+
+                  routes.sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+                  camps.sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
 
                   return (
                     <tr
