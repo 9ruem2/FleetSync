@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#4F9EF8"/>
+      <stop offset="100%" stop-color="#1A3FD4"/>
+    </linearGradient>
+    <clipPath id="rounded">
+      <rect width="100" height="100" rx="22"/>
+    </clipPath>
+  </defs>
+
+  <!-- 파란 둥근 배경 -->
+  <rect width="100" height="100" rx="22" fill="url(#bg)"/>
+
+  <!-- 흰색 배송 트럭 (van/delivery truck 스타일) -->
+  <g fill="white" clip-path="url(#rounded)">
+    <!-- 차체(화물칸) 몸통 -->
+    <rect x="12" y="34" width="44" height="28" rx="3"/>
+    <!-- 운전석(캡) 앞부분 -->
+    <path d="M56 42 L56 62 L84 62 L84 52 Q83 42 73 42 Z"/>
+    <!-- 운전석 창문 (파란색으로 뚫어서 유리 효과) -->
+    <rect x="60" y="45" width="18" height="13" rx="2" fill="url(#bg)"/>
+    <!-- 차체 하단 사이드 스텝 -->
+    <rect x="10" y="60" width="48" height="3" rx="1.5"/>
+    <!-- 앞 범퍼/그릴 -->
+    <rect x="80" y="57" width="6" height="5" rx="1"/>
+  </g>
+
+  <!-- 바퀴 (앞) -->
+  <circle cx="71" cy="64" r="8" fill="url(#bg)"/>
+  <circle cx="71" cy="64" r="8" fill="white" opacity="0.15"/>
+  <circle cx="71" cy="64" r="5.5" fill="white"/>
+  <circle cx="71" cy="64" r="2.2" fill="url(#bg)"/>
+
+  <!-- 바퀴 (뒤) -->
+  <circle cx="30" cy="64" r="8" fill="url(#bg)"/>
+  <circle cx="30" cy="64" r="8" fill="white" opacity="0.15"/>
+  <circle cx="30" cy="64" r="5.5" fill="white"/>
+  <circle cx="30" cy="64" r="2.2" fill="url(#bg)"/>
+</svg>

@@ -1,33 +1,40 @@
-import { drizzle as drizzlePg } from 'drizzle-orm/postgres-js';
-import postgres from 'postgres';
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import dotenv from 'dotenv';
 import path from 'path';
-import * as schema from './schema';
 
 dotenv.config();
 dotenv.config({ path: path.resolve(process.cwd(), '.env') });
 dotenv.config({ path: path.resolve(process.cwd(), '../.env') });
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-let dbInstance: any;
+let supabaseInstance: SupabaseClient<any> | null = null;
 
-export function getDb() {
-  if (!dbInstance) {
-    const connectionString =
-      process.env.DATABASE_URL ||
-      process.env.SUPABASE_DATABASE_URL ||
-      process.env.POSTGRES_URL;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function getDb(): SupabaseClient<any> {
+  if (!supabaseInstance) {
+    const url =
+      process.env.SUPABASE_URL ||
+      process.env.NEXT_PUBLIC_SUPABASE_URL;
 
-    if (!connectionString) {
+    // 백엔드에서는 service_role 키를 우선 사용 (RLS 완전 우회)
+    // service_role 키가 없으면 publishable/anon 키로 폴백
+    const key =
+      process.env.SUPABASE_SERVICE_KEY ||
+      process.env.SUPABASE_SERVICE_ROLE_KEY ||
+      process.env.SUPABASE_PUBLISHABLE_KEY ||
+      process.env.SUPABASE_ANON_KEY ||
+      process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ||
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+    if (!url || !key) {
       throw new Error(
-        'Database connection string not found. Please define DATABASE_URL or SUPABASE_DATABASE_URL in .env'
+        'Supabase configuration not found. Please define SUPABASE_URL and SUPABASE_SERVICE_KEY in .env'
       );
     }
 
-    // Connect to Supabase / PostgreSQL via postgres driver
-    const client = postgres(connectionString, { prepare: false });
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    dbInstance = (drizzlePg as any)({ client, schema });
+    supabaseInstance = createClient(url, key);
   }
-  return dbInstance;
+  return supabaseInstance;
 }
+

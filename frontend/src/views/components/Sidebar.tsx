@@ -19,9 +19,9 @@ export const Sidebar: React.FC<Props> = ({ activeTab, setActiveTab, isOpen = fal
     },
     {
       id: 'schedule',
-      label: '근무 스케줄표',
+      label: '스케줄 조회',
       icon: CalendarRange,
-      description: '주간/월간 근무 & 대차 지정',
+      description: '주간/월간 근무',
     },
     {
       id: 'calendar',

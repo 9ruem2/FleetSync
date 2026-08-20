@@ -89,8 +89,16 @@ export const SettingsModal: React.FC<Props> = ({ isOpen, onClose }) => {
   const handleAddCamp = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedCompany || !newCampName.trim()) return;
+
+    const trimmed = newCampName.trim();
+    const isDuplicate = camps.some(c => c.name.toLowerCase() === trimmed.toLowerCase());
+    if (isDuplicate) {
+      alert(`이미 등록된 캠프명입니다. ('${trimmed}')`);
+      return;
+    }
+
     try {
-      const created = await ApiService.createCamp(selectedCompany.id, newCampName);
+      const created = await ApiService.createCamp(selectedCompany.id, trimmed);
       setNewCampName('');
       await loadCamps(selectedCompany.id);
       setSelectedCamp(created);
@@ -113,8 +121,16 @@ export const SettingsModal: React.FC<Props> = ({ isOpen, onClose }) => {
   const handleAddRoute = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedCamp || !newRouteName.trim()) return;
+
+    const trimmed = newRouteName.trim();
+    const isDuplicate = routes.some(r => r.name.toLowerCase() === trimmed.toLowerCase());
+    if (isDuplicate) {
+      alert(`이미 등록된 라우터명입니다. ('${trimmed}')`);
+      return;
+    }
+
     try {
-      await ApiService.createRoute(selectedCamp.id, newRouteName);
+      await ApiService.createRoute(selectedCamp.id, trimmed);
       setNewRouteName('');
       await loadRoutes(selectedCamp.id);
     } catch (err: any) {

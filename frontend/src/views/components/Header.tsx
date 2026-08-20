@@ -90,7 +90,7 @@ export const Header: React.FC<Props> = ({
             </div>
           </div>
 
-          {onOpenSettings && (
+          {/* {onOpenSettings && (
             <button
               onClick={onOpenSettings}
               className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 transition ml-1"
@@ -98,7 +98,7 @@ export const Header: React.FC<Props> = ({
             >
               <Settings className="w-4.5 h-4.5 text-slate-700" />
             </button>
-          )}
+          )} */}
         </div>
       </div>
     </header>

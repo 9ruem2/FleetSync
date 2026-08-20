@@ -2,7 +2,6 @@ import { masterRepository, driverRepository } from '../repositories/dbRepository
 import { driverService, scheduleService, backupService } from '../services/index';
 import { CreateDriverDTO, UpdateDriverDTO, UpdateShiftStatusDTO, AssignBackupDTO } from '../types';
 import { getDb } from '../../../db';
-import { drivers } from '../../../db/schema';
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
@@ -43,7 +42,7 @@ export async function handleApiRequest(req: Request): Promise<Response> {
     // Health check
     if (path === '/api/health' && method === 'GET') {
       try {
-        await getDb().select({ id: drivers.id }).from(drivers).limit(1);
+        await getDb().from('companies').select('id').limit(1);
         return jsonResponse({
           success: true,
           data: {
@@ -103,8 +102,12 @@ export async function handleApiRequest(req: Request): Promise<Response> {
     if (path === '/api/camps' && method === 'POST') {
       const body = await parseBody<{ companyId: number; name: string }>(req);
       if (!body.companyId || !body.name?.trim()) return errorResponse('companyId와 캠프명을 입력해주세요', 400);
-      const data = await masterRepository.createCamp(body.companyId, body.name);
-      return jsonResponse({ success: true, data, message: '캠프가 생성되었습니다' }, 201);
+      try {
+        const data = await masterRepository.createCamp(body.companyId, body.name);
+        return jsonResponse({ success: true, data, message: '캠프가 생성되었습니다' }, 201);
+      } catch (err: any) {
+        return errorResponse(err.message || '캠프 등록 실패', 400);
+      }
     }
     const campMatch = path.match(/^\/api\/camps\/([^/]+)$/);
     if (campMatch && method === 'DELETE') {
@@ -125,9 +128,13 @@ export async function handleApiRequest(req: Request): Promise<Response> {
     }
     if (path === '/api/routes' && method === 'POST') {
       const body = await parseBody<{ campId: number; name: string }>(req);
-      if (!body.campId || !body.name?.trim()) return errorResponse('campId와 라우트명을 입력해주세요', 400);
-      const data = await masterRepository.createRoute(body.campId, body.name);
-      return jsonResponse({ success: true, data, message: '라우트가 생성되었습니다' }, 201);
+      if (!body.campId || !body.name?.trim()) return errorResponse('campId와 라우터명을 입력해주세요', 400);
+      try {
+        const data = await masterRepository.createRoute(body.campId, body.name);
+        return jsonResponse({ success: true, data, message: '라우터가 생성되었습니다' }, 201);
+      } catch (err: any) {
+        return errorResponse(err.message || '라우터 등록 실패', 400);
+      }
     }
     const routeMatch = path.match(/^\/api\/routes\/([^/]+)$/);
     if (routeMatch && method === 'DELETE') {
