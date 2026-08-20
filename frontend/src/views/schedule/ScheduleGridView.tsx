@@ -103,15 +103,15 @@ export const ScheduleGridView: React.FC = () => {
             <ChevronLeft className="w-4 h-4" />
           </button>
 
-          <div className="flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 bg-slate-50 rounded-xl border border-slate-200 font-mono text-[11px] sm:text-xs font-bold text-slate-800">
+          <div className="flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-1.5 bg-slate-50 rounded-xl border border-slate-200 font-mono text-[10px] sm:text-xs font-bold text-slate-800 whitespace-nowrap min-w-0 overflow-hidden">
             <Calendar className="w-4 h-4 text-blue-600 shrink-0" />
             {vm.viewMode === 'weekly' && (
-              <span className="inline-flex items-center px-2 py-0.5 bg-blue-600 text-white rounded-md font-sans text-[11px] sm:text-xs font-extrabold shadow-2xs">
+              <span className="inline-flex items-center px-1.5 sm:px-2 py-0.5 bg-blue-600 text-white rounded-md font-sans text-[10px] sm:text-xs font-extrabold shadow-2xs shrink-0">
                 {vm.weekOfYearInfo.weekNumber}주차
               </span>
             )}
-            <span>
-              {vm.dateColumns[0]?.dateStr} ~ {vm.dateColumns[vm.dateColumns.length - 1]?.dateStr}
+            <span className="truncate">
+              {vm.dateColumns[0]?.dateStr?.slice(5)} ~ {vm.dateColumns[vm.dateColumns.length - 1]?.dateStr?.slice(5)}
             </span>
           </div>
 
@@ -132,9 +132,9 @@ export const ScheduleGridView: React.FC = () => {
           </button>
         </div>
 
-        {/* Legend (Flex wrap on mobile) */}
-        <div className="flex flex-wrap items-center gap-2 sm:gap-3 text-xs font-medium text-slate-600 pt-2 md:pt-0 border-t md:border-t-0 border-slate-100">
-          <span className="font-bold text-slate-400 text-[11px]">범례:</span>
+        {/* Legend */}
+        <div className="flex flex-wrap items-center gap-1.5 sm:gap-3 text-xs font-medium text-slate-600 pt-2 md:pt-0 border-t md:border-t-0 border-slate-100">
+          <span className="font-bold text-slate-400 text-[11px] shrink-0">범례:</span>
           <StatusBadge status="고정" size="sm" />
           <StatusBadge status="용차" size="sm" />
           <StatusBadge status="백업" size="sm" />
