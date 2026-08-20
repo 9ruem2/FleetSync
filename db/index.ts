@@ -1,11 +1,16 @@
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import dotenv from 'dotenv';
-import path from 'path';
 
-dotenv.config();
-dotenv.config({ path: path.resolve(process.cwd(), '.env') });
-dotenv.config({ path: path.resolve(process.cwd(), '../.env') });
+try {
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const dotenv = require('dotenv');
+  const path = require('path');
+  dotenv.config();
+  dotenv.config({ path: path.resolve(process.cwd(), '.env') });
+  dotenv.config({ path: path.resolve(process.cwd(), '../.env') });
+} catch {
+  // Serverless 환경에서는 이미 process.env에 환경변수가 주입되어 있으므로 무시
+}
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let supabaseInstance: SupabaseClient<any> | null = null;
