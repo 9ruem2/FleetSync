@@ -358,73 +358,89 @@ async function getDriverFull(driverRow: {
 
 class DriverRepository {
   public async findAll(includeDeleted = false): Promise<Driver[]> {
-    const sb = getDb();
-    const query = sb.from('drivers').select('*').order('id');
-    const { data: driverRows, error } = includeDeleted ? await query : await query.eq('is_deleted', false);
-    if (error) throw error;
+    try {
+      const sb = getDb();
+      const query = sb.from('drivers').select('*').order('id');
+      const { data: driverRows, error } = includeDeleted ? await query : await query.eq('is_deleted', false);
+      if (error) {
+        console.error('[DriverRepository.findAll error]:', error);
+        return [];
+      }
 
-    const filteredDrivers = (driverRows || []) as {
-      id: number; company_id: number | null; driver_code: string; name: string;
-      phone: string; contract_type: string; created_at: string; is_deleted: boolean;
-    }[];
-    if (filteredDrivers.length === 0) return [];
+      // is_deleted가 false인 기사만 명확히 필터링 (삭제된 기사는 제외)
+      const filteredDrivers = ((driverRows || []) as {
+        id: number; company_id: number | null; driver_code: string; name: string;
+        phone: string; contract_type: string; created_at: string; is_deleted: boolean;
+      }[]).filter(d => includeDeleted ? true : d.is_deleted === false);
 
-    // 배치 조회
-    const { data: allCampRoutesData } = await sb
-      .from('driver_camp_routes')
-      .select('driver_id, camp_id, route_id, route_name, camps(name)');
-    const { data: compRowsData } = await sb.from('companies').select('id, name');
+      if (filteredDrivers.length === 0) return [];
 
-    type AllCampRouteRow = { driver_id: number; camp_id: number; route_id: number | null; route_name: string; camps: { name: string } | null };
-    const allCampRoutes = (allCampRoutesData || []) as unknown as AllCampRouteRow[];
-    const compMap = new Map(
-      ((compRowsData || []) as { id: number; name: string }[]).map(c => [c.id, c.name])
-    );
+      // 배치 조회
+      const { data: allCampRoutesData } = await sb
+        .from('driver_camp_routes')
+        .select('driver_id, camp_id, route_id, route_name, camps(name)');
+      const { data: compRowsData } = await sb.from('companies').select('id, name');
 
-    const mappingMap = new Map<number, typeof allCampRoutes>();
-    allCampRoutes.forEach(r => {
-      const list = mappingMap.get(r.driver_id) || [];
-      list.push(r);
-      mappingMap.set(r.driver_id, list);
-    });
+      type AllCampRouteRow = { driver_id: number; camp_id: number; route_id: number | null; route_name: string; camps: { name: string } | null };
+      const allCampRoutes = (allCampRoutesData || []) as unknown as AllCampRouteRow[];
+      const compMap = new Map(
+        ((compRowsData || []) as { id: number; name: string }[]).map(c => [c.id, c.name])
+      );
 
-    mappingMap.forEach(list => {
-      list.sort((a, b) => {
-        const campComp = (a.camps?.name || '').localeCompare(b.camps?.name || '', undefined, { numeric: true });
-        if (campComp !== 0) return campComp;
-        return a.route_name.localeCompare(b.route_name, undefined, { numeric: true });
+      const mappingMap = new Map<number, typeof allCampRoutes>();
+      allCampRoutes.forEach(r => {
+        const list = mappingMap.get(r.driver_id) || [];
+        list.push(r);
+        mappingMap.set(r.driver_id, list);
       });
-    });
 
-    return filteredDrivers.map(d => {
-      const mappings = mappingMap.get(d.id) || [];
-      return {
-        id: d.id,
-        companyId: d.company_id ?? undefined,
-        companyName: d.company_id ? compMap.get(d.company_id) : undefined,
-        driverCode: d.driver_code || '',
-        name: d.name,
-        phone: d.phone,
-        camp: mappings.map(m => m.camps?.name || '').join(','),
-        routes: mappings.map(m => m.route_name).join(','),
-        contractType: d.contract_type as Driver['contractType'],
-        createdAt: d.created_at,
-        isDeleted: d.is_deleted,
-        campRoutes: mappings.map(m => ({
-          campId: m.camp_id,
-          campName: m.camps?.name || '',
-          routeId: m.route_id ?? undefined,
-          route: m.route_name,
-        })),
-      };
-    });
+      mappingMap.forEach(list => {
+        list.sort((a, b) => {
+          const campComp = (a.camps?.name || '').localeCompare(b.camps?.name || '', undefined, { numeric: true });
+          if (campComp !== 0) return campComp;
+          return a.route_name.localeCompare(b.route_name, undefined, { numeric: true });
+        });
+      });
+
+      return filteredDrivers.map(d => {
+        const mappings = mappingMap.get(d.id) || [];
+        return {
+          id: d.id,
+          companyId: d.company_id ?? undefined,
+          companyName: d.company_id ? compMap.get(d.company_id) : undefined,
+          driverCode: d.driver_code || '',
+          name: d.name,
+          phone: d.phone,
+          camp: mappings.map(m => m.camps?.name || '').join(','),
+          routes: mappings.map(m => m.route_name).join(','),
+          contractType: d.contract_type as Driver['contractType'],
+          createdAt: d.created_at,
+          isDeleted: d.is_deleted,
+          campRoutes: mappings.map(m => ({
+            campId: m.camp_id,
+            campName: m.camps?.name || '',
+            routeId: m.route_id ?? undefined,
+            route: m.route_name,
+          })),
+        };
+      });
+    } catch (err) {
+      console.error('[DriverRepository.findAll exception]:', err);
+      return [];
+    }
   }
 
   public async findById(id: number): Promise<Driver | undefined> {
-    const sb = getDb();
-    const { data, error } = await sb.from('drivers').select('*').eq('id', id).eq('is_deleted', false).single();
-    if (error || !data) return undefined;
-    return getDriverFull(data as Parameters<typeof getDriverFull>[0]);
+    try {
+      const sb = getDb();
+      const { data, error } = await sb.from('drivers').select('*').eq('id', id).eq('is_deleted', false).maybeSingle();
+      if (error || !data) return undefined;
+      const row = data as Parameters<typeof getDriverFull>[0];
+      return getDriverFull(row);
+    } catch (err) {
+      console.error('[DriverRepository.findById error]:', err);
+      return undefined;
+    }
   }
 
   public async create(dto: CreateDriverDTO): Promise<Driver> {
@@ -504,29 +520,42 @@ class DriverRepository {
 
 class ScheduleRepository {
   public async findShifts(startDate?: string, endDate?: string, driverId?: number): Promise<ScheduleShift[]> {
-    const sb = getDb();
-    let query = sb.from('schedule_shifts').select('*');
-    if (startDate) query = query.gte('date', startDate);
-    if (endDate) query = query.lte('date', endDate);
-    if (driverId !== undefined) query = query.eq('driver_id', driverId);
+    try {
+      const sb = getDb();
+      let query = sb.from('schedule_shifts').select('*');
+      if (startDate) query = query.gte('date', startDate);
+      if (endDate) query = query.lte('date', endDate);
+      if (driverId !== undefined) query = query.eq('driver_id', driverId);
 
-    const { data, error } = await query;
-    if (error) throw error;
-    const rows = (data || []) as { id: number; driver_id: number; date: string; status: string }[];
-    return rows.map(r => ({ id: r.id, driverId: r.driver_id, date: r.date, status: r.status as ScheduleShift['status'] }));
+      const { data, error } = await query;
+      if (error) {
+        console.error('[findShifts error]:', error);
+        return [];
+      }
+      const rows = (data || []) as { id: number; driver_id: number; date: string; status: string }[];
+      return rows.map(r => ({ id: r.id, driverId: r.driver_id, date: r.date, status: r.status as ScheduleShift['status'] }));
+    } catch (err) {
+      console.error('[findShifts exception]:', err);
+      return [];
+    }
   }
 
   public async findShift(driverId: number, date: string): Promise<ScheduleShift | undefined> {
-    const { data, error } = await getDb()
-      .from('schedule_shifts')
-      .select('*')
-      .eq('driver_id', driverId)
-      .eq('date', date)
-      .maybeSingle();
-    if (error) throw error;
-    if (!data) return undefined;
-    const r = data as { id: number; driver_id: number; date: string; status: string };
-    return { id: r.id, driverId: r.driver_id, date: r.date, status: r.status as ScheduleShift['status'] };
+    try {
+      const { data, error } = await getDb()
+        .from('schedule_shifts')
+        .select('*')
+        .eq('driver_id', driverId)
+        .eq('date', date)
+        .maybeSingle();
+      if (error) throw error;
+      if (!data) return undefined;
+      const r = data as { id: number; driver_id: number; date: string; status: string };
+      return { id: r.id, driverId: r.driver_id, date: r.date, status: r.status as ScheduleShift['status'] };
+    } catch (err) {
+      console.error('[findShift error]:', err);
+      return undefined;
+    }
   }
 
   public async upsertShift(driverId: number, date: string, status: ScheduleShift['status']): Promise<ScheduleShift> {
@@ -556,15 +585,23 @@ class ScheduleRepository {
   }
 
   public async getOffDays(startDate?: string, endDate?: string): Promise<ScheduleShift[]> {
-    const sb = getDb();
-    let query = sb.from('schedule_shifts').select('*').eq('status', '휴무');
-    if (startDate) query = query.gte('date', startDate);
-    if (endDate) query = query.lte('date', endDate);
+    try {
+      const sb = getDb();
+      let query = sb.from('schedule_shifts').select('*').eq('status', '휴무');
+      if (startDate) query = query.gte('date', startDate);
+      if (endDate) query = query.lte('date', endDate);
 
-    const { data, error } = await query;
-    if (error) throw error;
-    const rows = (data || []) as { id: number; driver_id: number; date: string; status: string }[];
-    return rows.map(r => ({ id: r.id, driverId: r.driver_id, date: r.date, status: r.status as ScheduleShift['status'] }));
+      const { data, error } = await query;
+      if (error) {
+        console.error('[getOffDays error]:', error);
+        return [];
+      }
+      const rows = (data || []) as { id: number; driver_id: number; date: string; status: string }[];
+      return rows.map(r => ({ id: r.id, driverId: r.driver_id, date: r.date, status: r.status as ScheduleShift['status'] }));
+    } catch (err) {
+      console.error('[getOffDays exception]:', err);
+      return [];
+    }
   }
 }
 
@@ -593,28 +630,49 @@ class BackupRepository {
   }
 
   public async findAll(): Promise<BackupAssignment[]> {
-    const { data, error } = await getDb().from('backup_assignments').select('*').order('id');
-    if (error) throw error;
-    return ((data || []) as Parameters<BackupRepository['toBackup']>[0][]).map(r => this.toBackup(r));
+    try {
+      const { data, error } = await getDb().from('backup_assignments').select('*').order('id');
+      if (error) {
+        console.error('[findAll backupAssignments error]:', error);
+        return [];
+      }
+      return ((data || []) as Parameters<BackupRepository['toBackup']>[0][]).map(r => this.toBackup(r));
+    } catch (err) {
+      console.error('[findAll backupAssignments exception]:', err);
+      return [];
+    }
   }
 
   public async findByDateAndRoute(date: string, routeNumber: string): Promise<BackupAssignment | undefined> {
-    const { data } = await getDb()
-      .from('backup_assignments')
-      .select('*')
-      .eq('date', date)
-      .eq('route_number', routeNumber)
-      .maybeSingle();
-    return data ? this.toBackup(data as Parameters<BackupRepository['toBackup']>[0]) : undefined;
+    try {
+      const { data } = await getDb()
+        .from('backup_assignments')
+        .select('*')
+        .eq('date', date)
+        .eq('route_number', routeNumber)
+        .maybeSingle();
+      return data ? this.toBackup(data as Parameters<BackupRepository['toBackup']>[0]) : undefined;
+    } catch (err) {
+      console.error('[findByDateAndRoute error]:', err);
+      return undefined;
+    }
   }
 
   public async findByDate(date: string): Promise<BackupAssignment[]> {
-    const { data, error } = await getDb()
-      .from('backup_assignments')
-      .select('*')
-      .eq('date', date);
-    if (error) throw error;
-    return ((data || []) as Parameters<BackupRepository['toBackup']>[0][]).map(r => this.toBackup(r));
+    try {
+      const { data, error } = await getDb()
+        .from('backup_assignments')
+        .select('*')
+        .eq('date', date);
+      if (error) {
+        console.error('[findByDate error]:', error);
+        return [];
+      }
+      return ((data || []) as Parameters<BackupRepository['toBackup']>[0][]).map(r => this.toBackup(r));
+    } catch (err) {
+      console.error('[findByDate exception]:', err);
+      return [];
+    }
   }
 
   public async assignBackup(dto: AssignBackupDTO): Promise<BackupAssignment | null> {

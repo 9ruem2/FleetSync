@@ -215,8 +215,13 @@ export async function handleApiRequest(req: Request): Promise<Response> {
       if (!startDate || !endDate) {
         return errorResponse('startDate와 endDate 조회가 필요합니다', 400);
       }
-      const grid = await scheduleService.getScheduleGrid(startDate, endDate);
-      return jsonResponse({ success: true, data: grid });
+      try {
+        const grid = await scheduleService.getScheduleGrid(startDate, endDate);
+        return jsonResponse({ success: true, data: grid });
+      } catch (err: any) {
+        console.error('[GET /api/schedules/grid error]:', err);
+        return errorResponse(err.message || '스케줄 그리드 조회 실패', 500);
+      }
     }
 
     if (path === '/api/schedules/cell' && method === 'PUT') {
@@ -224,29 +229,45 @@ export async function handleApiRequest(req: Request): Promise<Response> {
       if (!body.driverId || !body.date || !body.status) {
         return errorResponse('driverId, date, status 정보가 필수입니다', 400);
       }
-      const shift = await scheduleService.updateCellStatus(body.driverId, body.date, body.status);
-      return jsonResponse({ success: true, data: shift, message: '근무 상태가 수정되었습니다' });
+      try {
+        const shift = await scheduleService.updateCellStatus(body.driverId, body.date, body.status);
+        return jsonResponse({ success: true, data: shift, message: '근무 상태가 수정되었습니다' });
+      } catch (err: any) {
+        return errorResponse(err.message || '근무 상태 수정 실패', 400);
+      }
     }
 
     if (path === '/api/schedules/offdays' && method === 'GET') {
-      const offDays = await scheduleService.getOffDaySummary(
-        url.searchParams.get('startDate') ?? undefined,
-        url.searchParams.get('endDate') ?? undefined
-      );
-      return jsonResponse({ success: true, data: offDays });
+      try {
+        const offDays = await scheduleService.getOffDaySummary(
+          url.searchParams.get('startDate') ?? undefined,
+          url.searchParams.get('endDate') ?? undefined
+        );
+        return jsonResponse({ success: true, data: offDays });
+      } catch (err: any) {
+        return errorResponse(err.message || '휴무 목록 조회 실패', 500);
+      }
     }
 
     // Backups
     if (path === '/api/backups' && method === 'GET') {
-      const assignments = await backupService.getAllAssignments();
-      return jsonResponse({ success: true, data: assignments });
+      try {
+        const assignments = await backupService.getAllAssignments();
+        return jsonResponse({ success: true, data: assignments });
+      } catch (err: any) {
+        return errorResponse(err.message || '백업 지정 목록 조회 실패', 500);
+      }
     }
 
     if (path === '/api/backups/candidates' && method === 'GET') {
       const date = url.searchParams.get('date');
       if (!date) return errorResponse('조회 기준 날짜(date)가 필요합니다', 400);
-      const candidates = await backupService.getAvailableBackupDrivers(date);
-      return jsonResponse({ success: true, data: candidates });
+      try {
+        const candidates = await backupService.getAvailableBackupDrivers(date);
+        return jsonResponse({ success: true, data: candidates });
+      } catch (err: any) {
+        return errorResponse(err.message || '백업 후보 조회 실패', 500);
+      }
     }
 
     if (path === '/api/backups/assign' && method === 'POST') {
