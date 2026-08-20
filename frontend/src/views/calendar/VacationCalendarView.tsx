@@ -277,80 +277,79 @@ export const VacationCalendarView: React.FC = () => {
                 총 휴무 기사: {detailModalData.records.length}명
               </div>
 
-              {detailModalData.records.map((rec, index) => (
-                <div
-                  key={rec.id || index}
-                  className={`p-4 rounded-2xl border bg-white shadow-2xs space-y-3 ${
-                    rec.backupAssigned
-                      ? "border-emerald-200 ring-1 ring-emerald-100"
-                      : "border-red-200 ring-1 ring-red-100"
-                  }`}
-                >
-                  {/* 1. 기사 정보 및 휴무 상태 */}
-                  <div className="flex items-center justify-between pb-2.5 border-b border-slate-100">
-                    <div className="flex items-center gap-2">
-                      <div className="w-7 h-7 rounded-full bg-slate-100 text-slate-700 font-bold flex items-center justify-center text-xs">
-                        {rec.driverName.slice(0, 1)}
-                      </div>
-                      <div>
-                        <div className="font-bold text-sm text-slate-900 flex items-center gap-1.5">
-                          <span>{rec.driverName}</span>
-                          <span className="px-1.5 py-0.2 rounded text-[10px] font-bold bg-red-100 text-red-700">
+              {detailModalData.records.map((rec, index) => {
+                // 캠프/라우터 표시 텍스트 정리 (예: 남4/518CD 또는 구2/002AB)
+                let cleanRoute = rec.displayRoute || rec.routeNumber || rec.campName || '노선 미지정';
+                // 혹시라도 긴 쉼표 나열이 있다면 마지막/주요 노선 1개만 추출
+                if (cleanRoute.includes(',')) {
+                  const parts = cleanRoute.split(',').map(s => s.trim()).filter(Boolean);
+                  cleanRoute = parts[parts.length - 1] || cleanRoute;
+                }
+
+                return (
+                  <div
+                    key={rec.id || index}
+                    className={`p-4 rounded-2xl border bg-white shadow-2xs space-y-2.5 ${
+                      rec.backupAssigned
+                        ? "border-emerald-200 ring-1 ring-emerald-100/70"
+                        : "border-red-200 ring-1 ring-red-100/70"
+                    }`}
+                  >
+                    {/* 1. 기사명 + 휴무 + 해당 캠프/라우터 (한눈에 깔끔하게) */}
+                    <div className="flex items-center justify-between gap-2 pb-2.5 border-b border-slate-100">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <div className="w-8 h-8 rounded-full bg-slate-900 text-white font-bold flex items-center justify-center text-xs shrink-0 shadow-xs">
+                          {rec.driverName.slice(0, 1)}
+                        </div>
+                        <div className="min-w-0 flex items-center gap-1.5">
+                          <span className="font-extrabold text-sm text-slate-900 truncate">
+                            {rec.driverName}
+                          </span>
+                          <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-red-100 text-red-700 shrink-0">
                             휴무
                           </span>
                         </div>
                       </div>
+
+                      {/* 휴무 해당 캠프/라우터 구역 */}
+                      <div className="flex items-center gap-1 px-2.5 py-1 rounded-xl bg-slate-100 text-slate-800 font-mono text-xs font-bold shrink-0 border border-slate-200">
+                        <Building2 className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+                        <span>{cleanRoute}</span>
+                      </div>
                     </div>
 
-                    {/* 캠프 및 라우터 정보 */}
-                    <div className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-100 text-slate-700 font-mono text-xs font-bold">
-                      <Building2 className="w-3.5 h-3.5 text-slate-500" />
-                      <span>{rec.displayRoute || rec.routeNumber}</span>
-                    </div>
-                  </div>
-
-                  {/* 2. 대차(배차) 지정 완료 상태 상세 */}
-                  {rec.backupAssigned ? (
-                    <div className="p-3 bg-emerald-50/80 rounded-xl border border-emerald-200/80 flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <UserCheck className="w-4 h-4 text-emerald-700 shrink-0" />
-                        <div>
-                          <div className="text-[10px] font-bold text-emerald-800 uppercase tracking-wider">
-                            대차 지정 완료
-                          </div>
-                          <div className="text-sm font-extrabold text-emerald-950 mt-0.5 flex items-center gap-1">
-                            <span>대차 기사:</span>
-                            <span className="underline decoration-emerald-500 underline-offset-2">
+                    {/* 2. 대차 상태 */}
+                    {rec.backupAssigned ? (
+                      <div className="p-2.5 bg-emerald-50/80 rounded-xl border border-emerald-200/80 flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <UserCheck className="w-4 h-4 text-emerald-700 shrink-0" />
+                          <div className="text-xs font-bold text-emerald-950 truncate">
+                            <span className="text-emerald-700 font-medium mr-1">대차 기사:</span>
+                            <span className="underline decoration-emerald-500 underline-offset-2 font-extrabold">
                               {rec.backupDriverName}
                             </span>
                           </div>
                         </div>
+                        <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-emerald-600 text-white shadow-2xs shrink-0">
+                          대차 완료
+                        </span>
                       </div>
-                      <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-emerald-600 text-white shadow-2xs">
-                        대차완료
-                      </span>
-                    </div>
-                  ) : (
-                    /* 대차 미지정 (결원) 상태 */
-                    <div className="p-3 bg-red-50/90 rounded-xl border border-red-200 flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <UserX className="w-4 h-4 text-red-600 shrink-0" />
-                        <div>
-                          <div className="text-[10px] font-bold text-red-700 uppercase tracking-wider">
-                            대차 상태
-                          </div>
-                          <div className="text-xs font-bold text-red-900 mt-0.5">
-                            대차 기사 미지정 (결원 발생 중)
+                    ) : (
+                      <div className="p-2.5 bg-red-50/80 rounded-xl border border-red-200/80 flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <UserX className="w-4 h-4 text-red-600 shrink-0" />
+                          <div className="text-xs font-bold text-red-900 truncate">
+                            대차 기사 미지정 (결원 발생)
                           </div>
                         </div>
+                        <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-red-600 text-white shadow-2xs shrink-0">
+                          대차 미지정
+                        </span>
                       </div>
-                      <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-red-600 text-white shadow-2xs">
-                        대차 미지정
-                      </span>
-                    </div>
-                  )}
-                </div>
-              ))}
+                    )}
+                  </div>
+                );
+              })}
             </div>
 
             {/* Modal Footer */}
