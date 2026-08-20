@@ -812,7 +812,258 @@ class BackupRepository {
   }
 }
 
+// ==========================================
+// Monthly Roster Repository (신규 테이블 CRUD)
+// ==========================================
+
+import { MonthlyRoster, MonthlyRosterItem, CreateMonthlyRosterDTO, UpdateMonthlyRosterDTO } from '../types';
+
+class MonthlyRosterRepository {
+  // 메모리 폴백 캐시 (DB 테이블 최초 생성 전 또는 통신 장애 대비)
+  private fallbackRosters: Map<number, MonthlyRoster> = new Map();
+  private nextId = 1;
+
+  public async findAll(): Promise<MonthlyRoster[]> {
+    try {
+      const sb = getDb();
+      const { data, error } = await sb
+        .from('monthly_rosters')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.warn('[MonthlyRosterRepository.findAll DB error, using fallback]:', error.message);
+        return Array.from(this.fallbackRosters.values()).sort((a, b) => b.id - a.id);
+      }
+
+      const rows = data || [];
+      return rows.map((r: any) => ({
+        id: r.id,
+        targetMonth: r.target_month,
+        title: r.title,
+        memo: r.memo || '',
+        status: r.status || 'approved',
+        totalAssignments: r.total_assignments || 0,
+        createdAt: r.created_at,
+        updatedAt: r.updated_at,
+      }));
+    } catch (err) {
+      console.warn('[MonthlyRosterRepository.findAll exception]:', err);
+      return Array.from(this.fallbackRosters.values()).sort((a, b) => b.id - a.id);
+    }
+  }
+
+  public async findById(id: number): Promise<MonthlyRoster | null> {
+    try {
+      const sb = getDb();
+      const { data: rosterData, error: rosterErr } = await sb
+        .from('monthly_rosters')
+        .select('*')
+        .eq('id', id)
+        .maybeSingle();
+
+      if (rosterErr || !rosterData) {
+        return this.fallbackRosters.get(id) || null;
+      }
+
+      const { data: itemsData } = await sb
+        .from('monthly_roster_items')
+        .select('*')
+        .eq('roster_id', id)
+        .order('date', { ascending: true });
+
+      const items: MonthlyRosterItem[] = (itemsData || []).map((it: any) => ({
+        id: it.id,
+        rosterId: it.roster_id,
+        date: typeof it.date === 'string' ? it.date.slice(0, 10) : it.date,
+        campName: it.camp_name,
+        routeName: it.route_name,
+        routeKey: it.route_key,
+        driverId: it.driver_id ?? undefined,
+        driverName: it.driver_name ?? undefined,
+        contractType: it.contract_type ?? undefined,
+        status: it.status,
+        backupDriverId: it.backup_driver_id ?? undefined,
+        backupDriverName: it.backup_driver_name ?? undefined,
+      }));
+
+      return {
+        id: rosterData.id,
+        targetMonth: rosterData.target_month,
+        title: rosterData.title,
+        memo: rosterData.memo || '',
+        status: rosterData.status || 'approved',
+        totalAssignments: rosterData.total_assignments || items.length,
+        createdAt: rosterData.created_at,
+        updatedAt: rosterData.updated_at,
+        items,
+      };
+    } catch (err) {
+      console.warn('[MonthlyRosterRepository.findById exception]:', err);
+      return this.fallbackRosters.get(id) || null;
+    }
+  }
+
+  public async create(dto: CreateMonthlyRosterDTO): Promise<MonthlyRoster> {
+    const totalAssignments = dto.items.length;
+    const nowStr = new Date().toISOString();
+
+    try {
+      const sb = getDb();
+      // 1. Master Insert
+      const { data: insertedMaster, error: masterErr } = await sb
+        .from('monthly_rosters')
+        .insert({
+          target_month: dto.targetMonth,
+          title: dto.title,
+          memo: dto.memo || '',
+          status: dto.status || 'approved',
+          total_assignments: totalAssignments,
+          created_at: nowStr,
+          updated_at: nowStr,
+        })
+        .select()
+        .single();
+
+      if (masterErr) {
+        throw masterErr;
+      }
+
+      const rosterId = (insertedMaster as any).id;
+
+      // 2. Items Bulk Insert
+      if (dto.items.length > 0) {
+        const itemRows = dto.items.map(it => ({
+          roster_id: rosterId,
+          date: it.date,
+          camp_name: it.campName,
+          route_name: it.routeName,
+          route_key: it.routeKey,
+          driver_id: it.driverId || null,
+          driver_name: it.driverName || null,
+          contract_type: it.contractType || null,
+          status: it.status,
+          backup_driver_id: it.backupDriverId || null,
+          backup_driver_name: it.backupDriverName || null,
+        }));
+
+        // 100개씩 chunk 분할 insert
+        for (let i = 0; i < itemRows.length; i += 100) {
+          const chunk = itemRows.slice(i, i + 100);
+          const { error: itemsErr } = await sb.from('monthly_roster_items').insert(chunk);
+          if (itemsErr) console.error('[MonthlyRosterRepository item insert error]:', itemsErr);
+        }
+      }
+
+      const created: MonthlyRoster = {
+        id: rosterId,
+        targetMonth: dto.targetMonth,
+        title: dto.title,
+        memo: dto.memo || '',
+        status: dto.status || 'approved',
+        totalAssignments,
+        createdAt: nowStr,
+        updatedAt: nowStr,
+        items: dto.items,
+      };
+
+      this.fallbackRosters.set(rosterId, created);
+      return created;
+    } catch (err) {
+      console.warn('[MonthlyRosterRepository.create DB fallback activated]:', err);
+      const fakeId = this.nextId++;
+      const created: MonthlyRoster = {
+        id: fakeId,
+        targetMonth: dto.targetMonth,
+        title: dto.title,
+        memo: dto.memo || '',
+        status: dto.status || 'approved',
+        totalAssignments,
+        createdAt: nowStr,
+        updatedAt: nowStr,
+        items: dto.items,
+      };
+      this.fallbackRosters.set(fakeId, created);
+      return created;
+    }
+  }
+
+  public async update(id: number, dto: UpdateMonthlyRosterDTO): Promise<MonthlyRoster | null> {
+    const nowStr = new Date().toISOString();
+    try {
+      const sb = getDb();
+      const updatePayload: any = { updated_at: nowStr };
+      if (dto.title !== undefined) updatePayload.title = dto.title;
+      if (dto.memo !== undefined) updatePayload.memo = dto.memo;
+      if (dto.status !== undefined) updatePayload.status = dto.status;
+      if (dto.items) updatePayload.total_assignments = dto.items.length;
+
+      const { data, error } = await sb
+        .from('monthly_rosters')
+        .update(updatePayload)
+        .eq('id', id)
+        .select()
+        .maybeSingle();
+
+      if (error) throw error;
+
+      if (dto.items) {
+        await sb.from('monthly_roster_items').delete().eq('roster_id', id);
+        const itemRows = dto.items.map(it => ({
+          roster_id: id,
+          date: it.date,
+          camp_name: it.campName,
+          route_name: it.routeName,
+          route_key: it.routeKey,
+          driver_id: it.driverId || null,
+          driver_name: it.driverName || null,
+          contract_type: it.contractType || null,
+          status: it.status,
+          backup_driver_id: it.backupDriverId || null,
+          backup_driver_name: it.backupDriverName || null,
+        }));
+        for (let i = 0; i < itemRows.length; i += 100) {
+          const chunk = itemRows.slice(i, i + 100);
+          await sb.from('monthly_roster_items').insert(chunk);
+        }
+      }
+
+      return this.findById(id);
+    } catch (err) {
+      console.warn('[MonthlyRosterRepository.update fallback]:', err);
+      const existing = this.fallbackRosters.get(id);
+      if (!existing) return null;
+      const updated: MonthlyRoster = {
+        ...existing,
+        title: dto.title ?? existing.title,
+        memo: dto.memo ?? existing.memo,
+        status: dto.status ?? existing.status,
+        items: dto.items ?? existing.items,
+        totalAssignments: dto.items ? dto.items.length : existing.totalAssignments,
+        updatedAt: nowStr,
+      };
+      this.fallbackRosters.set(id, updated);
+      return updated;
+    }
+  }
+
+  public async delete(id: number): Promise<boolean> {
+    try {
+      const sb = getDb();
+      await sb.from('monthly_roster_items').delete().eq('roster_id', id);
+      await sb.from('monthly_rosters').delete().eq('id', id);
+      this.fallbackRosters.delete(id);
+      return true;
+    } catch (err) {
+      console.warn('[MonthlyRosterRepository.delete fallback]:', err);
+      this.fallbackRosters.delete(id);
+      return true;
+    }
+  }
+}
+
 export const masterRepository = new MasterRepository();
 export const driverRepository = new DriverRepository();
 export const scheduleRepository = new ScheduleRepository();
 export const backupRepository = new BackupRepository();
+export const monthlyRosterRepository = new MonthlyRosterRepository();

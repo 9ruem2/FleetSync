@@ -56,13 +56,14 @@ export const Sidebar: React.FC<Props> = ({
       )}
 
       <aside
-        className={`fixed md:static inset-y-0 left-0 z-50 w-64 bg-slate-900 text-white min-h-screen p-4 flex flex-col justify-between shrink-0 shadow-2xl transition-transform duration-300 ease-in-out ${
+        className={`fixed md:static inset-y-0 left-0 z-50 w-64 bg-slate-900 text-white h-full p-4 flex flex-col justify-between shrink-0 shadow-2xl transition-transform duration-300 ease-in-out ${
           isOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
         }`}
       >
-        <div>
+        {/* Scrollable Top Section */}
+        <div className="flex-1 overflow-y-auto pr-1 space-y-6">
           {/* Brand Header */}
-          <div className="flex items-center justify-between px-3 py-4 mb-6 border-b border-slate-800">
+          <div className="flex items-center justify-between px-2 py-2 border-b border-slate-800">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-600 to-sky-400 flex items-center justify-center shadow-lg shadow-blue-500/30">
                 <Truck className="w-6 h-6 text-white" />
@@ -134,7 +135,7 @@ export const Sidebar: React.FC<Props> = ({
           </nav>
 
           {/* External Links Section */}
-          <div className="mt-6 pt-4 border-t border-slate-800 space-y-2">
+          <div className="pt-4 border-t border-slate-800 space-y-2">
             <div className="px-3 text-[11px] font-bold uppercase tracking-wider text-slate-400">
               외부 바로가기
             </div>
@@ -162,26 +163,28 @@ export const Sidebar: React.FC<Props> = ({
           </div>
         </div>
 
-        {/* Footer Info */}
-        <div className="p-3 bg-slate-800/60 rounded-xl border border-slate-800 text-xs text-slate-400 space-y-1">
-          <div className="flex justify-between items-center text-slate-300 font-semibold">
-            <div className="flex items-center gap-1.5">
-              <span>관리자 모드</span>
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+        {/* Fixed Bottom Footer Info (항상 화면 하단에 고정) */}
+        <div className="shrink-0 pt-3 mt-2 border-t border-slate-800 bg-slate-900">
+          <div className="p-3.5 bg-slate-800/90 rounded-2xl border border-slate-700/80 text-xs text-slate-400 space-y-1 shadow-lg">
+            <div className="flex justify-between items-center text-slate-200 font-semibold">
+              <div className="flex items-center gap-2">
+                <span className="font-bold text-slate-100">관리자 모드</span>
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+              </div>
+              {onOpenSettings && (
+                <button
+                  onClick={onOpenSettings}
+                  className="p-1.5 rounded-lg bg-slate-700/70 hover:bg-slate-700 text-slate-300 hover:text-white transition shadow-2xs"
+                  title="마스터 설정 (회사, 캠프, 라우트 관리)"
+                >
+                  <Settings className="w-4 h-4 text-blue-400 hover:text-white transition" />
+                </button>
+              )}
             </div>
-            {onOpenSettings && (
-              <button
-                onClick={onOpenSettings}
-                className="p-1 rounded-lg hover:bg-slate-700 text-slate-400 hover:text-white transition"
-                title="마스터 설정 (회사, 캠프, 라우트 관리)"
-              >
-                <Settings className="w-4 h-4 text-blue-400 hover:text-white transition" />
-              </button>
-            )}
+            <p className="text-[11px] text-slate-400 font-medium">
+              회사 · 캠프 · 라우트 통합 관리
+            </p>
           </div>
-          <p className="text-[11px] text-slate-400">
-            회사 · 캠프 · 라우트 통합 관리
-          </p>
         </div>
       </aside>
     </>

@@ -29,18 +29,76 @@ export function useCalendarViewModel() {
     setTimeout(() => setToastMessage(null), 3500);
   };
 
-  // Fetch off-days and drivers
+  // Fetch off-days and drivers + slotAssignments
   const loadData = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
 
       const [offDaysData, driversData] = await Promise.all([
-        ApiService.getOffDays(),
-        ApiService.getDrivers()
+        ApiService.getOffDays().catch(() => []),
+        ApiService.getDrivers().catch(() => [])
       ]);
 
-      setOffDays(offDaysData);
+      // 1. 노선 관리에서 저장된 슬롯 배정 데이터 확인
+      let slotAssignments: Record<string, any> = {};
+      try {
+        const saved = localStorage.getItem('fleetsync_slot_assignments');
+        if (saved) slotAssignments = JSON.parse(saved);
+      } catch {
+        slotAssignments = {};
+      }
+
+      // 2. 슬롯 배정 중 휴무(status === '휴무')인 항목 추출
+      const slotOffDays: OffDayRecord[] = [];
+      Object.entries(slotAssignments).forEach(([key, val]: [string, any]) => {
+        if (val.status === '휴무') {
+          // key 형식: "2026-08-21_남양주3/905CD"
+          const splitIdx = key.indexOf('_');
+          if (splitIdx !== -1) {
+            const date = key.slice(0, splitIdx);
+            const routeKey = key.slice(splitIdx + 1); // "남양주3/905CD"
+            const [cName, rName] = routeKey.split('/');
+            const shortCamp = (cName || '').replace('남양주', '남').replace('구리', '구');
+            const displayRoute = rName ? `${shortCamp}/${rName}` : cName;
+
+            slotOffDays.push({
+              id: val.driverId * 10000 + Math.abs(key.split('').reduce((a, b) => (a << 5) - a + b.charCodeAt(0), 0) % 1000),
+              driverId: val.driverId,
+              driverName: val.driverName,
+              routeNumber: rName || routeKey,
+              campName: cName,
+              routeName: rName,
+              displayRoute,
+              date,
+              backupAssigned: !!val.backupDriverId,
+              backupDriverName: val.backupDriverName,
+            });
+          }
+        }
+      });
+
+      // 3. DB 오프데이와 슬롯 오프데이 병합 (중복 제거)
+      const mergedMap = new Map<string, OffDayRecord>();
+      offDaysData.forEach(r => {
+        const dObj = driversData.find(d => d.id === r.driverId);
+        const camp = dObj?.camp || '';
+        const shortCamp = camp.replace('남양주', '남').replace('구리', '구');
+        const displayRoute = r.routeNumber ? (shortCamp ? `${shortCamp}/${r.routeNumber}` : r.routeNumber) : camp;
+        mergedMap.set(`${r.date}_${r.driverId}`, {
+          ...r,
+          campName: camp,
+          routeName: r.routeNumber,
+          displayRoute,
+        });
+      });
+
+      // 슬롯 배정이 우선 적용되도록 오버라이드
+      slotOffDays.forEach(r => {
+        mergedMap.set(`${r.date}_${r.driverId}`, r);
+      });
+
+      setOffDays(Array.from(mergedMap.values()));
       setAllDrivers(driversData);
     } catch (err: any) {
       setError(err.message || '휴무 데이터를 불러올 수 없습니다.');
