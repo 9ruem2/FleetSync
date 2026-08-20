@@ -361,24 +361,31 @@ class DriverRepository {
     try {
       const sb = getDb();
       const query = sb.from('drivers').select('*').order('id');
-      const { data: driverRows, error } = includeDeleted ? await query : await query.eq('is_deleted', false);
+      // is_deleted = false 이거나 is_deleted IS NULL 인 데이터 모두 조회 (삭제된 true만 제외)
+      const { data: driverRows, error } = includeDeleted
+        ? await query
+        : await query.or('is_deleted.eq.false,is_deleted.is.null');
+
       if (error) {
         console.error('[DriverRepository.findAll error]:', error);
         return [];
       }
 
-      // is_deleted가 false인 기사만 명확히 필터링 (삭제된 기사는 제외)
-      const filteredDrivers = ((driverRows || []) as {
+      const filteredDrivers = (driverRows || []) as {
         id: number; company_id: number | null; driver_code: string; name: string;
-        phone: string; contract_type: string; created_at: string; is_deleted: boolean;
-      }[]).filter(d => includeDeleted ? true : d.is_deleted === false);
+        phone: string; contract_type: string; created_at: string; is_deleted: boolean | null;
+      }[];
 
       if (filteredDrivers.length === 0) return [];
 
       // 배치 조회
-      const { data: allCampRoutesData } = await sb
+      const { data: allCampRoutesData, error: campRouteErr } = await sb
         .from('driver_camp_routes')
         .select('driver_id, camp_id, route_id, route_name, camps(name)');
+      if (campRouteErr) {
+        console.error('[DriverRepository driver_camp_routes error]:', campRouteErr);
+      }
+
       const { data: compRowsData } = await sb.from('companies').select('id, name');
 
       type AllCampRouteRow = { driver_id: number; camp_id: number; route_id: number | null; route_name: string; camps: { name: string } | null };
@@ -415,7 +422,7 @@ class DriverRepository {
           routes: mappings.map(m => m.route_name).join(','),
           contractType: d.contract_type as Driver['contractType'],
           createdAt: d.created_at,
-          isDeleted: d.is_deleted,
+          isDeleted: !!d.is_deleted,
           campRoutes: mappings.map(m => ({
             campId: m.camp_id,
             campName: m.camps?.name || '',
@@ -433,9 +440,10 @@ class DriverRepository {
   public async findById(id: number): Promise<Driver | undefined> {
     try {
       const sb = getDb();
-      const { data, error } = await sb.from('drivers').select('*').eq('id', id).eq('is_deleted', false).maybeSingle();
+      const { data, error } = await sb.from('drivers').select('*').eq('id', id).maybeSingle();
       if (error || !data) return undefined;
       const row = data as Parameters<typeof getDriverFull>[0];
+      if (row.is_deleted) return undefined;
       return getDriverFull(row);
     } catch (err) {
       console.error('[DriverRepository.findById error]:', err);

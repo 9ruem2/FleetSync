@@ -30,8 +30,10 @@ export function useDriverViewModel() {
       setLoading(true);
       setError(null);
       const data = await ApiService.getDrivers();
+      console.log('[loadDrivers SUCCESS] 로드된 기사 수:', data.length, data);
       setDrivers(data);
     } catch (err: any) {
+      console.error('[loadDrivers ERROR]:', err);
       setError(err.message || '기사 목록을 불러오는 중 오류가 발생했습니다.');
     } finally {
       setLoading(false);
