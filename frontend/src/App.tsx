@@ -60,14 +60,13 @@ export function App() {
         };
       case "schedule":
         return {
-          title: "스케줄 관리 (Schedule Management)",
+          title: "노선 배차 관리 (Schedule Management)",
           subtitle: "주간 / 월간 스케줄 관리",
         };
       case "calendar":
         return {
           title: "휴무 달력 조회 (Vacation Calendar View)",
-          subtitle:
-            "월간/주간 휴무자 현황 모아보기, 일별 휴무 요약 및 대차(백업 기사) 매칭",
+          subtitle: "월간/주간 휴무 조회",
         };
     }
   };
@@ -80,8 +79,8 @@ export function App() {
   const headerMeta = getHeaderMeta();
 
   return (
-    <div className="flex min-h-screen bg-slate-50 font-['Pretendard',sans-serif] relative overflow-x-hidden">
-      {/* Sidebar Navigation */}
+    <div className="flex h-screen w-screen overflow-hidden bg-slate-50 font-['Pretendard',sans-serif] relative">
+      {/* Sidebar Navigation (화면 좌측에 완전 고정) */}
       <Sidebar
         activeTab={activeTab}
         setActiveTab={handleTabChange}
@@ -90,8 +89,8 @@ export function App() {
         onOpenSettings={() => setIsSettingsOpen(true)}
       />
 
-      {/* Main Content Area */}
-      <main className="flex-1 min-w-0 flex flex-col">
+      {/* Main Content Area (우측 영역만 독립 세로 스크롤) */}
+      <main className="flex-1 min-w-0 h-full flex flex-col overflow-y-auto">
         <Header
           title={headerMeta.title}
           subtitle={headerMeta.subtitle}
@@ -101,7 +100,7 @@ export function App() {
           user={currentUser}
         />
 
-        <div className="flex-1">
+        <div className="flex-1 pb-10">
           {activeTab === "drivers" && <DriverListView />}
           {activeTab === "schedule" && <ScheduleGridView />}
           {activeTab === "calendar" && <VacationCalendarView />}

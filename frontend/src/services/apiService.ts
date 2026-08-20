@@ -1,5 +1,5 @@
 import { Driver, CreateDriverForm, UpdateDriverForm } from '../models/driver.model';
-import { ScheduleGridRow, ShiftStatus, OffDayRecord } from '../models/schedule.model';
+import { ScheduleGridRow, ShiftStatus, OffDayRecord, MonthlyRoster, CreateMonthlyRosterForm } from '../models/schedule.model';
 import { BackupAssignment, AssignBackupForm } from '../models/backup.model';
 import { Company, Camp, Route } from '../models/master.model';
 
@@ -191,5 +191,39 @@ export class ApiService {
     const json = await res.json();
     if (!json.success) throw new Error(json.message);
     return json.data;
+  }
+
+  // Monthly Rosters API (신규 테이블 CRUD)
+  public static async getMonthlyRosters(): Promise<MonthlyRoster[]> {
+    const res = await fetch(`${API_BASE}/monthly-rosters`);
+    const json = await res.json();
+    if (!json.success) throw new Error(json.message);
+    return json.data;
+  }
+
+  public static async getMonthlyRosterById(id: number): Promise<MonthlyRoster> {
+    const res = await fetch(`${API_BASE}/monthly-rosters/${id}`);
+    const json = await res.json();
+    if (!json.success) throw new Error(json.message);
+    return json.data;
+  }
+
+  public static async createMonthlyRoster(form: CreateMonthlyRosterForm): Promise<MonthlyRoster> {
+    const res = await fetch(`${API_BASE}/monthly-rosters`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(form)
+    });
+    const json = await res.json();
+    if (!json.success) throw new Error(json.message);
+    return json.data;
+  }
+
+  public static async deleteMonthlyRoster(id: number): Promise<void> {
+    const res = await fetch(`${API_BASE}/monthly-rosters/${id}`, {
+      method: 'DELETE'
+    });
+    const json = await res.json();
+    if (!json.success) throw new Error(json.message);
   }
 }

@@ -291,47 +291,104 @@ async function saveCampRoutes(driverId: number, campStr: string, routesStr: stri
   const campArr = (campStr || '').split(',').map(s => s.trim()).filter(Boolean);
   const routeArr = (routesStr || '').split(',').map(s => s.trim());
 
+  if (campArr.length === 0) return;
+
+  // 1. Target Company ID 확인
+  let targetCompanyId: number;
+  if (companyId) {
+    targetCompanyId = companyId;
+  } else {
+    const { data: allComp } = await sb.from('companies').select('id, name');
+    const rows = (allComp || []) as { id: number; name: string }[];
+    const daeguk = rows.find(c => c.name === DEFAULT_COMPANY_NAME);
+    if (daeguk) {
+      targetCompanyId = daeguk.id;
+    } else if (rows.length > 0) {
+      targetCompanyId = rows[0].id;
+    } else {
+      const { data: newComp } = await sb.from('companies').insert({ name: DEFAULT_COMPANY_NAME }).select().single();
+      targetCompanyId = (newComp as { id: number }).id;
+    }
+  }
+
+  // 2. 입력된 캠프들을 한 번에 조회 및 없는 캠프 일괄 생성
+  const uniqueCampNames = Array.from(new Set(campArr));
+  const { data: existingCampsData } = await sb
+    .from('camps')
+    .select('id, name')
+    .eq('company_id', targetCompanyId);
+
+  const existingCamps = (existingCampsData || []) as { id: number; name: string }[];
+  const campMap = new Map<string, number>();
+  existingCamps.forEach(c => campMap.set(c.name.toLowerCase(), c.id));
+
+  // 없는 캠프 생성
+  const campsToCreate = uniqueCampNames.filter(c => !campMap.has(c.toLowerCase()));
+  if (campsToCreate.length > 0) {
+    const { data: insertedCamps } = await sb
+      .from('camps')
+      .insert(campsToCreate.map(name => ({ company_id: targetCompanyId, name })))
+      .select();
+    ((insertedCamps || []) as { id: number; name: string }[]).forEach(c => {
+      campMap.set(c.name.toLowerCase(), c.id);
+    });
+  }
+
+  // 3. 라우터 일괄 처리
+  const campIds = Array.from(campMap.values());
+  const { data: existingRoutesData } = await sb
+    .from('routes')
+    .select('id, camp_id, name')
+    .in('camp_id', campIds);
+
+  const existingRoutes = (existingRoutesData || []) as { id: number; camp_id: number; name: string }[];
+  const routeMap = new Map<string, number>(); // "campId_routeName" -> routeId
+  existingRoutes.forEach(r => routeMap.set(`${r.camp_id}_${r.name.toLowerCase()}`, r.id));
+
+  const mappingInserts: { driver_id: number; camp_id: number; route_id: number | null; route_name: string }[] = [];
+
   for (let i = 0; i < campArr.length; i++) {
     const cName = campArr[i];
     const rName = routeArr[i] || '';
-    if (!cName) continue;
-
-    const campId = await getOrCreateCampId(cName, companyId);
+    const campId = campMap.get(cName.toLowerCase());
+    if (!campId) continue;
 
     if (rName.trim()) {
-      const { data: existingRoute } = await sb
-        .from('routes')
-        .select('*')
-        .eq('camp_id', campId)
-        .eq('name', rName.trim())
-        .maybeSingle();
+      const routeKey = `${campId}_${rName.trim().toLowerCase()}`;
+      let routeId = routeMap.get(routeKey);
 
-      let routeId: number;
-      if (existingRoute) {
-        routeId = (existingRoute as { id: number }).id;
-      } else {
-        const { data: insertedRoute, error } = await sb
+      if (!routeId) {
+        // 새 라우터 생성
+        const { data: insertedRoute } = await sb
           .from('routes')
           .insert({ camp_id: campId, name: rName.trim() })
           .select()
           .single();
-        if (error) throw error;
-        routeId = (insertedRoute as { id: number }).id;
+        if (insertedRoute) {
+          routeId = (insertedRoute as { id: number }).id;
+          routeMap.set(routeKey, routeId);
+        }
       }
 
-      await sb.from('driver_camp_routes').insert({
+      mappingInserts.push({
         driver_id: driverId,
         camp_id: campId,
-        route_id: routeId,
+        route_id: routeId ?? null,
         route_name: rName.trim(),
       });
     } else {
-      await sb.from('driver_camp_routes').insert({
+      mappingInserts.push({
         driver_id: driverId,
         camp_id: campId,
+        route_id: null,
         route_name: '',
       });
     }
+  }
+
+  // 4. driver_camp_routes 한 번에 일괄 삽입
+  if (mappingInserts.length > 0) {
+    await sb.from('driver_camp_routes').insert(mappingInserts);
   }
 }
 
@@ -755,7 +812,258 @@ class BackupRepository {
   }
 }
 
+// ==========================================
+// Monthly Roster Repository (신규 테이블 CRUD)
+// ==========================================
+
+import { MonthlyRoster, MonthlyRosterItem, CreateMonthlyRosterDTO, UpdateMonthlyRosterDTO } from '../types';
+
+class MonthlyRosterRepository {
+  // 메모리 폴백 캐시 (DB 테이블 최초 생성 전 또는 통신 장애 대비)
+  private fallbackRosters: Map<number, MonthlyRoster> = new Map();
+  private nextId = 1;
+
+  public async findAll(): Promise<MonthlyRoster[]> {
+    try {
+      const sb = getDb();
+      const { data, error } = await sb
+        .from('monthly_rosters')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.warn('[MonthlyRosterRepository.findAll DB error, using fallback]:', error.message);
+        return Array.from(this.fallbackRosters.values()).sort((a, b) => b.id - a.id);
+      }
+
+      const rows = data || [];
+      return rows.map((r: any) => ({
+        id: r.id,
+        targetMonth: r.target_month,
+        title: r.title,
+        memo: r.memo || '',
+        status: r.status || 'approved',
+        totalAssignments: r.total_assignments || 0,
+        createdAt: r.created_at,
+        updatedAt: r.updated_at,
+      }));
+    } catch (err) {
+      console.warn('[MonthlyRosterRepository.findAll exception]:', err);
+      return Array.from(this.fallbackRosters.values()).sort((a, b) => b.id - a.id);
+    }
+  }
+
+  public async findById(id: number): Promise<MonthlyRoster | null> {
+    try {
+      const sb = getDb();
+      const { data: rosterData, error: rosterErr } = await sb
+        .from('monthly_rosters')
+        .select('*')
+        .eq('id', id)
+        .maybeSingle();
+
+      if (rosterErr || !rosterData) {
+        return this.fallbackRosters.get(id) || null;
+      }
+
+      const { data: itemsData } = await sb
+        .from('monthly_roster_items')
+        .select('*')
+        .eq('roster_id', id)
+        .order('date', { ascending: true });
+
+      const items: MonthlyRosterItem[] = (itemsData || []).map((it: any) => ({
+        id: it.id,
+        rosterId: it.roster_id,
+        date: typeof it.date === 'string' ? it.date.slice(0, 10) : it.date,
+        campName: it.camp_name,
+        routeName: it.route_name,
+        routeKey: it.route_key,
+        driverId: it.driver_id ?? undefined,
+        driverName: it.driver_name ?? undefined,
+        contractType: it.contract_type ?? undefined,
+        status: it.status,
+        backupDriverId: it.backup_driver_id ?? undefined,
+        backupDriverName: it.backup_driver_name ?? undefined,
+      }));
+
+      return {
+        id: rosterData.id,
+        targetMonth: rosterData.target_month,
+        title: rosterData.title,
+        memo: rosterData.memo || '',
+        status: rosterData.status || 'approved',
+        totalAssignments: rosterData.total_assignments || items.length,
+        createdAt: rosterData.created_at,
+        updatedAt: rosterData.updated_at,
+        items,
+      };
+    } catch (err) {
+      console.warn('[MonthlyRosterRepository.findById exception]:', err);
+      return this.fallbackRosters.get(id) || null;
+    }
+  }
+
+  public async create(dto: CreateMonthlyRosterDTO): Promise<MonthlyRoster> {
+    const totalAssignments = dto.items.length;
+    const nowStr = new Date().toISOString();
+
+    try {
+      const sb = getDb();
+      // 1. Master Insert
+      const { data: insertedMaster, error: masterErr } = await sb
+        .from('monthly_rosters')
+        .insert({
+          target_month: dto.targetMonth,
+          title: dto.title,
+          memo: dto.memo || '',
+          status: dto.status || 'approved',
+          total_assignments: totalAssignments,
+          created_at: nowStr,
+          updated_at: nowStr,
+        })
+        .select()
+        .single();
+
+      if (masterErr) {
+        throw masterErr;
+      }
+
+      const rosterId = (insertedMaster as any).id;
+
+      // 2. Items Bulk Insert
+      if (dto.items.length > 0) {
+        const itemRows = dto.items.map(it => ({
+          roster_id: rosterId,
+          date: it.date,
+          camp_name: it.campName,
+          route_name: it.routeName,
+          route_key: it.routeKey,
+          driver_id: it.driverId || null,
+          driver_name: it.driverName || null,
+          contract_type: it.contractType || null,
+          status: it.status,
+          backup_driver_id: it.backupDriverId || null,
+          backup_driver_name: it.backupDriverName || null,
+        }));
+
+        // 100개씩 chunk 분할 insert
+        for (let i = 0; i < itemRows.length; i += 100) {
+          const chunk = itemRows.slice(i, i + 100);
+          const { error: itemsErr } = await sb.from('monthly_roster_items').insert(chunk);
+          if (itemsErr) console.error('[MonthlyRosterRepository item insert error]:', itemsErr);
+        }
+      }
+
+      const created: MonthlyRoster = {
+        id: rosterId,
+        targetMonth: dto.targetMonth,
+        title: dto.title,
+        memo: dto.memo || '',
+        status: dto.status || 'approved',
+        totalAssignments,
+        createdAt: nowStr,
+        updatedAt: nowStr,
+        items: dto.items,
+      };
+
+      this.fallbackRosters.set(rosterId, created);
+      return created;
+    } catch (err) {
+      console.warn('[MonthlyRosterRepository.create DB fallback activated]:', err);
+      const fakeId = this.nextId++;
+      const created: MonthlyRoster = {
+        id: fakeId,
+        targetMonth: dto.targetMonth,
+        title: dto.title,
+        memo: dto.memo || '',
+        status: dto.status || 'approved',
+        totalAssignments,
+        createdAt: nowStr,
+        updatedAt: nowStr,
+        items: dto.items,
+      };
+      this.fallbackRosters.set(fakeId, created);
+      return created;
+    }
+  }
+
+  public async update(id: number, dto: UpdateMonthlyRosterDTO): Promise<MonthlyRoster | null> {
+    const nowStr = new Date().toISOString();
+    try {
+      const sb = getDb();
+      const updatePayload: any = { updated_at: nowStr };
+      if (dto.title !== undefined) updatePayload.title = dto.title;
+      if (dto.memo !== undefined) updatePayload.memo = dto.memo;
+      if (dto.status !== undefined) updatePayload.status = dto.status;
+      if (dto.items) updatePayload.total_assignments = dto.items.length;
+
+      const { data, error } = await sb
+        .from('monthly_rosters')
+        .update(updatePayload)
+        .eq('id', id)
+        .select()
+        .maybeSingle();
+
+      if (error) throw error;
+
+      if (dto.items) {
+        await sb.from('monthly_roster_items').delete().eq('roster_id', id);
+        const itemRows = dto.items.map(it => ({
+          roster_id: id,
+          date: it.date,
+          camp_name: it.campName,
+          route_name: it.routeName,
+          route_key: it.routeKey,
+          driver_id: it.driverId || null,
+          driver_name: it.driverName || null,
+          contract_type: it.contractType || null,
+          status: it.status,
+          backup_driver_id: it.backupDriverId || null,
+          backup_driver_name: it.backupDriverName || null,
+        }));
+        for (let i = 0; i < itemRows.length; i += 100) {
+          const chunk = itemRows.slice(i, i + 100);
+          await sb.from('monthly_roster_items').insert(chunk);
+        }
+      }
+
+      return this.findById(id);
+    } catch (err) {
+      console.warn('[MonthlyRosterRepository.update fallback]:', err);
+      const existing = this.fallbackRosters.get(id);
+      if (!existing) return null;
+      const updated: MonthlyRoster = {
+        ...existing,
+        title: dto.title ?? existing.title,
+        memo: dto.memo ?? existing.memo,
+        status: dto.status ?? existing.status,
+        items: dto.items ?? existing.items,
+        totalAssignments: dto.items ? dto.items.length : existing.totalAssignments,
+        updatedAt: nowStr,
+      };
+      this.fallbackRosters.set(id, updated);
+      return updated;
+    }
+  }
+
+  public async delete(id: number): Promise<boolean> {
+    try {
+      const sb = getDb();
+      await sb.from('monthly_roster_items').delete().eq('roster_id', id);
+      await sb.from('monthly_rosters').delete().eq('id', id);
+      this.fallbackRosters.delete(id);
+      return true;
+    } catch (err) {
+      console.warn('[MonthlyRosterRepository.delete fallback]:', err);
+      this.fallbackRosters.delete(id);
+      return true;
+    }
+  }
+}
+
 export const masterRepository = new MasterRepository();
 export const driverRepository = new DriverRepository();
 export const scheduleRepository = new ScheduleRepository();
 export const backupRepository = new BackupRepository();
+export const monthlyRosterRepository = new MonthlyRosterRepository();

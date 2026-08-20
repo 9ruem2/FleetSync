@@ -20,6 +20,7 @@ export interface DateRowInfo {
   dayNumber: number; // 1
   isWeekend: boolean;
   formattedDate: string; // "9/1 (월)"
+  weekLabel?: string; // 예: "1주차", "2주차"
 }
 
 export interface SlotAssignment {
@@ -30,6 +31,7 @@ export interface SlotAssignment {
   backupAssigned?: boolean;
   backupDriverId?: number;
   backupDriverName?: string;
+  backupContractType?: string;
 }
 
 export function useScheduleViewModel() {
@@ -93,6 +95,16 @@ export function useScheduleViewModel() {
     const base = new Date(y, m - 1, dNum);
     const dayNames = ['일', '월', '화', '수', '목', '금', '토'];
 
+    // 해당 날짜가 속한 연도 기준 N주차(1년 중 몇 주차인지) 계산 헬퍼 함수
+    const getWeekOfYear = (d: Date): number => {
+      const target = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+      const jan1 = new Date(target.getFullYear(), 0, 1);
+      const jan1Day = jan1.getDay();
+      const diffMs = target.getTime() - jan1.getTime();
+      const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+      return Math.floor((diffDays + jan1Day) / 7) + 1;
+    };
+
     if (viewMode === 'weekly') {
       const currentDay = base.getDay();
       const sunday = new Date(y, m - 1, dNum - currentDay);
@@ -106,12 +118,15 @@ export function useScheduleViewModel() {
         const dayStr = String(dayVal).padStart(2, '0');
         const dateStr = `${yearStr}-${monthStr}-${dayStr}`;
         const dayIdx = d.getDay();
+        const weekNum = getWeekOfYear(d);
+
         dates.push({
           dateStr,
           dayName: dayNames[dayIdx],
           dayNumber: dayVal,
           isWeekend: dayIdx === 0 || dayIdx === 6,
           formattedDate: `${monthNum}/${dayVal} (${dayNames[dayIdx]})`,
+          weekLabel: dayIdx === 0 ? `${weekNum}주차` : undefined,
         });
       }
     } else {
@@ -126,12 +141,15 @@ export function useScheduleViewModel() {
         const dayStr = day < 10 ? `0${day}` : `${day}`;
         const dateStr = `${year}-${monthStr}-${dayStr}`;
         const dayIdx = d.getDay();
+        const weekNum = getWeekOfYear(d);
+
         dates.push({
           dateStr,
           dayName: dayNames[dayIdx],
           dayNumber: day,
           isWeekend: dayIdx === 0 || dayIdx === 6,
           formattedDate: `${monthNum}/${day} (${dayNames[dayIdx]})`,
+          weekLabel: dayIdx === 0 ? `${weekNum}주차` : undefined,
         });
       }
     }
@@ -240,9 +258,7 @@ export function useScheduleViewModel() {
   // 필터 옵션: 회사에 등록된 모든 캠프를 완벽하게 표시
   const availableCamps = useMemo(() => {
     const set = new Set<string>();
-    // 마스터 DB 캠프
     masterCamps.forEach(c => set.add(c.name));
-    // 기사 등록 캠프
     drivers.forEach(d => parseCamps(d.camp).forEach(c => set.add(c)));
     return Array.from(set).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
   }, [masterCamps, drivers]);
@@ -252,13 +268,11 @@ export function useScheduleViewModel() {
     if (!campFilter) return [];
     const set = new Set<string>();
     
-    // 마스터 DB 라우터
     const targetCamp = masterCamps.find(c => c.name.toLowerCase() === campFilter.toLowerCase());
     if (targetCamp) {
       masterRoutes.filter(r => r.campId === targetCamp.id).forEach(r => set.add(r.name));
     }
 
-    // 기사 등록 라우터
     drivers
       .filter(d => parseCamps(d.camp).some(c => c.toLowerCase() === campFilter.toLowerCase()))
       .forEach(d => parseRoutes(d.routes).forEach(r => set.add(r)));
@@ -286,7 +300,7 @@ export function useScheduleViewModel() {
     });
   }, [drivers, searchTerm, contractTypeFilter]);
 
-  // 날짜별/구역별 명시적 배정 상태 (key: "2026-08-21_남양주2/518CD")
+  // 날짜별/구역별 배정 맵 ("2026-09-01_남양주3/905CD" -> SlotAssignment)
   const [slotAssignments, setSlotAssignments] = useState<Record<string, SlotAssignment>>(() => {
     try {
       const saved = localStorage.getItem('fleetsync_slot_assignments');
@@ -305,15 +319,13 @@ export function useScheduleViewModel() {
     }
   }, [slotAssignments]);
 
-  // 특정 날짜/라우터에 배정된 기사 가져오기 (자동 기본 배정 X -> 명시적으로 배정된 슬롯만 반환)
+  // 특정 날짜/라우터에 배정된 기사 가져오기
   const getSlotAssignment = useCallback(
     (dateStr: string, routeKey: string): SlotAssignment | undefined => {
       const slotKey = `${dateStr}_${routeKey}`;
       
-      // 1. 명시적으로 배정된 슬롯이 있는지 확인
       if (slotAssignments[slotKey]) {
         const assignment = slotAssignments[slotKey];
-        // shiftsMap(휴무 등) 상태 반영
         const currentStatus = shiftsMap[dateStr]?.[assignment.driverId] || assignment.status;
         return {
           ...assignment,
@@ -321,7 +333,6 @@ export function useScheduleViewModel() {
         };
       }
 
-      // 2. 명시적 배정이 없으면 빈 슬롯으로 유지 (자동 배정하지 않음)
       return undefined;
     },
     [slotAssignments, shiftsMap]
@@ -332,13 +343,13 @@ export function useScheduleViewModel() {
     return filteredDrivers;
   }, [filteredDrivers]);
 
-  // 기사 배정 처리 (드래그&드롭 또는 모달에서 선택)
+  // 기사 배정 처리 (드래그&드롭 또는 모달에서 선택) - 하루 1기사 1라우트 배정 원칙 (중복 방지)
   const handleAssignDriver = async (dateStr: string, routeKey: string, driverId: number) => {
     try {
       const targetDriver = drivers.find(d => d.id === driverId);
       if (!targetDriver) return;
 
-      const slotKey = `${dateStr}_${routeKey}`;
+      const targetSlotKey = `${dateStr}_${routeKey}`;
       const newAssignment: SlotAssignment = {
         driverId: targetDriver.id,
         driverName: targetDriver.name,
@@ -346,11 +357,31 @@ export function useScheduleViewModel() {
         status: targetDriver.contractType as ShiftStatus,
       };
 
-      // 1. 슬롯 배정 상태 업데이트
-      setSlotAssignments(prev => ({
-        ...prev,
-        [slotKey]: newAssignment,
-      }));
+      // 1. 슬롯 배정 상태 업데이트: 동일 날짜(dateStr)에 이 기사가 배정된 기존 다른 라우트 슬롯이 있다면 자동 제거하여 1일 1배정 보장
+      setSlotAssignments(prev => {
+        const next = { ...prev };
+        
+        Object.keys(next).forEach(key => {
+          if (key.startsWith(`${dateStr}_`)) {
+            // 본인 배정 제거
+            if (next[key].driverId === driverId) {
+              delete next[key];
+            } else if (next[key].backupDriverId === driverId) {
+              // 대차로 들어가 있던 것도 해제
+              next[key] = {
+                ...next[key],
+                backupAssigned: false,
+                backupDriverId: undefined,
+                backupDriverName: undefined,
+                backupContractType: undefined,
+              };
+            }
+          }
+        });
+
+        next[targetSlotKey] = newAssignment;
+        return next;
+      });
 
       // 2. 서버 근무 상태 동기화
       await ApiService.updateShiftCell(driverId, dateStr, targetDriver.contractType as ShiftStatus);
@@ -386,17 +417,104 @@ export function useScheduleViewModel() {
           [slotKey]: {
             ...prev[slotKey],
             status: '휴무',
+            // 휴무 전환 시 대차가 지정되어 있지 않으면 대차 미지정 상태
           },
         };
       });
 
       await ApiService.updateShiftCell(driverId, dateStr, '휴무');
-      showToast('success', '휴무로 지정되었습니다.');
       setSelectedSlot(null);
     } catch (err: any) {
       showToast('error', err.message || '휴무 지정 실패');
     }
   };
+
+  // 대차(백업) 기사 지정
+  const handleAssignBackup = async (dateStr: string, routeKey: string, backupDriverId: number) => {
+    try {
+      const backupDriver = drivers.find(d => d.id === backupDriverId);
+      if (!backupDriver) return;
+
+      const slotKey = `${dateStr}_${routeKey}`;
+
+      setSlotAssignments(prev => {
+        const next = { ...prev };
+
+        // 대차 기사가 당일 다른 곳에 배정되어 있었다면 그곳에서 제거
+        Object.keys(next).forEach(key => {
+          if (key.startsWith(`${dateStr}_`)) {
+            if (next[key].driverId === backupDriverId) {
+              delete next[key];
+            } else if (next[key].backupDriverId === backupDriverId && key !== slotKey) {
+              next[key] = {
+                ...next[key],
+                backupAssigned: false,
+                backupDriverId: undefined,
+                backupDriverName: undefined,
+                backupContractType: undefined,
+              };
+            }
+          }
+        });
+
+        if (next[slotKey]) {
+          next[slotKey] = {
+            ...next[slotKey],
+            backupAssigned: true,
+            backupDriverId: backupDriver.id,
+            backupDriverName: backupDriver.name,
+            backupContractType: backupDriver.contractType,
+          };
+        }
+        return next;
+      });
+
+      await ApiService.updateShiftCell(backupDriverId, dateStr, backupDriver.contractType as ShiftStatus);
+      showToast('success', `${backupDriver.name} 기사가 대차 기사로 지정되었습니다.`);
+      setSelectedSlot(null);
+    } catch (err: any) {
+      showToast('error', err.message || '대차 기사 지정 실패');
+    }
+  };
+
+  // 대차(백업) 기사 해제
+  const handleRemoveBackup = (dateStr: string, routeKey: string) => {
+    const slotKey = `${dateStr}_${routeKey}`;
+    setSlotAssignments(prev => {
+      if (!prev[slotKey]) return prev;
+      return {
+        ...prev,
+        [slotKey]: {
+          ...prev[slotKey],
+          backupAssigned: false,
+          backupDriverId: undefined,
+          backupDriverName: undefined,
+          backupContractType: undefined,
+        },
+      };
+    });
+    showToast('success', '대차 기사 지정이 해제되었습니다.');
+    setSelectedSlot(null);
+  };
+
+  // 특정 일자에 해당 기사가 다른 라우터에 이미 배정되어 있는지 확인
+  const getDriverAssignmentOnDate = useCallback(
+    (dateStr: string, driverId: number): { routeKey: string; isBackup?: boolean } | undefined => {
+      for (const [key, assignment] of Object.entries(slotAssignments)) {
+        if (key.startsWith(`${dateStr}_`)) {
+          const routeKey = key.slice(dateStr.length + 1);
+          if (assignment.driverId === driverId) {
+            return { routeKey, isBackup: false };
+          }
+          if (assignment.backupDriverId === driverId) {
+            return { routeKey, isBackup: true };
+          }
+        }
+      }
+      return undefined;
+    },
+    [slotAssignments]
+  );
 
   const resetFilters = () => {
     setSearchTerm('');
@@ -418,6 +536,7 @@ export function useScheduleViewModel() {
     availableCamps,
     availableRoutes,
     searchTerm,
+    getDriverAssignmentOnDate,
     setSearchTerm,
     campFilter,
     setCampFilter,
@@ -435,6 +554,10 @@ export function useScheduleViewModel() {
     handleAssignDriver,
     handleUnassignDriver,
     handleSetOffDay,
+    handleAssignBackup,
+    handleRemoveBackup,
+    slotAssignments,
+    showToast,
     toastMessage,
     reload: loadData,
   };

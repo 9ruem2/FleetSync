@@ -293,6 +293,72 @@ export async function handleApiRequest(req: Request): Promise<Response> {
       return jsonResponse({ success: true, data: assignment, message: '대차 기사가 지정되었습니다' }, 201);
     }
 
+    // ==========================================
+    // Monthly Rosters CRUD Endpoints (신규 테이블)
+    // ==========================================
+    const { monthlyRosterRepository } = await import('../repositories/dbRepository');
+
+    if (path === '/api/monthly-rosters' && method === 'GET') {
+      try {
+        const rosters = await monthlyRosterRepository.findAll();
+        return jsonResponse({ success: true, data: rosters });
+      } catch (err: any) {
+        return errorResponse(err.message || '월별 근무표 목록 조회 실패', 500);
+      }
+    }
+
+    if (path.startsWith('/api/monthly-rosters/') && method === 'GET') {
+      const idRaw = path.split('/')[3];
+      const id = parseId(idRaw);
+      if (!id) return errorResponse('유효한 근무표 ID가 필요합니다', 400);
+      try {
+        const roster = await monthlyRosterRepository.findById(id);
+        if (!roster) return errorResponse('해당 월별 근무표를 찾을 수 없습니다', 404);
+        return jsonResponse({ success: true, data: roster });
+      } catch (err: any) {
+        return errorResponse(err.message || '월별 근무표 조회 실패', 500);
+      }
+    }
+
+    if (path === '/api/monthly-rosters' && method === 'POST') {
+      try {
+        const body = await parseBody<any>(req);
+        if (!body.targetMonth || !body.title || !Array.isArray(body.items)) {
+          return errorResponse('targetMonth, title, items 목록이 필수입니다', 400);
+        }
+        const created = await monthlyRosterRepository.create(body);
+        return jsonResponse({ success: true, data: created, message: '월별 근무표가 DB에 성공적으로 저장되었습니다' }, 201);
+      } catch (err: any) {
+        return errorResponse(err.message || '월별 근무표 저장 실패', 500);
+      }
+    }
+
+    if (path.startsWith('/api/monthly-rosters/') && method === 'PUT') {
+      const idRaw = path.split('/')[3];
+      const id = parseId(idRaw);
+      if (!id) return errorResponse('유효한 근무표 ID가 필요합니다', 400);
+      try {
+        const body = await parseBody<any>(req);
+        const updated = await monthlyRosterRepository.update(id, body);
+        if (!updated) return errorResponse('해당 월별 근무표를 찾을 수 없습니다', 404);
+        return jsonResponse({ success: true, data: updated, message: '월별 근무표가 수정되었습니다' });
+      } catch (err: any) {
+        return errorResponse(err.message || '월별 근무표 수정 실패', 500);
+      }
+    }
+
+    if (path.startsWith('/api/monthly-rosters/') && method === 'DELETE') {
+      const idRaw = path.split('/')[3];
+      const id = parseId(idRaw);
+      if (!id) return errorResponse('유효한 근무표 ID가 필요합니다', 400);
+      try {
+        const deleted = await monthlyRosterRepository.delete(id);
+        return jsonResponse({ success: true, data: { id, deleted }, message: '월별 근무표가 삭제되었습니다' });
+      } catch (err: any) {
+        return errorResponse(err.message || '월별 근무표 삭제 실패', 500);
+      }
+    }
+
     return errorResponse('Not Found', 404);
   } catch (error: unknown) {
     console.error('[api] Request error:', { path, method, error });

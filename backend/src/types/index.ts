@@ -106,6 +106,48 @@ export interface AssignBackupDTO {
   note?: string;
 }
 
+export interface MonthlyRosterItem {
+  id?: number;
+  rosterId?: number;
+  date: string; // '2026-08-01'
+  campName: string;
+  routeName: string;
+  routeKey: string; // '남양주3/905CD'
+  driverId?: number;
+  driverName?: string;
+  contractType?: string;
+  status: ShiftStatus; // '고정' | '용차' | '백업' | '휴무'
+  backupDriverId?: number;
+  backupDriverName?: string;
+}
+
+export interface MonthlyRoster {
+  id: number;
+  targetMonth: string; // '2026-08'
+  title: string;
+  memo?: string;
+  status: 'draft' | 'approved' | 'archived';
+  totalAssignments: number;
+  createdAt: string;
+  updatedAt: string;
+  items?: MonthlyRosterItem[];
+}
+
+export interface CreateMonthlyRosterDTO {
+  targetMonth: string;
+  title: string;
+  memo?: string;
+  status?: 'draft' | 'approved' | 'archived';
+  items: MonthlyRosterItem[];
+}
+
+export interface UpdateMonthlyRosterDTO {
+  title?: string;
+  memo?: string;
+  status?: 'draft' | 'approved' | 'archived';
+  items?: MonthlyRosterItem[];
+}
+
 export interface QuickOffDayDTO {
   driverId: number;
   date: string;
