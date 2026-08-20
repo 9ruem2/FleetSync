@@ -264,8 +264,22 @@ export const ScheduleGridView: React.FC = () => {
                               size="sm"
                             />
                           </div>
-                          <div className="text-[10px] text-slate-400 font-mono truncate mt-0.5">
-                            {driver.camp || "미지정"} · {driver.routes || "-"}
+                          <div className="text-[10px] text-slate-500 font-mono truncate mt-0.5">
+                            {(() => {
+                              const camps = (driver.camp || "")
+                                .split(",")
+                                .map((s) => s.trim())
+                                .filter(Boolean);
+                              const routes = (driver.routes || "")
+                                .split(",")
+                                .map((s) => s.trim());
+                              if (camps.length === 0) return "미지정";
+                              return camps
+                                .map((c, i) =>
+                                  routes[i] ? `${c}/${routes[i]}` : c,
+                                )
+                                .join(", ");
+                            })()}
                           </div>
                         </div>
                       </div>

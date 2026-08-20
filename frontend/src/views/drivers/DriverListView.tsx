@@ -404,11 +404,11 @@ export const DriverListView: React.FC = () => {
           vm.setIsAddModalOpen(false);
           vm.setEditingDriver(null);
         }}
-        onSubmit={(form) => {
+        onSubmit={async (form) => {
           if (vm.editingDriver) {
-            vm.handleUpdateDriver(vm.editingDriver.id, form);
+            await vm.handleUpdateDriver(vm.editingDriver.id, form);
           } else {
-            vm.handleCreateDriver(form);
+            await vm.handleCreateDriver(form);
           }
         }}
       />

@@ -33,9 +33,9 @@ export const Sidebar: React.FC<Props> = ({
     },
     {
       id: "schedule",
-      label: "스케줄 조회",
+      label: "노선 배차 관리",
       icon: CalendarRange,
-      description: "주간/월간 근무",
+      description: "캠프별 노선별 기사 배차 관리",
     },
     {
       id: "calendar",

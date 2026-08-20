@@ -60,7 +60,7 @@ export function App() {
         };
       case "schedule":
         return {
-          title: "스케줄 관리 (Schedule Management)",
+          title: "노선 배차 관리 (Schedule Management)",
           subtitle: "주간 / 월간 스케줄 관리",
         };
       case "calendar":

@@ -202,8 +202,20 @@ export const RouteAssignModal: React.FC<RouteAssignModalProps> = ({
                         <span className="font-bold text-slate-900 text-xs">{driver.name}</span>
                         <StatusBadge status={driver.contractType} size="sm" />
                       </div>
-                      <div className="text-[11px] text-slate-400 font-mono mt-0.5">
-                        {driver.camp} · {driver.routes}
+                      <div className="text-[11px] text-slate-500 font-mono mt-0.5">
+                        {(() => {
+                          const camps = (driver.camp || '')
+                            .split(',')
+                            .map((s) => s.trim())
+                            .filter(Boolean);
+                          const routes = (driver.routes || '')
+                            .split(',')
+                            .map((s) => s.trim());
+                          if (camps.length === 0) return '미지정';
+                          return camps
+                            .map((c, i) => (routes[i] ? `${c}/${routes[i]}` : c))
+                            .join(', ');
+                        })()}
                       </div>
                     </div>
                   </div>

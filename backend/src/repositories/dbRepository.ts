@@ -291,47 +291,104 @@ async function saveCampRoutes(driverId: number, campStr: string, routesStr: stri
   const campArr = (campStr || '').split(',').map(s => s.trim()).filter(Boolean);
   const routeArr = (routesStr || '').split(',').map(s => s.trim());
 
+  if (campArr.length === 0) return;
+
+  // 1. Target Company ID 확인
+  let targetCompanyId: number;
+  if (companyId) {
+    targetCompanyId = companyId;
+  } else {
+    const { data: allComp } = await sb.from('companies').select('id, name');
+    const rows = (allComp || []) as { id: number; name: string }[];
+    const daeguk = rows.find(c => c.name === DEFAULT_COMPANY_NAME);
+    if (daeguk) {
+      targetCompanyId = daeguk.id;
+    } else if (rows.length > 0) {
+      targetCompanyId = rows[0].id;
+    } else {
+      const { data: newComp } = await sb.from('companies').insert({ name: DEFAULT_COMPANY_NAME }).select().single();
+      targetCompanyId = (newComp as { id: number }).id;
+    }
+  }
+
+  // 2. 입력된 캠프들을 한 번에 조회 및 없는 캠프 일괄 생성
+  const uniqueCampNames = Array.from(new Set(campArr));
+  const { data: existingCampsData } = await sb
+    .from('camps')
+    .select('id, name')
+    .eq('company_id', targetCompanyId);
+
+  const existingCamps = (existingCampsData || []) as { id: number; name: string }[];
+  const campMap = new Map<string, number>();
+  existingCamps.forEach(c => campMap.set(c.name.toLowerCase(), c.id));
+
+  // 없는 캠프 생성
+  const campsToCreate = uniqueCampNames.filter(c => !campMap.has(c.toLowerCase()));
+  if (campsToCreate.length > 0) {
+    const { data: insertedCamps } = await sb
+      .from('camps')
+      .insert(campsToCreate.map(name => ({ company_id: targetCompanyId, name })))
+      .select();
+    ((insertedCamps || []) as { id: number; name: string }[]).forEach(c => {
+      campMap.set(c.name.toLowerCase(), c.id);
+    });
+  }
+
+  // 3. 라우터 일괄 처리
+  const campIds = Array.from(campMap.values());
+  const { data: existingRoutesData } = await sb
+    .from('routes')
+    .select('id, camp_id, name')
+    .in('camp_id', campIds);
+
+  const existingRoutes = (existingRoutesData || []) as { id: number; camp_id: number; name: string }[];
+  const routeMap = new Map<string, number>(); // "campId_routeName" -> routeId
+  existingRoutes.forEach(r => routeMap.set(`${r.camp_id}_${r.name.toLowerCase()}`, r.id));
+
+  const mappingInserts: { driver_id: number; camp_id: number; route_id: number | null; route_name: string }[] = [];
+
   for (let i = 0; i < campArr.length; i++) {
     const cName = campArr[i];
     const rName = routeArr[i] || '';
-    if (!cName) continue;
-
-    const campId = await getOrCreateCampId(cName, companyId);
+    const campId = campMap.get(cName.toLowerCase());
+    if (!campId) continue;
 
     if (rName.trim()) {
-      const { data: existingRoute } = await sb
-        .from('routes')
-        .select('*')
-        .eq('camp_id', campId)
-        .eq('name', rName.trim())
-        .maybeSingle();
+      const routeKey = `${campId}_${rName.trim().toLowerCase()}`;
+      let routeId = routeMap.get(routeKey);
 
-      let routeId: number;
-      if (existingRoute) {
-        routeId = (existingRoute as { id: number }).id;
-      } else {
-        const { data: insertedRoute, error } = await sb
+      if (!routeId) {
+        // 새 라우터 생성
+        const { data: insertedRoute } = await sb
           .from('routes')
           .insert({ camp_id: campId, name: rName.trim() })
           .select()
           .single();
-        if (error) throw error;
-        routeId = (insertedRoute as { id: number }).id;
+        if (insertedRoute) {
+          routeId = (insertedRoute as { id: number }).id;
+          routeMap.set(routeKey, routeId);
+        }
       }
 
-      await sb.from('driver_camp_routes').insert({
+      mappingInserts.push({
         driver_id: driverId,
         camp_id: campId,
-        route_id: routeId,
+        route_id: routeId ?? null,
         route_name: rName.trim(),
       });
     } else {
-      await sb.from('driver_camp_routes').insert({
+      mappingInserts.push({
         driver_id: driverId,
         camp_id: campId,
+        route_id: null,
         route_name: '',
       });
     }
+  }
+
+  // 4. driver_camp_routes 한 번에 일괄 삽입
+  if (mappingInserts.length > 0) {
+    await sb.from('driver_camp_routes').insert(mappingInserts);
   }
 }
 
