@@ -332,13 +332,13 @@ export function useScheduleViewModel() {
     return filteredDrivers;
   }, [filteredDrivers]);
 
-  // 기사 배정 처리 (드래그&드롭 또는 모달에서 선택)
+  // 기사 배정 처리 (드래그&드롭 또는 모달에서 선택) - 하루 1기사 1라우트 배정 원칙 (중복 방지)
   const handleAssignDriver = async (dateStr: string, routeKey: string, driverId: number) => {
     try {
       const targetDriver = drivers.find(d => d.id === driverId);
       if (!targetDriver) return;
 
-      const slotKey = `${dateStr}_${routeKey}`;
+      const targetSlotKey = `${dateStr}_${routeKey}`;
       const newAssignment: SlotAssignment = {
         driverId: targetDriver.id,
         driverName: targetDriver.name,
@@ -346,11 +346,21 @@ export function useScheduleViewModel() {
         status: targetDriver.contractType as ShiftStatus,
       };
 
-      // 1. 슬롯 배정 상태 업데이트
-      setSlotAssignments(prev => ({
-        ...prev,
-        [slotKey]: newAssignment,
-      }));
+      // 1. 슬롯 배정 상태 업데이트: 동일 날짜(dateStr)에 이 기사가 배정된 기존 다른 라우트 슬롯이 있다면 자동 제거하여 1일 1배정 보장
+      setSlotAssignments(prev => {
+        const next = { ...prev };
+        
+        // 동일 날짜의 다른 모든 슬롯에서 해당 기사 배정 제거
+        Object.keys(next).forEach(key => {
+          if (key.startsWith(`${dateStr}_`) && next[key].driverId === driverId) {
+            delete next[key];
+          }
+        });
+
+        // 새 슬롯에 배정
+        next[targetSlotKey] = newAssignment;
+        return next;
+      });
 
       // 2. 서버 근무 상태 동기화
       await ApiService.updateShiftCell(driverId, dateStr, targetDriver.contractType as ShiftStatus);
@@ -398,6 +408,20 @@ export function useScheduleViewModel() {
     }
   };
 
+  // 특정 일자에 해당 기사가 다른 라우터에 이미 배정되어 있는지 확인
+  const getDriverAssignmentOnDate = useCallback(
+    (dateStr: string, driverId: number): { routeKey: string } | undefined => {
+      for (const [key, assignment] of Object.entries(slotAssignments)) {
+        if (key.startsWith(`${dateStr}_`) && assignment.driverId === driverId) {
+          const routeKey = key.slice(dateStr.length + 1);
+          return { routeKey };
+        }
+      }
+      return undefined;
+    },
+    [slotAssignments]
+  );
+
   const resetFilters = () => {
     setSearchTerm('');
     setCampFilter('');
@@ -418,6 +442,7 @@ export function useScheduleViewModel() {
     availableCamps,
     availableRoutes,
     searchTerm,
+    getDriverAssignmentOnDate,
     setSearchTerm,
     campFilter,
     setCampFilter,

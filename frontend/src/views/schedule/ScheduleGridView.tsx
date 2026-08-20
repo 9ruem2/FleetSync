@@ -435,6 +435,7 @@ export const ScheduleGridView: React.FC = () => {
           routeName={vm.selectedSlot.routeName}
           currentAssignment={vm.selectedSlot.currentAssignment}
           availableDrivers={vm.drivers}
+          getDriverAssignmentOnDate={vm.getDriverAssignmentOnDate}
           onClose={() => vm.setSelectedSlot(null)}
           onAssign={async (driverId: number) => {
             if (vm.selectedSlot) {
