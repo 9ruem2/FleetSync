@@ -1,8 +1,8 @@
-import React from 'react';
-import { useCalendarViewModel } from '../../viewmodels/useCalendarViewModel';
-import { QuickVacationModal } from './QuickVacationModal';
-import { BackupAssignModal } from '../backup/BackupAssignModal';
-import { ToastNotification } from '../components/ToastNotification';
+import React from "react";
+import { useCalendarViewModel } from "../../viewmodels/useCalendarViewModel";
+import { QuickVacationModal } from "./QuickVacationModal";
+import { BackupAssignModal } from "../backup/BackupAssignModal";
+import { ToastNotification } from "../components/ToastNotification";
 import {
   CalendarDays,
   ChevronLeft,
@@ -11,18 +11,18 @@ import {
   RefreshCw,
   UserCheck,
   Calendar as CalendarIcon,
-  Users
-} from 'lucide-react';
+  Users,
+} from "lucide-react";
 
 export const VacationCalendarView: React.FC = () => {
   const vm = useCalendarViewModel();
 
-  const monthTitle = vm.currentDate.toLocaleDateString('ko-KR', {
-    year: 'numeric',
-    month: 'long'
+  const monthTitle = vm.currentDate.toLocaleDateString("ko-KR", {
+    year: "numeric",
+    month: "long",
   });
 
-  const weekDayNames = ['일', '월', '화', '수', '목', '금', '토'];
+  const weekDayNames = ["일", "월", "화", "수", "목", "금", "토"];
 
   return (
     <div className="p-4 sm:p-8 space-y-4 sm:space-y-6">
@@ -34,10 +34,11 @@ export const VacationCalendarView: React.FC = () => {
         <div>
           <h2 className="text-lg sm:text-xl font-bold text-slate-900 flex items-center gap-2">
             <CalendarDays className="w-5 h-5 sm:w-6 sm:h-6 text-blue-600 shrink-0" />
-            <span>휴무 달력 현황판</span>
+            <span>휴무 관리</span>
           </h2>
           <p className="text-xs text-slate-500 mt-1">
-            월간/주간 단위로 일자별 휴무자 현황과 노선을 모아보고, 날짜를 클릭하여 빠르게 휴무를 등록 및 대차 지정할 수 있습니다.
+            월간/주간 단위로 일자별 휴무자 현황과 노선을 모아보고, 날짜를
+            클릭하여 빠르게 휴무를 등록 및 대차 지정할 수 있습니다.
           </p>
         </div>
 
@@ -101,8 +102,13 @@ export const VacationCalendarView: React.FC = () => {
               {weekDayNames.map((day, idx) => (
                 <div
                   key={day}
-                  className={`py-2.5 sm:py-3.5 ${idx === 0 ? 'text-red-400' : idx === 6 ? 'text-amber-300' : ''
-                    }`}
+                  className={`py-2.5 sm:py-3.5 ${
+                    idx === 0
+                      ? "text-red-400"
+                      : idx === 6
+                        ? "text-amber-300"
+                        : ""
+                  }`}
                 >
                   <span className="hidden sm:inline">{day}요일</span>
                   <span className="sm:hidden">{day}</span>
@@ -121,20 +127,22 @@ export const VacationCalendarView: React.FC = () => {
                   <div
                     key={`${cell.dateStr}-${idx}`}
                     onClick={() => vm.setQuickVacationDate(cell.dateStr)}
-                    className={`min-h-[85px] sm:min-h-[120px] p-1.5 sm:p-2.5 bg-white transition hover:bg-slate-50/90 cursor-pointer flex flex-col justify-between group ${!cell.isCurrentMonth ? 'opacity-40 bg-slate-50' : ''
-                      } ${cell.isToday ? 'ring-2 ring-blue-500 ring-inset z-10' : ''}`}
+                    className={`min-h-[85px] sm:min-h-[120px] p-1.5 sm:p-2.5 bg-white transition hover:bg-slate-50/90 cursor-pointer flex flex-col justify-between group ${
+                      !cell.isCurrentMonth ? "opacity-40 bg-slate-50" : ""
+                    } ${cell.isToday ? "ring-2 ring-blue-500 ring-inset z-10" : ""}`}
                   >
                     {/* Top Row: Date number & Total summary badge [F-02-04] */}
                     <div className="flex items-center justify-between mb-1 sm:mb-1.5">
                       <span
-                        className={`text-[11px] sm:text-xs font-bold font-mono px-1 sm:px-1.5 py-0.5 rounded ${cell.isToday
-                            ? 'bg-blue-600 text-white'
+                        className={`text-[11px] sm:text-xs font-bold font-mono px-1 sm:px-1.5 py-0.5 rounded ${
+                          cell.isToday
+                            ? "bg-blue-600 text-white"
                             : isSunday
-                              ? 'text-red-600 font-extrabold'
+                              ? "text-red-600 font-extrabold"
                               : isSaturday
-                                ? 'text-blue-600 font-extrabold'
-                                : 'text-slate-800'
-                          }`}
+                                ? "text-blue-600 font-extrabold"
+                                : "text-slate-800"
+                        }`}
                       >
                         {cell.dayNumber}
                       </span>
@@ -153,30 +161,33 @@ export const VacationCalendarView: React.FC = () => {
 
                     {/* Off-day Drivers List Cards */}
                     <div className="space-y-1 sm:space-y-1.5 flex-1 overflow-y-auto max-h-20 sm:max-h-24 pr-0.5">
-                      {cell.offDayRecords.map(record => (
+                      {cell.offDayRecords.map((record) => (
                         <div
                           key={record.id}
-                          onClick={e => {
+                          onClick={(e) => {
                             e.stopPropagation();
                             vm.setBackupTarget({
                               date: record.date,
                               routeNumber: record.routeNumber,
                               originalDriverId: record.driverId,
-                              originalDriverName: record.driverName
+                              originalDriverName: record.driverName,
                             });
                           }}
-                          className={`p-1 sm:p-1.5 rounded-lg border text-[10px] sm:text-[11px] font-medium transition flex flex-col sm:flex-row items-start sm:items-center justify-between gap-0.5 ${record.backupAssigned
-                              ? 'bg-amber-50 border-amber-300 text-amber-950 hover:bg-amber-100'
-                              : 'bg-red-50 border-red-200 text-red-900 hover:bg-red-100'
-                            }`}
+                          className={`p-1 sm:p-1.5 rounded-lg border text-[10px] sm:text-[11px] font-medium transition flex flex-col sm:flex-row items-start sm:items-center justify-between gap-0.5 ${
+                            record.backupAssigned
+                              ? "bg-amber-50 border-amber-300 text-amber-950 hover:bg-amber-100"
+                              : "bg-red-50 border-red-200 text-red-900 hover:bg-red-100"
+                          }`}
                           title={
                             record.backupAssigned
                               ? `대차: ${record.backupDriverName}`
-                              : '클릭하여 대차 기사 지정'
+                              : "클릭하여 대차 기사 지정"
                           }
                         >
                           <div className="truncate w-full">
-                            <span className="font-bold truncate block sm:inline">{record.driverName}</span>
+                            <span className="font-bold truncate block sm:inline">
+                              {record.driverName}
+                            </span>
                             <span className="text-[9px] sm:text-[10px] text-slate-500 font-mono sm:ml-1">
                               [{record.routeNumber}]
                             </span>

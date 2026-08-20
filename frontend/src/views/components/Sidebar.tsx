@@ -1,34 +1,48 @@
-import React from 'react';
-import { Users, CalendarRange, CalendarDays, Truck, X, ExternalLink, Settings } from 'lucide-react';
+import React from "react";
+import {
+  Users,
+  CalendarRange,
+  CalendarDays,
+  Truck,
+  X,
+  ExternalLink,
+  Settings,
+} from "lucide-react";
 
 interface Props {
-  activeTab: 'drivers' | 'schedule' | 'calendar';
-  setActiveTab: (tab: 'drivers' | 'schedule' | 'calendar') => void;
+  activeTab: "drivers" | "schedule" | "calendar";
+  setActiveTab: (tab: "drivers" | "schedule" | "calendar") => void;
   isOpen?: boolean;
   onClose?: () => void;
   onOpenSettings?: () => void;
 }
 
-export const Sidebar: React.FC<Props> = ({ activeTab, setActiveTab, isOpen = false, onClose, onOpenSettings }) => {
+export const Sidebar: React.FC<Props> = ({
+  activeTab,
+  setActiveTab,
+  isOpen = false,
+  onClose,
+  onOpenSettings,
+}) => {
   const menuItems = [
     {
-      id: 'drivers',
-      label: '기사 관리',
+      id: "drivers",
+      label: "기사 관리",
       icon: Users,
-      description: '기사 관리 및 계약 형태',
+      description: "기사 관리 및 계약 형태",
     },
     {
-      id: 'schedule',
-      label: '스케줄 조회',
+      id: "schedule",
+      label: "스케줄 조회",
       icon: CalendarRange,
-      description: '주간/월간 근무',
+      description: "주간/월간 근무",
     },
     {
-      id: 'calendar',
-      label: '휴무 달력 (Calendar)',
+      id: "calendar",
+      label: "휴무 달력 (Calendar)",
       icon: CalendarDays,
-      description: '월간/주간 휴무 현황판',
-    }
+      description: "월간/주간 휴무 관리",
+    },
   ] as const;
 
   return (
@@ -42,8 +56,9 @@ export const Sidebar: React.FC<Props> = ({ activeTab, setActiveTab, isOpen = fal
       )}
 
       <aside
-        className={`fixed md:static inset-y-0 left-0 z-50 w-64 bg-slate-900 text-white min-h-screen p-4 flex flex-col justify-between shrink-0 shadow-2xl transition-transform duration-300 ease-in-out ${isOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
-          }`}
+        className={`fixed md:static inset-y-0 left-0 z-50 w-64 bg-slate-900 text-white min-h-screen p-4 flex flex-col justify-between shrink-0 shadow-2xl transition-transform duration-300 ease-in-out ${
+          isOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
+        }`}
       >
         <div>
           {/* Brand Header */}
@@ -59,7 +74,9 @@ export const Sidebar: React.FC<Props> = ({ activeTab, setActiveTab, isOpen = fal
                     PRO
                   </span>
                 </h1>
-                <p className="text-xs text-slate-400 font-medium">쿠팡 기사 및 노선 관리자</p>
+                <p className="text-xs text-slate-400 font-medium">
+                  쿠팡 기사 및 노선 관리자
+                </p>
               </div>
             </div>
 
@@ -79,29 +96,34 @@ export const Sidebar: React.FC<Props> = ({ activeTab, setActiveTab, isOpen = fal
             <div className="px-3 pb-2 text-[11px] font-bold uppercase tracking-wider text-slate-400">
               메인 메뉴
             </div>
-            {menuItems.map(item => {
+            {menuItems.map((item) => {
               const Icon = item.icon;
               const isActive = activeTab === item.id;
               return (
                 <button
                   key={item.id}
                   onClick={() => setActiveTab(item.id)}
-                  className={`w-full flex items-start gap-3 p-3 rounded-xl transition-all duration-200 text-left group ${isActive
-                    ? 'bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-md shadow-blue-600/30 font-semibold'
-                    : 'text-slate-300 hover:bg-slate-800/80 hover:text-white'
-                    }`}
+                  className={`w-full flex items-start gap-3 p-3 rounded-xl transition-all duration-200 text-left group ${
+                    isActive
+                      ? "bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-md shadow-blue-600/30 font-semibold"
+                      : "text-slate-300 hover:bg-slate-800/80 hover:text-white"
+                  }`}
                 >
                   <Icon
-                    className={`w-5 h-5 mt-0.5 transition-colors ${isActive ? 'text-white' : 'text-slate-400 group-hover:text-blue-400'
-                      }`}
+                    className={`w-5 h-5 mt-0.5 transition-colors ${
+                      isActive
+                        ? "text-white"
+                        : "text-slate-400 group-hover:text-blue-400"
+                    }`}
                   />
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between">
                       <span className="text-sm">{item.label}</span>
                     </div>
                     <p
-                      className={`text-[11px] truncate mt-0.5 ${isActive ? 'text-blue-100/80' : 'text-slate-400'
-                        }`}
+                      className={`text-[11px] truncate mt-0.5 ${
+                        isActive ? "text-blue-100/80" : "text-slate-400"
+                      }`}
                     >
                       {item.description}
                     </p>
@@ -130,7 +152,9 @@ export const Sidebar: React.FC<Props> = ({ activeTab, setActiveTab, isOpen = fal
                   <span className="text-xs font-bold text-slate-100 group-hover:text-white truncate">
                     쿠팡 어드민 페이지
                   </span>
-                  <span className="text-[10px] text-slate-400 font-mono truncate">fly.coupang.com</span>
+                  <span className="text-[10px] text-slate-400 font-mono truncate">
+                    fly.coupang.com
+                  </span>
                 </div>
               </div>
               <ExternalLink className="w-4 h-4 text-slate-400 group-hover:text-white shrink-0 ml-1 transition-colors" />
@@ -155,7 +179,9 @@ export const Sidebar: React.FC<Props> = ({ activeTab, setActiveTab, isOpen = fal
               </button>
             )}
           </div>
-          <p className="text-[11px] text-slate-400">회사 · 캠프 · 라우트 통합 관리</p>
+          <p className="text-[11px] text-slate-400">
+            회사 · 캠프 · 라우트 통합 관리
+          </p>
         </div>
       </aside>
     </>

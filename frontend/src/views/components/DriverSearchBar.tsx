@@ -44,76 +44,90 @@ export const DriverSearchBar: React.FC<Props> = ({
         />
       </div>
 
-      {/* 필터 영역 */}
-      <div className="flex flex-col gap-2">
-        {/* 필터 레이블 + 캠프(전체 너비) */}
-        <div className="flex items-center gap-2">
-          <div className="flex items-center gap-1.5 shrink-0">
-            <Filter className="w-3.5 h-3.5 text-slate-400" />
-            <span className="text-xs font-bold text-slate-600">필터:</span>
-          </div>
-          {/* Camp Filter - 모바일에서 전체 너비 */}
-          <select
-            value={campFilter}
-            onChange={e => {
-              onCampChange(e.target.value);
-              onRouteChange('');
-            }}
-            className="flex-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 focus:ring-2 focus:ring-blue-500 outline-none transition cursor-pointer"
-          >
-            <option value="">캠프 (전체)</option>
-            {availableCamps.map(camp => (
-              <option key={camp} value={camp}>
-                {camp}
-              </option>
-            ))}
-          </select>
-          {hasFilters && (
-            <button
-              onClick={onReset}
-              className="text-xs font-semibold text-blue-600 hover:underline px-2 py-1 shrink-0"
+      {/* 필터 영역
+          모바일: 캠프 한 줄 → 라우트+계약형태 2열
+          PC(md+): 필터 레이블 + 3개 드롭다운 균등 3등분 + 초기화 */}
+      <div className="flex flex-col md:flex-row md:items-center gap-2">
+        {/* 필터 레이블 */}
+        <div className="flex items-center gap-1.5 shrink-0">
+          <Filter className="w-3.5 h-3.5 text-slate-400" />
+          <span className="text-xs font-bold text-slate-600">필터:</span>
+        </div>
+
+        {/* 드롭다운 3개 - 모바일: 캠프 한 줄 + 나머지 2열 / PC: 균등 3열 */}
+        <div className="flex-1 flex flex-col md:flex-row md:items-center gap-2">
+          {/* 모바일: 캠프 + 초기화 한 줄 */}
+          <div className="flex items-center gap-2 md:flex-1">
+            {/* Camp Filter */}
+            <select
+              value={campFilter}
+              onChange={e => {
+                onCampChange(e.target.value);
+                onRouteChange('');
+              }}
+              className="flex-1 md:w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 focus:ring-2 focus:ring-blue-500 outline-none transition cursor-pointer"
             >
-              초기화
-            </button>
-          )}
-        </div>
+              <option value="">캠프 (전체)</option>
+              {availableCamps.map(camp => (
+                <option key={camp} value={camp}>{camp}</option>
+              ))}
+            </select>
+            {/* 모바일 전용 초기화 버튼 */}
+            {hasFilters && (
+              <button
+                onClick={onReset}
+                className="md:hidden text-xs font-semibold text-blue-600 hover:underline px-2 py-1 shrink-0"
+              >
+                초기화
+              </button>
+            )}
+          </div>
 
-        {/* 라우트 + 계약 형태 - 2열 그리드 */}
-        <div className="grid grid-cols-2 gap-2">
-          {/* Route Filter */}
-          <select
-            value={routeFilter}
-            onChange={e => onRouteChange(e.target.value)}
-            disabled={!campFilter}
-            title={!campFilter ? '라우트를 조회하려면 먼저 캠프를 선택해야 합니다.' : ''}
-            className={`px-3 py-2 border rounded-xl text-xs font-semibold transition ${
-              !campFilter
-                ? 'bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed opacity-70'
-                : 'bg-slate-50 border-slate-200 text-slate-700 focus:ring-2 focus:ring-blue-500 cursor-pointer'
-            }`}
-          >
-            <option value="">
-              {!campFilter ? '라우트 (캠프선택필요)' : '라우트 (전체)'}
-            </option>
-            {availableRoutes.map(route => (
-              <option key={route} value={route}>
-                라우트 {route}
+          {/* 모바일: 2열 그리드 / PC: 각각 flex-1 */}
+          <div className="grid grid-cols-2 gap-2 md:flex md:flex-row md:flex-1 md:gap-2">
+            {/* Route Filter */}
+            <select
+              value={routeFilter}
+              onChange={e => onRouteChange(e.target.value)}
+              disabled={!campFilter}
+              title={!campFilter ? '라우트를 조회하려면 먼저 캠프를 선택해야 합니다.' : ''}
+              className={`md:flex-1 px-3 py-2 border rounded-xl text-xs font-semibold transition ${
+                !campFilter
+                  ? 'bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed opacity-70'
+                  : 'bg-slate-50 border-slate-200 text-slate-700 focus:ring-2 focus:ring-blue-500 cursor-pointer'
+              }`}
+            >
+              <option value="">
+                {!campFilter ? '라우트 (캠프선택필요)' : '라우트 (전체)'}
               </option>
-            ))}
-          </select>
+              {availableRoutes.map(route => (
+                <option key={route} value={route}>라우트 {route}</option>
+              ))}
+            </select>
 
-          {/* Contract Type Filter */}
-          <select
-            value={contractTypeFilter}
-            onChange={e => onContractTypeChange(e.target.value)}
-            className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 focus:ring-2 focus:ring-blue-500 outline-none transition cursor-pointer"
-          >
-            <option value="">계약 형태 (전체)</option>
-            <option value="고정">고정</option>
-            <option value="용차">용차</option>
-            <option value="백업">백업</option>
-          </select>
+            {/* Contract Type Filter */}
+            <select
+              value={contractTypeFilter}
+              onChange={e => onContractTypeChange(e.target.value)}
+              className="md:flex-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 focus:ring-2 focus:ring-blue-500 outline-none transition cursor-pointer"
+            >
+              <option value="">계약 형태 (전체)</option>
+              <option value="고정">고정</option>
+              <option value="용차">용차</option>
+              <option value="백업">백업</option>
+            </select>
+          </div>
         </div>
+
+        {/* PC 전용 초기화 버튼 */}
+        {hasFilters && (
+          <button
+            onClick={onReset}
+            className="hidden md:block text-xs font-semibold text-blue-600 hover:underline px-2 py-1 shrink-0"
+          >
+            초기화
+          </button>
+        )}
       </div>
     </div>
   );
