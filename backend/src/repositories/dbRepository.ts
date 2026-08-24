@@ -707,14 +707,15 @@ class ScheduleRepository {
 
 class BackupRepository {
   private toBackup(row: {
-    id: number; date: string; route_number: string;
+    id: number; date: string; camp_name?: string | null; route_number: string;
     original_driver_id: number; original_driver_name: string;
     backup_driver_id: number; backup_driver_name: string;
-    note: string | null; created_at: string;
+    note: string | null; created_at: string; updated_at?: string;
   }): BackupAssignment {
     return {
       id: row.id,
       date: row.date,
+      campName: row.camp_name ?? undefined,
       routeNumber: row.route_number,
       originalDriverId: row.original_driver_id,
       originalDriverName: row.original_driver_name,
@@ -722,6 +723,7 @@ class BackupRepository {
       backupDriverName: row.backup_driver_name,
       note: row.note ?? undefined,
       createdAt: row.created_at,
+      updatedAt: row.updated_at,
     };
   }
 
@@ -782,16 +784,19 @@ class BackupRepository {
       .eq('date', dto.date)
       .eq('route_number', dto.routeNumber);
 
+    const now = new Date().toISOString();
     const { data, error } = await sb
       .from('backup_assignments')
       .insert({
         date: dto.date,
+        camp_name: dto.campName || null,
         route_number: dto.routeNumber,
         original_driver_id: originalDriver.id,
         original_driver_name: originalDriver.name,
         backup_driver_id: backupDriver.id,
         backup_driver_name: backupDriver.name,
         note: dto.note || '수동 지정 완료',
+        updated_at: now,
       })
       .select()
       .single();

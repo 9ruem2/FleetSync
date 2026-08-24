@@ -6,6 +6,7 @@ import { ApiService } from '../services/apiService';
 export function useBackupViewModel(
   target: {
     date: string;
+    campName?: string;
     routeNumber: string;
     originalDriverId: number;
     originalDriverName: string;
@@ -64,6 +65,7 @@ export function useBackupViewModel(
 
       const form: AssignBackupForm = {
         date: target.date,
+        campName: target.campName,
         routeNumber: target.routeNumber,
         originalDriverId: target.originalDriverId,
         backupDriverId: selectedBackupId,

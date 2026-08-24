@@ -12,7 +12,10 @@
     "packageJson": {
       "dependencies": [
         "npm:@netlify/functions@^5.3.0",
+        "npm:@supabase/supabase-js@^2.112.3",
         "npm:concurrently@^8.2.2",
+        "npm:cors@^2.8.5",
+        "npm:dotenv@^16.4.5",
         "npm:dotenv@^17.4.2",
         "npm:drizzle-kit@^1.0.0-beta.22",
         "npm:drizzle-orm@^1.0.0-beta.22",
