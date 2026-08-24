@@ -1,6 +1,15 @@
-import React from 'react';
-import { Calendar, UserCheck, ShieldCheck, Menu, ExternalLink, Globe, Settings, Building2 } from 'lucide-react';
-import { UserSession } from '../../models/user.model';
+import React from "react";
+import {
+  Calendar,
+  UserCheck,
+  ShieldCheck,
+  Menu,
+  ExternalLink,
+  Globe,
+  Settings,
+  Building2,
+} from "lucide-react";
+import { UserSession } from "../../models/user.model";
 
 interface Props {
   title: string;
@@ -17,14 +26,22 @@ export const Header: React.FC<Props> = ({
   onToggleMobileMenu,
   onOpenSettings,
   onLogout,
-  user
+  user,
 }) => {
-  const todayStr = new Date().toLocaleDateString('ko-KR', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-    weekday: 'short'
+  const todayStr = new Date().toLocaleDateString("ko-KR", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+    weekday: "short",
   });
+
+  const avatarText = (() => {
+    // if (!user) return "AD";
+    // const text =
+    //   user.adminName || user.loginId || (user as any).userId || "관리자";
+    // return String(text).slice(1, 3).toUpperCase();
+    return "AD";
+  })();
 
   return (
     <header className="bg-white border-b border-slate-200 px-4 sm:px-8 py-3.5 sm:py-5 flex items-center justify-between sticky top-0 z-30 shadow-xs">
@@ -44,7 +61,9 @@ export const Header: React.FC<Props> = ({
           <h1 className="text-base sm:text-2xl font-extrabold text-slate-900 tracking-tight truncate">
             {title}
           </h1>
-          <p className="text-xs text-slate-500 mt-0.5 hidden sm:block truncate">{subtitle}</p>
+          <p className="text-xs text-slate-500 mt-0.5 hidden sm:block truncate">
+            {subtitle}
+          </p>
         </div>
       </div>
 
@@ -64,26 +83,36 @@ export const Header: React.FC<Props> = ({
             className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-slate-900 hover:bg-slate-800 text-white flex items-center justify-center font-bold text-xs shadow-xs transition cursor-pointer active:scale-95 border border-slate-700"
             title="클릭 시 로그아웃"
           >
-            {user ? (user.adminName ? user.adminName.slice(0, 2).toUpperCase() : user.loginId.slice(0, 2).toUpperCase()) : 'AD'}
+            {avatarText}
           </button>
 
           <div className="text-left text-xs hidden xs:block sm:block">
             <div className="font-bold text-slate-800 flex items-center gap-1.5">
-              <span>{user?.adminName || '관리자'}</span>
-              {user?.permissions?.isAllCampsAccessible ? (
+              <span>
+                {user?.adminName ||
+                  user?.loginId ||
+                  (user as any)?.userId ||
+                  "관리자"}
+              </span>
+              {user?.permissions?.isAllCampsAccessible !== false ? (
                 <span className="px-1.5 py-0.5 rounded text-[10px] bg-blue-50 text-blue-600 font-bold border border-blue-200">
                   전체
                 </span>
               ) : (
                 <span className="px-1.5 py-0.5 rounded text-[10px] bg-emerald-50 text-emerald-600 font-bold border border-emerald-200">
-                  {user?.permissions?.assignedCampNames?.[0] || '캠프'}
+                  {user?.permissions?.assignedCampNames?.[0] || "캠프"}
                 </span>
               )}
             </div>
-            <div className="text-slate-400 font-medium text-[11px] flex items-center gap-1">
-              <Building2 className="w-3 h-3 text-slate-400" />
-              <span>{user?.companyName || '대국'} ({user?.companyCode || 'DK1001'})</span>
-            </div>
+            {user?.companyName && (
+              <div className="text-slate-400 font-medium text-[11px] flex items-center gap-1">
+                <Building2 className="w-3 h-3 text-slate-400" />
+                <span>
+                  {user.companyName}
+                  {user.companyCode ? ` (${user.companyCode})` : ""}
+                </span>
+              </div>
+            )}
           </div>
         </div>
       </div>

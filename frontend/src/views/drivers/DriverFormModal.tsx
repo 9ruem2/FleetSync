@@ -61,8 +61,7 @@ export const DriverFormModal: React.FC<Props> = ({
 
       let compId = driver?.companyId;
       if (!compId && compList.length > 0) {
-        const daeguk = compList.find(c => c.name === '대국') || compList[0];
-        compId = daeguk.id;
+        compId = compList[0].id;
       }
       setSelectedCompanyId(compId);
 

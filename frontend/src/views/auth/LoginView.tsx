@@ -1,28 +1,44 @@
-import React, { useState } from 'react';
-import { Lock, User, KeyRound, ArrowRight, ShieldCheck, Truck, Building2 } from 'lucide-react';
-import { ApiService } from '../../services/apiService';
-import { UserSession } from '../../models/user.model';
+import React, { useState } from "react";
+import {
+  Lock,
+  User,
+  KeyRound,
+  ArrowRight,
+  ShieldCheck,
+  Truck,
+  Building2,
+} from "lucide-react";
+import { ApiService } from "../../services/apiService";
+import { UserSession } from "../../models/user.model";
 
 interface Props {
   onLoginSuccess: (userInfo: UserSession) => void;
 }
 
 export const LoginView: React.FC<Props> = ({ onLoginSuccess }) => {
-  const [companyCode, setCompanyCode] = useState('DK1001');
-  const [loginId, setLoginId] = useState('kkh');
-  const [password, setPassword] = useState('1010');
-  const [errorMessage, setErrorMessage] = useState('');
+  const [companyCode, setCompanyCode] = useState("");
+  const [loginId, setLoginId] = useState("");
+  const [password, setPassword] = useState("");
+  const [errorMessage, setErrorMessage] = useState("");
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setErrorMessage('');
+    setErrorMessage("");
     setLoading(true);
     try {
-      const result = await ApiService.login(companyCode.trim().toUpperCase(), loginId.trim(), password);
+      const result = await ApiService.login(
+        companyCode.trim().toUpperCase(),
+        loginId.trim(),
+        password,
+      );
       onLoginSuccess(result);
     } catch (err: unknown) {
-      setErrorMessage(err instanceof Error ? err.message : '회사코드 또는 아이디/비밀번호가 올바르지 않습니다.');
+      setErrorMessage(
+        err instanceof Error
+          ? err.message
+          : "로그인에 실패하였습니다. 입력 정보를 확인해주세요.",
+      );
     } finally {
       setLoading(false);
     }
@@ -44,7 +60,10 @@ export const LoginView: React.FC<Props> = ({ onLoginSuccess }) => {
             <Truck className="w-8 h-8 text-white" />
           </div>
           <h1 className="text-2xl font-black text-white tracking-tight flex items-center justify-center gap-2">
-            FleetSync <span className="px-2 py-0.5 text-xs font-bold bg-blue-500/20 text-blue-400 rounded-full border border-blue-500/30">PRO</span>
+            FleetSync{" "}
+            <span className="px-2 py-0.5 text-xs font-bold bg-blue-500/20 text-blue-400 rounded-full border border-blue-500/30">
+              PRO
+            </span>
           </h1>
           <p className="text-xs text-slate-400 font-medium mt-1.5">
             통합 배차 및 기사 관리를 위한 스마트 물류 솔루션
@@ -59,7 +78,9 @@ export const LoginView: React.FC<Props> = ({ onLoginSuccess }) => {
                 <Lock className="w-4 h-4 text-blue-400" />
                 관리자 계정 로그인
               </h2>
-              <p className="text-xs text-slate-400 mt-0.5">회사코드와 승인된 계정을 입력하세요.</p>
+              <p className="text-xs text-slate-400 mt-0.5">
+                회사코드와 승인된 계정을 입력하세요.
+              </p>
             </div>
             <span className="px-2.5 py-1 bg-slate-800 text-blue-400 rounded-lg text-[11px] font-extrabold border border-slate-700">
               보안 인증
@@ -80,16 +101,18 @@ export const LoginView: React.FC<Props> = ({ onLoginSuccess }) => {
                 <label className="block text-xs font-bold uppercase tracking-wider text-slate-400">
                   회사 코드 (Company Code)
                 </label>
-                <span className="text-[10px] text-blue-400 font-medium">영문/숫자 6자리</span>
+                <span className="text-[10px] text-blue-400 font-medium">
+                  영문/숫자 6자리
+                </span>
               </div>
               <div className="relative">
                 <Building2 className="w-4 h-4 text-slate-500 absolute left-3.5 top-3.5 z-10" />
                 <input
                   type="text"
                   maxLength={6}
-                  placeholder="예: DK1001"
+                  placeholder="회사 코드 입력"
                   value={companyCode}
-                  onChange={e => setCompanyCode(e.target.value.toUpperCase())}
+                  onChange={(e) => setCompanyCode(e.target.value.toUpperCase())}
                   required
                   autoFocus
                   className="w-full pl-10 pr-4 py-3 bg-slate-950/70 border border-slate-800 rounded-xl text-sm text-white placeholder-slate-600 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition font-mono font-bold tracking-wider uppercase"
@@ -108,7 +131,7 @@ export const LoginView: React.FC<Props> = ({ onLoginSuccess }) => {
                   type="text"
                   placeholder="아이디 입력"
                   value={loginId}
-                  onChange={e => setLoginId(e.target.value)}
+                  onChange={(e) => setLoginId(e.target.value)}
                   autoComplete="username"
                   required
                   className="w-full pl-10 pr-4 py-3 bg-slate-950/70 border border-slate-800 rounded-xl text-sm text-white placeholder-slate-600 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition font-medium"
@@ -127,7 +150,7 @@ export const LoginView: React.FC<Props> = ({ onLoginSuccess }) => {
                   type="password"
                   placeholder="비밀번호 입력"
                   value={password}
-                  onChange={e => setPassword(e.target.value)}
+                  onChange={(e) => setPassword(e.target.value)}
                   autoComplete="current-password"
                   required
                   className="w-full pl-10 pr-4 py-3 bg-slate-950/70 border border-slate-800 rounded-xl text-sm text-white placeholder-slate-600 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition font-medium"

@@ -1,4 +1,4 @@
-import { getDb } from '../../../db';
+import { getDb } from "../../../db";
 import {
   Company,
   Admin,
@@ -12,14 +12,13 @@ import {
   UpdateDriverDTO,
   ScheduleShift,
   BackupAssignment,
-  AssignBackupDTO
-} from '../types';
-import { DEFAULT_COMPANY_NAME } from '../constants/company';
+  AssignBackupDTO,
+} from "../types";
 
 // 6자리 난수 회사 코드 생성기 (영문 대문자 + 숫자)
 export function generateCompanyCode(): string {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // 혼동하기 쉬운 I, O, 0, 1 제외
-  let result = '';
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // 혼동하기 쉬운 I, O, 0, 1 제외
+  let result = "";
   for (let i = 0; i < 6; i++) {
     result += chars.charAt(Math.floor(Math.random() * chars.length));
   }
@@ -31,72 +30,67 @@ export function generateCompanyCode(): string {
 // ==========================================
 
 class MasterRepository {
-  // 헬퍼: DB에 '대국' 회사가 존재하는지 보장하고 실제 DB ID 리턴
   private async getValidCompanyId(inputCompanyId?: number): Promise<number> {
     try {
       const sb = getDb();
-      const { data: allComp, error } = await sb.from('companies').select('*');
-      if (error) throw error;
-
-      const rows = (allComp || []) as { id: number; name: string; company_code?: string; created_at: string }[];
-
-      if (inputCompanyId && typeof inputCompanyId === 'number' && !isNaN(inputCompanyId)) {
-        const found = rows.find(c => c.id === inputCompanyId);
-        if (found) return found.id;
+      if (
+        inputCompanyId &&
+        typeof inputCompanyId === "number" &&
+        !isNaN(inputCompanyId)
+      ) {
+        return inputCompanyId;
       }
-
-      const daeguk = rows.find(c => c.name === DEFAULT_COMPANY_NAME);
-      if (daeguk) {
-        if (!daeguk.company_code) {
-          await sb.from('companies').update({ company_code: 'DK1001' }).eq('id', daeguk.id);
-        }
-        return daeguk.id;
+      const { data: allComp, error } = await sb.from("companies").select("id").limit(1);
+      if (!error && allComp && allComp.length > 0) {
+        return (allComp[0] as { id: number }).id;
       }
-
-      // 없으면 '대국' 회사 삽입
-      const { data: inserted, error: insertErr } = await sb
-        .from('companies')
-        .insert({ name: DEFAULT_COMPANY_NAME, company_code: 'DK1001' })
-        .select()
-        .single();
-      if (insertErr) throw insertErr;
-      return (inserted as { id: number }).id;
+      return 1;
     } catch (err) {
-      console.error('[getValidCompanyId] error:', err);
+      console.error("[getValidCompanyId] error:", err);
       return 1;
     }
   }
 
   public async findAllCompanies(): Promise<Company[]> {
     try {
-      await this.getValidCompanyId();
-      const { data, error } = await getDb().from('companies').select('*').order('id');
+      const { data, error } = await getDb()
+        .from("companies")
+        .select("*")
+        .order("id");
       if (error) throw error;
-      const rows = (data || []) as { id: number; name: string; company_code?: string; created_at: string }[];
-      if (rows.length > 0) {
-        return rows.map(r => ({
-          id: r.id,
-          name: r.name,
-          companyCode: r.company_code || 'DK1001',
-          createdAt: r.created_at,
-        }));
-      }
+      const rows = (data || []) as {
+        id: number;
+        name: string;
+        company_code?: string;
+        created_at: string;
+      }[];
+      return rows.map((r) => ({
+        id: r.id,
+        name: r.name,
+        companyCode: r.company_code || "",
+        createdAt: r.created_at,
+      }));
     } catch (err) {
-      console.error('[findAllCompanies] error:', err);
+      console.error("[findAllCompanies] error:", err);
+      return [];
     }
-    return [{ id: 1, name: DEFAULT_COMPANY_NAME, companyCode: 'DK1001', createdAt: new Date().toISOString() }];
   }
 
   public async findCompanyByCode(companyCode: string): Promise<Company | null> {
     const code = companyCode.trim().toUpperCase();
     try {
       const { data, error } = await getDb()
-        .from('companies')
-        .select('*')
-        .ilike('company_code', code)
+        .from("companies")
+        .select("*")
+        .ilike("company_code", code)
         .maybeSingle();
       if (error || !data) return null;
-      const row = data as { id: number; name: string; company_code: string; created_at: string };
+      const row = data as {
+        id: number;
+        name: string;
+        company_code: string;
+        created_at: string;
+      };
       return {
         id: row.id,
         name: row.name,
@@ -104,7 +98,7 @@ class MasterRepository {
         createdAt: row.created_at,
       };
     } catch (err) {
-      console.error('[findCompanyByCode error]:', err);
+      console.error("[findCompanyByCode error]:", err);
       return null;
     }
   }
@@ -112,34 +106,57 @@ class MasterRepository {
   public async createCompany(name: string): Promise<Company> {
     const trimmed = name.trim();
     const sb = getDb();
-    const { data: existing } = await sb.from('companies').select('*').eq('name', trimmed).maybeSingle();
+    const { data: existing } = await sb
+      .from("companies")
+      .select("*")
+      .eq("name", trimmed)
+      .maybeSingle();
     if (existing) {
-      const row = existing as { id: number; name: string; company_code: string; created_at: string };
-      return { id: row.id, name: row.name, companyCode: row.company_code, createdAt: row.created_at };
+      const row = existing as {
+        id: number;
+        name: string;
+        company_code: string;
+        created_at: string;
+      };
+      return {
+        id: row.id,
+        name: row.name,
+        companyCode: row.company_code,
+        createdAt: row.created_at,
+      };
     }
 
     // 6자리 고유 코드 발급
     let generatedCode = generateCompanyCode();
     for (let i = 0; i < 5; i++) {
-      const { data: dup } = await sb.from('companies').select('id').eq('company_code', generatedCode).maybeSingle();
+      const { data: dup } = await sb
+        .from("companies")
+        .select("id")
+        .eq("company_code", generatedCode)
+        .maybeSingle();
       if (!dup) break;
       generatedCode = generateCompanyCode();
     }
 
     const { data, error } = await sb
-      .from('companies')
+      .from("companies")
       .insert({ name: trimmed, company_code: generatedCode })
       .select()
       .single();
     if (error) throw error;
-    const row = data as { id: number; name: string; company_code: string; created_at: string };
+    const row = data as {
+      id: number;
+      name: string;
+      company_code: string;
+      created_at: string;
+    };
 
     // 회사 생성 시 기본 슈퍼 관리자 계정 생성 (id: admin / pw: 1234)
     try {
       await adminRepository.createAdmin({
         companyId: row.id,
-        loginId: 'admin',
-        password: 'password123',
+        loginId: "admin",
+        password: "password123",
         name: `${trimmed} 관리자`,
         isAllCampsAccessible: true,
         canCreate: true,
@@ -148,18 +165,23 @@ class MasterRepository {
         canDelete: true,
       });
     } catch (adminErr) {
-      console.error('[createCompany default admin error]:', adminErr);
+      console.error("[createCompany default admin error]:", adminErr);
     }
 
-    return { id: row.id, name: row.name, companyCode: row.company_code, createdAt: row.created_at };
+    return {
+      id: row.id,
+      name: row.name,
+      companyCode: row.company_code,
+      createdAt: row.created_at,
+    };
   }
 
   public async deleteCompany(id: number): Promise<boolean> {
     try {
-      const { error } = await getDb().from('companies').delete().eq('id', id);
+      const { error } = await getDb().from("companies").delete().eq("id", id);
       if (error) throw error;
     } catch (err) {
-      console.error('[deleteCompany] error:', err);
+      console.error("[deleteCompany] error:", err);
     }
     return true;
   }
@@ -168,14 +190,24 @@ class MasterRepository {
   public async findAllCamps(): Promise<Camp[]> {
     try {
       const { data, error } = await getDb()
-        .from('camps')
-        .select('*')
-        .order('name', { ascending: true });
+        .from("camps")
+        .select("*")
+        .order("name", { ascending: true });
       if (error) throw error;
-      const rows = (data || []) as { id: number; company_id: number; name: string; created_at: string }[];
-      return rows.map(r => ({ id: r.id, companyId: r.company_id, name: r.name, createdAt: r.created_at }));
+      const rows = (data || []) as {
+        id: number;
+        company_id: number;
+        name: string;
+        created_at: string;
+      }[];
+      return rows.map((r) => ({
+        id: r.id,
+        companyId: r.company_id,
+        name: r.name,
+        createdAt: r.created_at,
+      }));
     } catch (err) {
-      console.error('[findAllCamps] error:', err);
+      console.error("[findAllCamps] error:", err);
       return [];
     }
   }
@@ -184,15 +216,25 @@ class MasterRepository {
     try {
       const validCompanyId = await this.getValidCompanyId(companyId);
       const { data, error } = await getDb()
-        .from('camps')
-        .select('*')
-        .eq('company_id', validCompanyId)
-        .order('name', { ascending: true });
+        .from("camps")
+        .select("*")
+        .eq("company_id", validCompanyId)
+        .order("name", { ascending: true });
       if (error) throw error;
-      const rows = (data || []) as { id: number; company_id: number; name: string; created_at: string }[];
-      return rows.map(r => ({ id: r.id, companyId: r.company_id, name: r.name, createdAt: r.created_at }));
+      const rows = (data || []) as {
+        id: number;
+        company_id: number;
+        name: string;
+        created_at: string;
+      }[];
+      return rows.map((r) => ({
+        id: r.id,
+        companyId: r.company_id,
+        name: r.name,
+        createdAt: r.created_at,
+      }));
     } catch (err) {
-      console.error('[findCampsByCompany] error:', err);
+      console.error("[findCampsByCompany] error:", err);
       return [];
     }
   }
@@ -203,33 +245,45 @@ class MasterRepository {
 
     // 중복 체크
     const { data: existing } = await getDb()
-      .from('camps')
-      .select('*')
-      .eq('company_id', validCompanyId)
-      .ilike('name', trimmed)
+      .from("camps")
+      .select("*")
+      .eq("company_id", validCompanyId)
+      .ilike("name", trimmed)
       .maybeSingle();
     if (existing) {
       throw new Error(`이미 등록된 캠프명입니다. ('${trimmed}')`);
     }
 
     const { data, error } = await getDb()
-      .from('camps')
+      .from("camps")
       .insert({ company_id: validCompanyId, name: trimmed })
       .select()
       .single();
     if (error) throw error;
-    console.log(`[createCamp SUCCESS] Saved to DB -> id: ${(data as { id: number }).id}, name: ${trimmed}`);
-    const row = data as { id: number; company_id: number; name: string; created_at: string };
-    return { id: row.id, companyId: row.company_id, name: row.name, createdAt: row.created_at };
+    console.log(
+      `[createCamp SUCCESS] Saved to DB -> id: ${(data as { id: number }).id}, name: ${trimmed}`,
+    );
+    const row = data as {
+      id: number;
+      company_id: number;
+      name: string;
+      created_at: string;
+    };
+    return {
+      id: row.id,
+      companyId: row.company_id,
+      name: row.name,
+      createdAt: row.created_at,
+    };
   }
 
   public async deleteCamp(id: number): Promise<boolean> {
     try {
-      await getDb().from('routes').delete().eq('camp_id', id);
-      const { error } = await getDb().from('camps').delete().eq('id', id);
+      await getDb().from("routes").delete().eq("camp_id", id);
+      const { error } = await getDb().from("camps").delete().eq("id", id);
       if (error) throw error;
     } catch (err) {
-      console.error('[deleteCamp] error:', err);
+      console.error("[deleteCamp] error:", err);
     }
     return true;
   }
@@ -238,14 +292,24 @@ class MasterRepository {
   public async findAllRoutes(): Promise<Route[]> {
     try {
       const { data, error } = await getDb()
-        .from('routes')
-        .select('*')
-        .order('name', { ascending: true });
+        .from("routes")
+        .select("*")
+        .order("name", { ascending: true });
       if (error) throw error;
-      const rows = (data || []) as { id: number; camp_id: number; name: string; created_at: string }[];
-      return rows.map(r => ({ id: r.id, campId: r.camp_id, name: r.name, createdAt: r.created_at }));
+      const rows = (data || []) as {
+        id: number;
+        camp_id: number;
+        name: string;
+        created_at: string;
+      }[];
+      return rows.map((r) => ({
+        id: r.id,
+        campId: r.camp_id,
+        name: r.name,
+        createdAt: r.created_at,
+      }));
     } catch (err) {
-      console.error('[findAllRoutes] error:', err);
+      console.error("[findAllRoutes] error:", err);
       return [];
     }
   }
@@ -253,15 +317,25 @@ class MasterRepository {
   public async findRoutesByCamp(campId: number): Promise<Route[]> {
     try {
       const { data, error } = await getDb()
-        .from('routes')
-        .select('*')
-        .eq('camp_id', campId)
-        .order('name', { ascending: true });
+        .from("routes")
+        .select("*")
+        .eq("camp_id", campId)
+        .order("name", { ascending: true });
       if (error) throw error;
-      const rows = (data || []) as { id: number; camp_id: number; name: string; created_at: string }[];
-      return rows.map(r => ({ id: r.id, campId: r.camp_id, name: r.name, createdAt: r.created_at }));
+      const rows = (data || []) as {
+        id: number;
+        camp_id: number;
+        name: string;
+        created_at: string;
+      }[];
+      return rows.map((r) => ({
+        id: r.id,
+        campId: r.camp_id,
+        name: r.name,
+        createdAt: r.created_at,
+      }));
     } catch (err) {
-      console.error('[findRoutesByCamp] error:', err);
+      console.error("[findRoutesByCamp] error:", err);
       return [];
     }
   }
@@ -269,32 +343,44 @@ class MasterRepository {
   public async createRoute(campId: number, name: string): Promise<Route> {
     const trimmed = name.trim();
     const { data: existing } = await getDb()
-      .from('routes')
-      .select('*')
-      .eq('camp_id', campId)
-      .ilike('name', trimmed)
+      .from("routes")
+      .select("*")
+      .eq("camp_id", campId)
+      .ilike("name", trimmed)
       .maybeSingle();
     if (existing) {
       throw new Error(`이미 등록된 라우터명입니다. ('${trimmed}')`);
     }
 
     const { data, error } = await getDb()
-      .from('routes')
+      .from("routes")
       .insert({ camp_id: campId, name: trimmed })
       .select()
       .single();
     if (error) throw error;
-    console.log(`[createRoute SUCCESS] Saved to DB -> id: ${(data as { id: number }).id}, name: ${trimmed}`);
-    const row = data as { id: number; camp_id: number; name: string; created_at: string };
-    return { id: row.id, campId: row.camp_id, name: row.name, createdAt: row.created_at };
+    console.log(
+      `[createRoute SUCCESS] Saved to DB -> id: ${(data as { id: number }).id}, name: ${trimmed}`,
+    );
+    const row = data as {
+      id: number;
+      camp_id: number;
+      name: string;
+      created_at: string;
+    };
+    return {
+      id: row.id,
+      campId: row.camp_id,
+      name: row.name,
+      createdAt: row.created_at,
+    };
   }
 
   public async deleteRoute(id: number): Promise<boolean> {
     try {
-      const { error } = await getDb().from('routes').delete().eq('id', id);
+      const { error } = await getDb().from("routes").delete().eq("id", id);
       if (error) throw error;
     } catch (err) {
-      console.error('[deleteRoute] error:', err);
+      console.error("[deleteRoute] error:", err);
     }
     return true;
   }
@@ -305,13 +391,15 @@ class MasterRepository {
 // ==========================================
 
 class AdminRepository {
-  private async getAdminCampInfo(adminId: number): Promise<{ campIds: number[]; campNames: string[] }> {
+  private async getAdminCampInfo(
+    adminId: number,
+  ): Promise<{ campIds: number[]; campNames: string[] }> {
     try {
       const sb = getDb();
       const { data: mappings, error } = await sb
-        .from('admin_camps')
-        .select('camp_id, camps(id, name)')
-        .eq('admin_id', adminId);
+        .from("admin_camps")
+        .select("camp_id, camps(id, name)")
+        .eq("admin_id", adminId);
 
       if (error || !mappings) return { campIds: [], campNames: [] };
 
@@ -325,130 +413,73 @@ class AdminRepository {
 
       return { campIds, campNames };
     } catch (err) {
-      console.error('[getAdminCampInfo error]:', err);
+      console.error("[getAdminCampInfo error]:", err);
       return { campIds: [], campNames: [] };
     }
   }
 
-  public async findAdminByCredentials(companyCode: string, loginId: string, password: string): Promise<LoginResponseDTO | null> {
+  public async findAdminByCredentials(
+    companyCode: string,
+    loginId: string,
+    password: string,
+  ): Promise<LoginResponseDTO> {
     const trimmedCode = companyCode.trim().toUpperCase();
     const trimmedLoginId = loginId.trim();
     const trimmedPw = password.trim();
 
-    try {
-      const sb = getDb();
-      // 1. 회사 확인
-      let company = await masterRepository.findCompanyByCode(trimmedCode);
-      if (!company && (trimmedCode === 'DK1001' || trimmedCode === 'DAEGUK')) {
-        const daegukCompanies = await masterRepository.findAllCompanies();
-        const found = daegukCompanies.find(c => c.name === DEFAULT_COMPANY_NAME);
-        if (found) {
-          company = found;
-        }
-      }
-
-      if (!company) {
-        return null;
-      }
-
-      // 2. 관리자 계정 확인
-      const { data: adminData, error: adminErr } = await sb
-        .from('admins')
-        .select('*')
-        .eq('company_id', company.id)
-        .eq('login_id', trimmedLoginId)
-        .eq('password', trimmedPw)
-        .maybeSingle();
-
-      if (!adminErr && adminData) {
-        const { campIds, campNames } = await this.getAdminCampInfo(adminData.id);
-        return {
-          adminId: adminData.id,
-          loginId: adminData.login_id,
-          adminName: adminData.name,
-          companyId: company.id,
-          companyCode: company.companyCode,
-          companyName: company.name,
-          permissions: {
-            isAllCampsAccessible: adminData.is_all_camps_accessible ?? true,
-            canCreate: adminData.can_create ?? true,
-            canRead: adminData.can_read ?? true,
-            canUpdate: adminData.can_update ?? true,
-            canDelete: adminData.can_delete ?? true,
-            assignedCampIds: campIds,
-            assignedCampNames: campNames,
-          },
-        };
-      }
-
-      // 3. 기본 총괄관리자(kkh / 1010) 자동 등록/복구 처리
-      if (trimmedLoginId === 'kkh' && trimmedPw === '1010') {
-        const defaultAdmin = await this.createAdmin({
-          companyId: company.id,
-          loginId: 'kkh',
-          password: '1010',
-          name: '총괄관리자',
-          isAllCampsAccessible: true,
-          canCreate: true,
-          canRead: true,
-          canUpdate: true,
-          canDelete: true,
-        });
-
-        return {
-          adminId: defaultAdmin.id,
-          loginId: defaultAdmin.loginId,
-          adminName: defaultAdmin.name,
-          companyId: company.id,
-          companyCode: company.companyCode,
-          companyName: company.name,
-          permissions: {
-            isAllCampsAccessible: true,
-            canCreate: true,
-            canRead: true,
-            canUpdate: true,
-            canDelete: true,
-            assignedCampIds: [],
-            assignedCampNames: [],
-          },
-        };
-      }
-
-      return null;
-    } catch (err) {
-      console.error('[findAdminByCredentials error]:', err);
-      // DB 장애 시 안전 폴백
-      if (trimmedCode === 'DK1001' && trimmedLoginId === 'kkh' && trimmedPw === '1010') {
-        return {
-          adminId: 1,
-          loginId: 'kkh',
-          adminName: '총괄관리자',
-          companyId: 1,
-          companyCode: 'DK1001',
-          companyName: DEFAULT_COMPANY_NAME,
-          permissions: {
-            isAllCampsAccessible: true,
-            canCreate: true,
-            canRead: true,
-            canUpdate: true,
-            canDelete: true,
-            assignedCampIds: [],
-            assignedCampNames: [],
-          },
-        };
-      }
-      return null;
+    const sb = getDb();
+    // 1. 회사 존재 여부 확인
+    const company = await masterRepository.findCompanyByCode(trimmedCode);
+    if (!company) {
+      throw new Error("존재하지 않는 회사 코드입니다. 회사 코드를 확인해주세요.");
     }
+
+    // 2. 관리자 아이디 존재 여부 확인
+    const { data: adminData, error: adminErr } = await sb
+      .from("admins")
+      .select("*")
+      .eq("company_id", company.id)
+      .eq("login_id", trimmedLoginId)
+      .maybeSingle();
+
+    if (adminErr || !adminData) {
+      throw new Error("해당 회사에 등록되지 않은 관리자 아이디입니다.");
+    }
+
+    // 3. 비밀번호 일치 여부 확인
+    if (adminData.password !== trimmedPw) {
+      throw new Error("비밀번호가 일치하지 않습니다.");
+    }
+
+    // 4. 권한 및 담당 캠프 정보 조회
+    const { campIds, campNames } = await this.getAdminCampInfo(adminData.id);
+    return {
+      adminId: adminData.id,
+      loginId: adminData.login_id,
+      adminName: adminData.name,
+      companyId: company.id,
+      companyCode: company.companyCode,
+      companyName: company.name,
+      permissions: {
+        isAllCampsAccessible: adminData.is_all_camps_accessible ?? true,
+        canCreate: adminData.can_create ?? true,
+        canRead: adminData.can_read ?? true,
+        canUpdate: adminData.can_update ?? true,
+        canDelete: adminData.can_delete ?? true,
+        assignedCampIds: campIds,
+        assignedCampNames: campNames,
+      },
+    };
   }
 
   public async findAdminsByCompany(companyId: number): Promise<Admin[]> {
     try {
       const sb = getDb();
       const { data, error } = await sb
-        .from('admins')
-        .select('*')
-        .eq('company_id', companyId)
-        .order('id', { ascending: true });
+        .from("admins")
+        .select("*")
+        .eq("company_id", companyId)
+        .order("id", { ascending: true });
 
       if (error || !data) return [];
 
@@ -472,7 +503,7 @@ class AdminRepository {
       }
       return adminList;
     } catch (err) {
-      console.error('[findAdminsByCompany error]:', err);
+      console.error("[findAdminsByCompany error]:", err);
       return [];
     }
   }
@@ -480,7 +511,11 @@ class AdminRepository {
   public async findAdminById(adminId: number): Promise<Admin | null> {
     try {
       const sb = getDb();
-      const { data, error } = await sb.from('admins').select('*').eq('id', adminId).maybeSingle();
+      const { data, error } = await sb
+        .from("admins")
+        .select("*")
+        .eq("id", adminId)
+        .maybeSingle();
       if (error || !data) return null;
 
       const { campIds, campNames } = await this.getAdminCampInfo(data.id);
@@ -499,7 +534,7 @@ class AdminRepository {
         createdAt: data.created_at,
       };
     } catch (err) {
-      console.error('[findAdminById error]:', err);
+      console.error("[findAdminById error]:", err);
       return null;
     }
   }
@@ -507,7 +542,7 @@ class AdminRepository {
   public async createAdmin(dto: CreateAdminDTO): Promise<Admin> {
     const sb = getDb();
     const { data, error } = await sb
-      .from('admins')
+      .from("admins")
       .insert({
         company_id: dto.companyId,
         login_id: dto.loginId.trim(),
@@ -526,11 +561,11 @@ class AdminRepository {
 
     const newAdmin = data as any;
     if (dto.assignedCampIds && dto.assignedCampIds.length > 0) {
-      const campInserts = dto.assignedCampIds.map(campId => ({
+      const campInserts = dto.assignedCampIds.map((campId) => ({
         admin_id: newAdmin.id,
         camp_id: campId,
       }));
-      await sb.from('admin_camps').insert(campInserts);
+      await sb.from("admin_camps").insert(campInserts);
     }
 
     const { campIds, campNames } = await this.getAdminCampInfo(newAdmin.id);
@@ -550,36 +585,41 @@ class AdminRepository {
     };
   }
 
-  public async updateAdmin(adminId: number, dto: UpdateAdminDTO): Promise<Admin | null> {
+  public async updateAdmin(
+    adminId: number,
+    dto: UpdateAdminDTO,
+  ): Promise<Admin | null> {
     const sb = getDb();
     const updatePayload: Record<string, any> = {};
 
     if (dto.loginId !== undefined) updatePayload.login_id = dto.loginId.trim();
-    if (dto.password !== undefined && dto.password.trim() !== '') updatePayload.password = dto.password.trim();
+    if (dto.password !== undefined && dto.password.trim() !== "")
+      updatePayload.password = dto.password.trim();
     if (dto.name !== undefined) updatePayload.name = dto.name.trim();
-    if (dto.isAllCampsAccessible !== undefined) updatePayload.is_all_camps_accessible = dto.isAllCampsAccessible;
+    if (dto.isAllCampsAccessible !== undefined)
+      updatePayload.is_all_camps_accessible = dto.isAllCampsAccessible;
     if (dto.canCreate !== undefined) updatePayload.can_create = dto.canCreate;
     if (dto.canRead !== undefined) updatePayload.can_read = dto.canRead;
     if (dto.canUpdate !== undefined) updatePayload.can_update = dto.canUpdate;
     if (dto.canDelete !== undefined) updatePayload.can_delete = dto.canDelete;
 
     const { data, error } = await sb
-      .from('admins')
+      .from("admins")
       .update(updatePayload)
-      .eq('id', adminId)
+      .eq("id", adminId)
       .select()
       .single();
 
     if (error || !data) return null;
 
     if (dto.assignedCampIds !== undefined) {
-      await sb.from('admin_camps').delete().eq('admin_id', adminId);
+      await sb.from("admin_camps").delete().eq("admin_id", adminId);
       if (dto.assignedCampIds.length > 0) {
-        const campInserts = dto.assignedCampIds.map(campId => ({
+        const campInserts = dto.assignedCampIds.map((campId) => ({
           admin_id: adminId,
           camp_id: campId,
         }));
-        await sb.from('admin_camps').insert(campInserts);
+        await sb.from("admin_camps").insert(campInserts);
       }
     }
 
@@ -603,12 +643,12 @@ class AdminRepository {
   public async deleteAdmin(adminId: number): Promise<boolean> {
     try {
       const sb = getDb();
-      await sb.from('admin_camps').delete().eq('admin_id', adminId);
-      const { error } = await sb.from('admins').delete().eq('id', adminId);
+      await sb.from("admin_camps").delete().eq("admin_id", adminId);
+      const { error } = await sb.from("admins").delete().eq("id", adminId);
       if (error) throw error;
       return true;
     } catch (err) {
-      console.error('[deleteAdmin error]:', err);
+      console.error("[deleteAdmin error]:", err);
       return false;
     }
   }
@@ -618,7 +658,10 @@ class AdminRepository {
 // Driver Helpers
 // ==========================================
 
-async function getOrCreateCampId(campName: string, companyId?: number): Promise<number> {
+async function getOrCreateCampId(
+  campName: string,
+  companyId?: number,
+): Promise<number> {
   const trimmed = campName.trim();
   if (!trimmed) return 0;
 
@@ -628,32 +671,46 @@ async function getOrCreateCampId(campName: string, companyId?: number): Promise<
   if (companyId) {
     targetCompanyId = companyId;
   } else {
-    const { data: allComp } = await sb.from('companies').select('*');
-    const rows = (allComp || []) as { id: number; name: string }[];
-    const daeguk = rows.find(c => c.name === DEFAULT_COMPANY_NAME);
-    if (daeguk) {
-      targetCompanyId = daeguk.id;
+    const { data: allComp } = await sb.from("companies").select("id").limit(1);
+    const rows = (allComp || []) as { id: number }[];
+    if (rows.length > 0) {
+      targetCompanyId = rows[0].id;
     } else {
-      const { data: newComp, error } = await sb.from('companies').insert({ name: DEFAULT_COMPANY_NAME }).select().single();
-      if (error) throw error;
-      targetCompanyId = (newComp as { id: number }).id;
+      targetCompanyId = 1;
     }
   }
 
-  const { data: existing } = await sb.from('camps').select('*').eq('company_id', targetCompanyId).eq('name', trimmed).maybeSingle();
+  const { data: existing } = await sb
+    .from("camps")
+    .select("*")
+    .eq("company_id", targetCompanyId)
+    .eq("name", trimmed)
+    .maybeSingle();
   if (existing) return (existing as { id: number }).id;
 
-  const { data: inserted, error } = await sb.from('camps').insert({ company_id: targetCompanyId, name: trimmed }).select().single();
+  const { data: inserted, error } = await sb
+    .from("camps")
+    .insert({ company_id: targetCompanyId, name: trimmed })
+    .select()
+    .single();
   if (error) throw error;
   return (inserted as { id: number }).id;
 }
 
-async function saveCampRoutes(driverId: number, campStr: string, routesStr: string, companyId?: number) {
+async function saveCampRoutes(
+  driverId: number,
+  campStr: string,
+  routesStr: string,
+  companyId?: number,
+) {
   const sb = getDb();
-  await sb.from('driver_camp_routes').delete().eq('driver_id', driverId);
+  await sb.from("driver_camp_routes").delete().eq("driver_id", driverId);
 
-  const campArr = (campStr || '').split(',').map(s => s.trim()).filter(Boolean);
-  const routeArr = (routesStr || '').split(',').map(s => s.trim());
+  const campArr = (campStr || "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+  const routeArr = (routesStr || "").split(",").map((s) => s.trim());
 
   if (campArr.length === 0) return;
 
@@ -662,38 +719,41 @@ async function saveCampRoutes(driverId: number, campStr: string, routesStr: stri
   if (companyId) {
     targetCompanyId = companyId;
   } else {
-    const { data: allComp } = await sb.from('companies').select('id, name');
-    const rows = (allComp || []) as { id: number; name: string }[];
-    const daeguk = rows.find(c => c.name === DEFAULT_COMPANY_NAME);
-    if (daeguk) {
-      targetCompanyId = daeguk.id;
-    } else if (rows.length > 0) {
+    const { data: allComp } = await sb.from("companies").select("id").limit(1);
+    const rows = (allComp || []) as { id: number }[];
+    if (rows.length > 0) {
       targetCompanyId = rows[0].id;
     } else {
-      const { data: newComp } = await sb.from('companies').insert({ name: DEFAULT_COMPANY_NAME }).select().single();
-      targetCompanyId = (newComp as { id: number }).id;
+      targetCompanyId = 1;
     }
   }
 
   // 2. 입력된 캠프들을 한 번에 조회 및 없는 캠프 일괄 생성
   const uniqueCampNames = Array.from(new Set(campArr));
   const { data: existingCampsData } = await sb
-    .from('camps')
-    .select('id, name')
-    .eq('company_id', targetCompanyId);
+    .from("camps")
+    .select("id, name")
+    .eq("company_id", targetCompanyId);
 
-  const existingCamps = (existingCampsData || []) as { id: number; name: string }[];
+  const existingCamps = (existingCampsData || []) as {
+    id: number;
+    name: string;
+  }[];
   const campMap = new Map<string, number>();
-  existingCamps.forEach(c => campMap.set(c.name.toLowerCase(), c.id));
+  existingCamps.forEach((c) => campMap.set(c.name.toLowerCase(), c.id));
 
   // 없는 캠프 생성
-  const campsToCreate = uniqueCampNames.filter(c => !campMap.has(c.toLowerCase()));
+  const campsToCreate = uniqueCampNames.filter(
+    (c) => !campMap.has(c.toLowerCase()),
+  );
   if (campsToCreate.length > 0) {
     const { data: insertedCamps } = await sb
-      .from('camps')
-      .insert(campsToCreate.map(name => ({ company_id: targetCompanyId, name })))
+      .from("camps")
+      .insert(
+        campsToCreate.map((name) => ({ company_id: targetCompanyId, name })),
+      )
       .select();
-    ((insertedCamps || []) as { id: number; name: string }[]).forEach(c => {
+    ((insertedCamps || []) as { id: number; name: string }[]).forEach((c) => {
       campMap.set(c.name.toLowerCase(), c.id);
     });
   }
@@ -701,19 +761,30 @@ async function saveCampRoutes(driverId: number, campStr: string, routesStr: stri
   // 3. 라우터 일괄 처리
   const campIds = Array.from(campMap.values());
   const { data: existingRoutesData } = await sb
-    .from('routes')
-    .select('id, camp_id, name')
-    .in('camp_id', campIds);
+    .from("routes")
+    .select("id, camp_id, name")
+    .in("camp_id", campIds);
 
-  const existingRoutes = (existingRoutesData || []) as { id: number; camp_id: number; name: string }[];
+  const existingRoutes = (existingRoutesData || []) as {
+    id: number;
+    camp_id: number;
+    name: string;
+  }[];
   const routeMap = new Map<string, number>(); // "campId_routeName" -> routeId
-  existingRoutes.forEach(r => routeMap.set(`${r.camp_id}_${r.name.toLowerCase()}`, r.id));
+  existingRoutes.forEach((r) =>
+    routeMap.set(`${r.camp_id}_${r.name.toLowerCase()}`, r.id),
+  );
 
-  const mappingInserts: { driver_id: number; camp_id: number; route_id: number | null; route_name: string }[] = [];
+  const mappingInserts: {
+    driver_id: number;
+    camp_id: number;
+    route_id: number | null;
+    route_name: string;
+  }[] = [];
 
   for (let i = 0; i < campArr.length; i++) {
     const cName = campArr[i];
-    const rName = routeArr[i] || '';
+    const rName = routeArr[i] || "";
     const campId = campMap.get(cName.toLowerCase());
     if (!campId) continue;
 
@@ -724,7 +795,7 @@ async function saveCampRoutes(driverId: number, campStr: string, routesStr: stri
       if (!routeId) {
         // 새 라우터 생성
         const { data: insertedRoute } = await sb
-          .from('routes')
+          .from("routes")
           .insert({ camp_id: campId, name: rName.trim() })
           .select()
           .single();
@@ -745,59 +816,82 @@ async function saveCampRoutes(driverId: number, campStr: string, routesStr: stri
         driver_id: driverId,
         camp_id: campId,
         route_id: null,
-        route_name: '',
+        route_name: "",
       });
     }
   }
 
   // 4. driver_camp_routes 한 번에 일괄 삽입
   if (mappingInserts.length > 0) {
-    await sb.from('driver_camp_routes').insert(mappingInserts);
+    await sb.from("driver_camp_routes").insert(mappingInserts);
   }
 }
 
 async function getDriverFull(driverRow: {
-  id: number; company_id: number | null; driver_code: string; name: string;
-  phone: string; contract_type: string; created_at: string; is_deleted: boolean;
+  id: number;
+  company_id: number | null;
+  driver_code: string;
+  name: string;
+  phone: string;
+  contract_type: string;
+  created_at: string;
+  is_deleted: boolean;
 }): Promise<Driver> {
   const sb = getDb();
 
   const { data: mappingsData } = await sb
-    .from('driver_camp_routes')
-    .select('camp_id, route_id, route_name, camps(name)')
-    .eq('driver_id', driverRow.id);
+    .from("driver_camp_routes")
+    .select("camp_id, route_id, route_name, camps(name)")
+    .eq("driver_id", driverRow.id);
 
-  type MappingRow = { camp_id: number; route_id: number | null; route_name: string; camps: { name: string } | null };
-  const mappings = ((mappingsData || []) as unknown as MappingRow[]).sort((a, b) => {
-    const campComp = (a.camps?.name || '').localeCompare(b.camps?.name || '', undefined, { numeric: true });
-    if (campComp !== 0) return campComp;
-    return a.route_name.localeCompare(b.route_name, undefined, { numeric: true });
-  });
+  type MappingRow = {
+    camp_id: number;
+    route_id: number | null;
+    route_name: string;
+    camps: { name: string } | null;
+  };
+  const mappings = ((mappingsData || []) as unknown as MappingRow[]).sort(
+    (a, b) => {
+      const campComp = (a.camps?.name || "").localeCompare(
+        b.camps?.name || "",
+        undefined,
+        { numeric: true },
+      );
+      if (campComp !== 0) return campComp;
+      return a.route_name.localeCompare(b.route_name, undefined, {
+        numeric: true,
+      });
+    },
+  );
 
-  let companyName = '';
+  let companyName = "";
   if (driverRow.company_id) {
-    const { data: compRow } = await sb.from('companies').select('name').eq('id', driverRow.company_id).single();
+    const { data: compRow } = await sb
+      .from("companies")
+      .select("name")
+      .eq("id", driverRow.company_id)
+      .single();
     if (compRow) companyName = (compRow as { name: string }).name;
   }
 
-  const campNames = mappings.map(m => m.camps?.name || '');
-  const routes = mappings.map(m => m.route_name);
+  const campNames = mappings.map((m) => m.camps?.name || "");
+  const routes = mappings.map((m) => m.route_name);
 
   return {
     id: driverRow.id,
     companyId: driverRow.company_id ?? undefined,
     companyName,
-    driverCode: driverRow.driver_code || '',
+    driverCode: driverRow.driver_code || "",
     name: driverRow.name,
     phone: driverRow.phone,
-    camp: campNames.join(','),
-    routes: routes.join(','),
-    contractType: driverRow.contract_type as Driver['contractType'],
+    camp: campNames.join(","),
+    routes: routes.join(","),
+    contractType: driverRow.contract_type as Driver["contractType"],
     createdAt: driverRow.created_at,
     isDeleted: driverRow.is_deleted,
-    campRoutes: mappings.map(m => ({
+    campRoutes: mappings.map((m) => ({
       campId: m.camp_id,
-      campName: m.camps?.name || '',
+      campName: m.camps?.name || "",
       routeId: m.route_id ?? undefined,
       route: m.route_name,
     })),
@@ -812,79 +906,106 @@ class DriverRepository {
   public async findAll(includeDeleted = false): Promise<Driver[]> {
     try {
       const sb = getDb();
-      const query = sb.from('drivers').select('*').order('id');
+      const query = sb.from("drivers").select("*").order("id");
       // is_deleted = false 이거나 is_deleted IS NULL 인 데이터 모두 조회 (삭제된 true만 제외)
       const { data: driverRows, error } = includeDeleted
         ? await query
-        : await query.or('is_deleted.eq.false,is_deleted.is.null');
+        : await query.or("is_deleted.eq.false,is_deleted.is.null");
 
       if (error) {
-        console.error('[DriverRepository.findAll error]:', error);
+        console.error("[DriverRepository.findAll error]:", error);
         return [];
       }
 
       const filteredDrivers = (driverRows || []) as {
-        id: number; company_id: number | null; driver_code: string; name: string;
-        phone: string; contract_type: string; created_at: string; is_deleted: boolean | null;
+        id: number;
+        company_id: number | null;
+        driver_code: string;
+        name: string;
+        phone: string;
+        contract_type: string;
+        created_at: string;
+        is_deleted: boolean | null;
       }[];
 
       if (filteredDrivers.length === 0) return [];
 
       // 배치 조회
       const { data: allCampRoutesData, error: campRouteErr } = await sb
-        .from('driver_camp_routes')
-        .select('driver_id, camp_id, route_id, route_name, camps(name)');
+        .from("driver_camp_routes")
+        .select("driver_id, camp_id, route_id, route_name, camps(name)");
       if (campRouteErr) {
-        console.error('[DriverRepository driver_camp_routes error]:', campRouteErr);
+        console.error(
+          "[DriverRepository driver_camp_routes error]:",
+          campRouteErr,
+        );
       }
 
-      const { data: compRowsData } = await sb.from('companies').select('id, name');
+      const { data: compRowsData } = await sb
+        .from("companies")
+        .select("id, name");
 
-      type AllCampRouteRow = { driver_id: number; camp_id: number; route_id: number | null; route_name: string; camps: { name: string } | null };
-      const allCampRoutes = (allCampRoutesData || []) as unknown as AllCampRouteRow[];
+      type AllCampRouteRow = {
+        driver_id: number;
+        camp_id: number;
+        route_id: number | null;
+        route_name: string;
+        camps: { name: string } | null;
+      };
+      const allCampRoutes = (allCampRoutesData ||
+        []) as unknown as AllCampRouteRow[];
       const compMap = new Map(
-        ((compRowsData || []) as { id: number; name: string }[]).map(c => [c.id, c.name])
+        ((compRowsData || []) as { id: number; name: string }[]).map((c) => [
+          c.id,
+          c.name,
+        ]),
       );
 
       const mappingMap = new Map<number, typeof allCampRoutes>();
-      allCampRoutes.forEach(r => {
+      allCampRoutes.forEach((r) => {
         const list = mappingMap.get(r.driver_id) || [];
         list.push(r);
         mappingMap.set(r.driver_id, list);
       });
 
-      mappingMap.forEach(list => {
+      mappingMap.forEach((list) => {
         list.sort((a, b) => {
-          const campComp = (a.camps?.name || '').localeCompare(b.camps?.name || '', undefined, { numeric: true });
+          const campComp = (a.camps?.name || "").localeCompare(
+            b.camps?.name || "",
+            undefined,
+            { numeric: true },
+          );
           if (campComp !== 0) return campComp;
-          return a.route_name.localeCompare(b.route_name, undefined, { numeric: true });
+          return a.route_name.localeCompare(b.route_name, undefined, {
+            numeric: true,
+          });
         });
       });
 
-      return filteredDrivers.map(d => {
+      return filteredDrivers.map((d) => {
         const mappings = mappingMap.get(d.id) || [];
         return {
           id: d.id,
           companyId: d.company_id ?? undefined,
           companyName: d.company_id ? compMap.get(d.company_id) : undefined,
-          driverCode: d.driver_code || '',
+          driverCode: d.driver_code || "",
           name: d.name,
           phone: d.phone,
-          camp: mappings.map(m => m.camps?.name || '').join(','),
-          routes: mappings.map(m => m.route_name).join(','),
-          contractType: d.contract_type as Driver['contractType'],
+          camp: mappings.map((m) => m.camps?.name || "").join(","),
+          routes: mappings.map((m) => m.route_name).join(","),
+          contractType: d.contract_type as Driver["contractType"],
           createdAt: d.created_at,
           isDeleted: !!d.is_deleted,
-          campRoutes: mappings.map(m => ({
+          campRoutes: mappings.map((m) => ({
             campId: m.camp_id,
-            campName: m.camps?.name || '',
+            campName: m.camps?.name || "",
             routeId: m.route_id ?? undefined,
             route: m.route_name,
           })),
         };
       });
     } catch (err) {
-      console.error('[DriverRepository.findAll exception]:', err);
+      console.error("[DriverRepository.findAll exception]:", err);
       return [];
     }
   }
@@ -892,13 +1013,17 @@ class DriverRepository {
   public async findById(id: number): Promise<Driver | undefined> {
     try {
       const sb = getDb();
-      const { data, error } = await sb.from('drivers').select('*').eq('id', id).maybeSingle();
+      const { data, error } = await sb
+        .from("drivers")
+        .select("*")
+        .eq("id", id)
+        .maybeSingle();
       if (error || !data) return undefined;
       const row = data as Parameters<typeof getDriverFull>[0];
       if (row.is_deleted) return undefined;
       return getDriverFull(row);
     } catch (err) {
-      console.error('[DriverRepository.findById error]:', err);
+      console.error("[DriverRepository.findById error]:", err);
       return undefined;
     }
   }
@@ -906,10 +1031,10 @@ class DriverRepository {
   public async create(dto: CreateDriverDTO): Promise<Driver> {
     const sb = getDb();
     const { data: row, error } = await sb
-      .from('drivers')
+      .from("drivers")
       .insert({
         company_id: dto.companyId,
-        driver_code: (dto.driverCode ?? '').trim(),
+        driver_code: (dto.driverCode ?? "").trim(),
         name: dto.name,
         phone: dto.phone,
         contract_type: dto.contractType,
@@ -924,21 +1049,28 @@ class DriverRepository {
     return getDriverFull(driverRow);
   }
 
-  public async update(id: number, dto: UpdateDriverDTO): Promise<Driver | null> {
+  public async update(
+    id: number,
+    dto: UpdateDriverDTO,
+  ): Promise<Driver | null> {
     const existing = await this.findById(id);
     if (!existing) return null;
 
     const sb = getDb();
     const { data: row, error } = await sb
-      .from('drivers')
+      .from("drivers")
       .update({
-        company_id: dto.companyId !== undefined ? dto.companyId : existing.companyId,
-        driver_code: dto.driverCode !== undefined ? dto.driverCode.trim() : existing.driverCode,
+        company_id:
+          dto.companyId !== undefined ? dto.companyId : existing.companyId,
+        driver_code:
+          dto.driverCode !== undefined
+            ? dto.driverCode.trim()
+            : existing.driverCode,
         name: dto.name ?? existing.name,
         phone: dto.phone ?? existing.phone,
         contract_type: dto.contractType ?? existing.contractType,
       })
-      .eq('id', id)
+      .eq("id", id)
       .select()
       .single();
     if (error) throw error;
@@ -946,10 +1078,17 @@ class DriverRepository {
     if (row && (dto.camp !== undefined || dto.routes !== undefined)) {
       const campStr = dto.camp !== undefined ? dto.camp : existing.camp;
       const routesStr = dto.routes !== undefined ? dto.routes : existing.routes;
-      await saveCampRoutes(id, campStr, routesStr, dto.companyId ?? existing.companyId);
+      await saveCampRoutes(
+        id,
+        campStr,
+        routesStr,
+        dto.companyId ?? existing.companyId,
+      );
     }
 
-    return row ? getDriverFull(row as Parameters<typeof getDriverFull>[0]) : null;
+    return row
+      ? getDriverFull(row as Parameters<typeof getDriverFull>[0])
+      : null;
   }
 
   public async softDelete(id: number): Promise<boolean> {
@@ -957,8 +1096,11 @@ class DriverRepository {
     if (!existing) return false;
     const sb = getDb();
     // 기사와 연결된 driver_camp_routes 데이터 함께 삭제
-    await sb.from('driver_camp_routes').delete().eq('driver_id', id);
-    const { error } = await sb.from('drivers').update({ is_deleted: true }).eq('id', id);
+    await sb.from("driver_camp_routes").delete().eq("driver_id", id);
+    const { error } = await sb
+      .from("drivers")
+      .update({ is_deleted: true })
+      .eq("id", id);
     if (error) throw error;
     return true;
   }
@@ -966,9 +1108,9 @@ class DriverRepository {
   public async delete(id: number): Promise<boolean> {
     const sb = getDb();
     // 기사와 연결된 driver_camp_routes 및 스케줄 데이터 함께 삭제
-    await sb.from('driver_camp_routes').delete().eq('driver_id', id);
-    await sb.from('schedule_shifts').delete().eq('driver_id', id);
-    const { error } = await sb.from('drivers').delete().eq('id', id);
+    await sb.from("driver_camp_routes").delete().eq("driver_id", id);
+    await sb.from("schedule_shifts").delete().eq("driver_id", id);
+    const { error } = await sb.from("drivers").delete().eq("id", id);
     if (error) throw error;
     return true;
   }
@@ -979,87 +1121,151 @@ class DriverRepository {
 // ==========================================
 
 class ScheduleRepository {
-  public async findShifts(startDate?: string, endDate?: string, driverId?: number): Promise<ScheduleShift[]> {
+  public async findShifts(
+    startDate?: string,
+    endDate?: string,
+    driverId?: number,
+  ): Promise<ScheduleShift[]> {
     try {
       const sb = getDb();
-      let query = sb.from('schedule_shifts').select('*');
-      if (startDate) query = query.gte('date', startDate);
-      if (endDate) query = query.lte('date', endDate);
-      if (driverId !== undefined) query = query.eq('driver_id', driverId);
+      let query = sb.from("schedule_shifts").select("*");
+      if (startDate) query = query.gte("date", startDate);
+      if (endDate) query = query.lte("date", endDate);
+      if (driverId !== undefined) query = query.eq("driver_id", driverId);
 
       const { data, error } = await query;
       if (error) {
-        console.error('[findShifts error]:', error);
+        console.error("[findShifts error]:", error);
         return [];
       }
-      const rows = (data || []) as { id: number; driver_id: number; date: string; status: string }[];
-      return rows.map(r => ({ id: r.id, driverId: r.driver_id, date: r.date, status: r.status as ScheduleShift['status'] }));
+      const rows = (data || []) as {
+        id: number;
+        driver_id: number;
+        date: string;
+        status: string;
+      }[];
+      return rows.map((r) => ({
+        id: r.id,
+        driverId: r.driver_id,
+        date: r.date,
+        status: r.status as ScheduleShift["status"],
+      }));
     } catch (err) {
-      console.error('[findShifts exception]:', err);
+      console.error("[findShifts exception]:", err);
       return [];
     }
   }
 
-  public async findShift(driverId: number, date: string): Promise<ScheduleShift | undefined> {
+  public async findShift(
+    driverId: number,
+    date: string,
+  ): Promise<ScheduleShift | undefined> {
     try {
       const { data, error } = await getDb()
-        .from('schedule_shifts')
-        .select('*')
-        .eq('driver_id', driverId)
-        .eq('date', date)
+        .from("schedule_shifts")
+        .select("*")
+        .eq("driver_id", driverId)
+        .eq("date", date)
         .maybeSingle();
       if (error) throw error;
       if (!data) return undefined;
-      const r = data as { id: number; driver_id: number; date: string; status: string };
-      return { id: r.id, driverId: r.driver_id, date: r.date, status: r.status as ScheduleShift['status'] };
+      const r = data as {
+        id: number;
+        driver_id: number;
+        date: string;
+        status: string;
+      };
+      return {
+        id: r.id,
+        driverId: r.driver_id,
+        date: r.date,
+        status: r.status as ScheduleShift["status"],
+      };
     } catch (err) {
-      console.error('[findShift error]:', err);
+      console.error("[findShift error]:", err);
       return undefined;
     }
   }
 
-  public async upsertShift(driverId: number, date: string, status: ScheduleShift['status']): Promise<ScheduleShift> {
+  public async upsertShift(
+    driverId: number,
+    date: string,
+    status: ScheduleShift["status"],
+  ): Promise<ScheduleShift> {
     const existing = await this.findShift(driverId, date);
     const sb = getDb();
 
     if (existing) {
       const { data, error } = await sb
-        .from('schedule_shifts')
+        .from("schedule_shifts")
         .update({ status })
-        .eq('id', existing.id)
+        .eq("id", existing.id)
         .select()
         .single();
       if (error) throw error;
-      const r = data as { id: number; driver_id: number; date: string; status: string };
-      return { id: r.id, driverId: r.driver_id, date: r.date, status: r.status as ScheduleShift['status'] };
+      const r = data as {
+        id: number;
+        driver_id: number;
+        date: string;
+        status: string;
+      };
+      return {
+        id: r.id,
+        driverId: r.driver_id,
+        date: r.date,
+        status: r.status as ScheduleShift["status"],
+      };
     }
 
     const { data, error } = await sb
-      .from('schedule_shifts')
+      .from("schedule_shifts")
       .insert({ driver_id: driverId, date, status })
       .select()
       .single();
     if (error) throw error;
-    const r = data as { id: number; driver_id: number; date: string; status: string };
-    return { id: r.id, driverId: r.driver_id, date: r.date, status: r.status as ScheduleShift['status'] };
+    const r = data as {
+      id: number;
+      driver_id: number;
+      date: string;
+      status: string;
+    };
+    return {
+      id: r.id,
+      driverId: r.driver_id,
+      date: r.date,
+      status: r.status as ScheduleShift["status"],
+    };
   }
 
-  public async getOffDays(startDate?: string, endDate?: string): Promise<ScheduleShift[]> {
+  public async getOffDays(
+    startDate?: string,
+    endDate?: string,
+  ): Promise<ScheduleShift[]> {
     try {
       const sb = getDb();
-      let query = sb.from('schedule_shifts').select('*').eq('status', '휴무');
-      if (startDate) query = query.gte('date', startDate);
-      if (endDate) query = query.lte('date', endDate);
+      let query = sb.from("schedule_shifts").select("*").eq("status", "휴무");
+      if (startDate) query = query.gte("date", startDate);
+      if (endDate) query = query.lte("date", endDate);
 
       const { data, error } = await query;
       if (error) {
-        console.error('[getOffDays error]:', error);
+        console.error("[getOffDays error]:", error);
         return [];
       }
-      const rows = (data || []) as { id: number; driver_id: number; date: string; status: string }[];
-      return rows.map(r => ({ id: r.id, driverId: r.driver_id, date: r.date, status: r.status as ScheduleShift['status'] }));
+      const rows = (data || []) as {
+        id: number;
+        driver_id: number;
+        date: string;
+        status: string;
+      }[];
+      return rows.map((r) => ({
+        id: r.id,
+        driverId: r.driver_id,
+        date: r.date,
+        status: r.status as ScheduleShift["status"],
+      }));
     } catch (err) {
-      console.error('[getOffDays exception]:', err);
+      console.error("[getOffDays exception]:", err);
       return [];
     }
   }
@@ -1071,10 +1277,17 @@ class ScheduleRepository {
 
 class BackupRepository {
   private toBackup(row: {
-    id: number; date: string; camp_name?: string | null; route_number: string;
-    original_driver_id: number; original_driver_name: string;
-    backup_driver_id: number; backup_driver_name: string;
-    note: string | null; created_at: string; updated_at?: string;
+    id: number;
+    date: string;
+    camp_name?: string | null;
+    route_number: string;
+    original_driver_id: number;
+    original_driver_name: string;
+    backup_driver_id: number;
+    backup_driver_name: string;
+    note: string | null;
+    created_at: string;
+    updated_at?: string;
   }): BackupAssignment {
     return {
       id: row.id,
@@ -1093,29 +1306,39 @@ class BackupRepository {
 
   public async findAll(): Promise<BackupAssignment[]> {
     try {
-      const { data, error } = await getDb().from('backup_assignments').select('*').order('id');
+      const { data, error } = await getDb()
+        .from("backup_assignments")
+        .select("*")
+        .order("id");
       if (error) {
-        console.error('[findAll backupAssignments error]:', error);
+        console.error("[findAll backupAssignments error]:", error);
         return [];
       }
-      return ((data || []) as Parameters<BackupRepository['toBackup']>[0][]).map(r => this.toBackup(r));
+      return (
+        (data || []) as Parameters<BackupRepository["toBackup"]>[0][]
+      ).map((r) => this.toBackup(r));
     } catch (err) {
-      console.error('[findAll backupAssignments exception]:', err);
+      console.error("[findAll backupAssignments exception]:", err);
       return [];
     }
   }
 
-  public async findByDateAndRoute(date: string, routeNumber: string): Promise<BackupAssignment | undefined> {
+  public async findByDateAndRoute(
+    date: string,
+    routeNumber: string,
+  ): Promise<BackupAssignment | undefined> {
     try {
       const { data } = await getDb()
-        .from('backup_assignments')
-        .select('*')
-        .eq('date', date)
-        .eq('route_number', routeNumber)
+        .from("backup_assignments")
+        .select("*")
+        .eq("date", date)
+        .eq("route_number", routeNumber)
         .maybeSingle();
-      return data ? this.toBackup(data as Parameters<BackupRepository['toBackup']>[0]) : undefined;
+      return data
+        ? this.toBackup(data as Parameters<BackupRepository["toBackup"]>[0])
+        : undefined;
     } catch (err) {
-      console.error('[findByDateAndRoute error]:', err);
+      console.error("[findByDateAndRoute error]:", err);
       return undefined;
     }
   }
@@ -1123,34 +1346,41 @@ class BackupRepository {
   public async findByDate(date: string): Promise<BackupAssignment[]> {
     try {
       const { data, error } = await getDb()
-        .from('backup_assignments')
-        .select('*')
-        .eq('date', date);
+        .from("backup_assignments")
+        .select("*")
+        .eq("date", date);
       if (error) {
-        console.error('[findByDate error]:', error);
+        console.error("[findByDate error]:", error);
         return [];
       }
-      return ((data || []) as Parameters<BackupRepository['toBackup']>[0][]).map(r => this.toBackup(r));
+      return (
+        (data || []) as Parameters<BackupRepository["toBackup"]>[0][]
+      ).map((r) => this.toBackup(r));
     } catch (err) {
-      console.error('[findByDate exception]:', err);
+      console.error("[findByDate exception]:", err);
       return [];
     }
   }
 
-  public async assignBackup(dto: AssignBackupDTO): Promise<BackupAssignment | null> {
-    const originalDriver = await driverRepository.findById(dto.originalDriverId);
+  public async assignBackup(
+    dto: AssignBackupDTO,
+  ): Promise<BackupAssignment | null> {
+    const originalDriver = await driverRepository.findById(
+      dto.originalDriverId,
+    );
     const backupDriver = await driverRepository.findById(dto.backupDriverId);
     if (!originalDriver || !backupDriver) return null;
 
     const sb = getDb();
-    await sb.from('backup_assignments')
+    await sb
+      .from("backup_assignments")
       .delete()
-      .eq('date', dto.date)
-      .eq('route_number', dto.routeNumber);
+      .eq("date", dto.date)
+      .eq("route_number", dto.routeNumber);
 
     const now = new Date().toISOString();
     const { data, error } = await sb
-      .from('backup_assignments')
+      .from("backup_assignments")
       .insert({
         date: dto.date,
         camp_name: dto.campName || null,
@@ -1159,24 +1389,27 @@ class BackupRepository {
         original_driver_name: originalDriver.name,
         backup_driver_id: backupDriver.id,
         backup_driver_name: backupDriver.name,
-        note: dto.note || '수동 지정 완료',
+        note: dto.note || "수동 지정 완료",
         updated_at: now,
       })
       .select()
       .single();
     if (error) throw error;
-    return this.toBackup(data as Parameters<BackupRepository['toBackup']>[0]);
+    return this.toBackup(data as Parameters<BackupRepository["toBackup"]>[0]);
   }
 
-  public async removeAssignment(date: string, routeNumber: string): Promise<boolean> {
+  public async removeAssignment(
+    date: string,
+    routeNumber: string,
+  ): Promise<boolean> {
     const existing = await this.findByDateAndRoute(date, routeNumber);
     if (!existing) return false;
 
     await getDb()
-      .from('backup_assignments')
+      .from("backup_assignments")
       .delete()
-      .eq('date', date)
-      .eq('route_number', routeNumber);
+      .eq("date", date)
+      .eq("route_number", routeNumber);
     return true;
   }
 }
@@ -1185,7 +1418,12 @@ class BackupRepository {
 // Monthly Roster Repository (신규 테이블 CRUD)
 // ==========================================
 
-import { MonthlyRoster, MonthlyRosterItem, CreateMonthlyRosterDTO, UpdateMonthlyRosterDTO } from '../types';
+import {
+  MonthlyRoster,
+  MonthlyRosterItem,
+  CreateMonthlyRosterDTO,
+  UpdateMonthlyRosterDTO,
+} from "../types";
 
 class MonthlyRosterRepository {
   // 메모리 폴백 캐시 (DB 테이블 최초 생성 전 또는 통신 장애 대비)
@@ -1196,13 +1434,18 @@ class MonthlyRosterRepository {
     try {
       const sb = getDb();
       const { data, error } = await sb
-        .from('monthly_rosters')
-        .select('*')
-        .order('created_at', { ascending: false });
+        .from("monthly_rosters")
+        .select("*")
+        .order("created_at", { ascending: false });
 
       if (error) {
-        console.warn('[MonthlyRosterRepository.findAll DB error, using fallback]:', error.message);
-        return Array.from(this.fallbackRosters.values()).sort((a, b) => b.id - a.id);
+        console.warn(
+          "[MonthlyRosterRepository.findAll DB error, using fallback]:",
+          error.message,
+        );
+        return Array.from(this.fallbackRosters.values()).sort(
+          (a, b) => b.id - a.id,
+        );
       }
 
       const rows = data || [];
@@ -1210,15 +1453,17 @@ class MonthlyRosterRepository {
         id: r.id,
         targetMonth: r.target_month,
         title: r.title,
-        memo: r.memo || '',
-        status: r.status || 'approved',
+        memo: r.memo || "",
+        status: r.status || "approved",
         totalAssignments: r.total_assignments || 0,
         createdAt: r.created_at,
         updatedAt: r.updated_at,
       }));
     } catch (err) {
-      console.warn('[MonthlyRosterRepository.findAll exception]:', err);
-      return Array.from(this.fallbackRosters.values()).sort((a, b) => b.id - a.id);
+      console.warn("[MonthlyRosterRepository.findAll exception]:", err);
+      return Array.from(this.fallbackRosters.values()).sort(
+        (a, b) => b.id - a.id,
+      );
     }
   }
 
@@ -1226,9 +1471,9 @@ class MonthlyRosterRepository {
     try {
       const sb = getDb();
       const { data: rosterData, error: rosterErr } = await sb
-        .from('monthly_rosters')
-        .select('*')
-        .eq('id', id)
+        .from("monthly_rosters")
+        .select("*")
+        .eq("id", id)
         .maybeSingle();
 
       if (rosterErr || !rosterData) {
@@ -1236,15 +1481,15 @@ class MonthlyRosterRepository {
       }
 
       const { data: itemsData } = await sb
-        .from('monthly_roster_items')
-        .select('*')
-        .eq('roster_id', id)
-        .order('date', { ascending: true });
+        .from("monthly_roster_items")
+        .select("*")
+        .eq("roster_id", id)
+        .order("date", { ascending: true });
 
       const items: MonthlyRosterItem[] = (itemsData || []).map((it: any) => ({
         id: it.id,
         rosterId: it.roster_id,
-        date: typeof it.date === 'string' ? it.date.slice(0, 10) : it.date,
+        date: typeof it.date === "string" ? it.date.slice(0, 10) : it.date,
         campName: it.camp_name,
         routeName: it.route_name,
         routeKey: it.route_key,
@@ -1260,15 +1505,15 @@ class MonthlyRosterRepository {
         id: rosterData.id,
         targetMonth: rosterData.target_month,
         title: rosterData.title,
-        memo: rosterData.memo || '',
-        status: rosterData.status || 'approved',
+        memo: rosterData.memo || "",
+        status: rosterData.status || "approved",
         totalAssignments: rosterData.total_assignments || items.length,
         createdAt: rosterData.created_at,
         updatedAt: rosterData.updated_at,
         items,
       };
     } catch (err) {
-      console.warn('[MonthlyRosterRepository.findById exception]:', err);
+      console.warn("[MonthlyRosterRepository.findById exception]:", err);
       return this.fallbackRosters.get(id) || null;
     }
   }
@@ -1281,12 +1526,12 @@ class MonthlyRosterRepository {
       const sb = getDb();
       // 1. Master Insert
       const { data: insertedMaster, error: masterErr } = await sb
-        .from('monthly_rosters')
+        .from("monthly_rosters")
         .insert({
           target_month: dto.targetMonth,
           title: dto.title,
-          memo: dto.memo || '',
-          status: dto.status || 'approved',
+          memo: dto.memo || "",
+          status: dto.status || "approved",
           total_assignments: totalAssignments,
           created_at: nowStr,
           updated_at: nowStr,
@@ -1302,7 +1547,7 @@ class MonthlyRosterRepository {
 
       // 2. Items Bulk Insert
       if (dto.items.length > 0) {
-        const itemRows = dto.items.map(it => ({
+        const itemRows = dto.items.map((it) => ({
           roster_id: rosterId,
           date: it.date,
           camp_name: it.campName,
@@ -1319,8 +1564,14 @@ class MonthlyRosterRepository {
         // 100개씩 chunk 분할 insert
         for (let i = 0; i < itemRows.length; i += 100) {
           const chunk = itemRows.slice(i, i + 100);
-          const { error: itemsErr } = await sb.from('monthly_roster_items').insert(chunk);
-          if (itemsErr) console.error('[MonthlyRosterRepository item insert error]:', itemsErr);
+          const { error: itemsErr } = await sb
+            .from("monthly_roster_items")
+            .insert(chunk);
+          if (itemsErr)
+            console.error(
+              "[MonthlyRosterRepository item insert error]:",
+              itemsErr,
+            );
         }
       }
 
@@ -1328,8 +1579,8 @@ class MonthlyRosterRepository {
         id: rosterId,
         targetMonth: dto.targetMonth,
         title: dto.title,
-        memo: dto.memo || '',
-        status: dto.status || 'approved',
+        memo: dto.memo || "",
+        status: dto.status || "approved",
         totalAssignments,
         createdAt: nowStr,
         updatedAt: nowStr,
@@ -1339,14 +1590,17 @@ class MonthlyRosterRepository {
       this.fallbackRosters.set(rosterId, created);
       return created;
     } catch (err) {
-      console.warn('[MonthlyRosterRepository.create DB fallback activated]:', err);
+      console.warn(
+        "[MonthlyRosterRepository.create DB fallback activated]:",
+        err,
+      );
       const fakeId = this.nextId++;
       const created: MonthlyRoster = {
         id: fakeId,
         targetMonth: dto.targetMonth,
         title: dto.title,
-        memo: dto.memo || '',
-        status: dto.status || 'approved',
+        memo: dto.memo || "",
+        status: dto.status || "approved",
         totalAssignments,
         createdAt: nowStr,
         updatedAt: nowStr,
@@ -1357,7 +1611,10 @@ class MonthlyRosterRepository {
     }
   }
 
-  public async update(id: number, dto: UpdateMonthlyRosterDTO): Promise<MonthlyRoster | null> {
+  public async update(
+    id: number,
+    dto: UpdateMonthlyRosterDTO,
+  ): Promise<MonthlyRoster | null> {
     const nowStr = new Date().toISOString();
     try {
       const sb = getDb();
@@ -1368,17 +1625,17 @@ class MonthlyRosterRepository {
       if (dto.items) updatePayload.total_assignments = dto.items.length;
 
       const { data, error } = await sb
-        .from('monthly_rosters')
+        .from("monthly_rosters")
         .update(updatePayload)
-        .eq('id', id)
+        .eq("id", id)
         .select()
         .maybeSingle();
 
       if (error) throw error;
 
       if (dto.items) {
-        await sb.from('monthly_roster_items').delete().eq('roster_id', id);
-        const itemRows = dto.items.map(it => ({
+        await sb.from("monthly_roster_items").delete().eq("roster_id", id);
+        const itemRows = dto.items.map((it) => ({
           roster_id: id,
           date: it.date,
           camp_name: it.campName,
@@ -1393,13 +1650,13 @@ class MonthlyRosterRepository {
         }));
         for (let i = 0; i < itemRows.length; i += 100) {
           const chunk = itemRows.slice(i, i + 100);
-          await sb.from('monthly_roster_items').insert(chunk);
+          await sb.from("monthly_roster_items").insert(chunk);
         }
       }
 
       return this.findById(id);
     } catch (err) {
-      console.warn('[MonthlyRosterRepository.update fallback]:', err);
+      console.warn("[MonthlyRosterRepository.update fallback]:", err);
       const existing = this.fallbackRosters.get(id);
       if (!existing) return null;
       const updated: MonthlyRoster = {
@@ -1408,7 +1665,9 @@ class MonthlyRosterRepository {
         memo: dto.memo ?? existing.memo,
         status: dto.status ?? existing.status,
         items: dto.items ?? existing.items,
-        totalAssignments: dto.items ? dto.items.length : existing.totalAssignments,
+        totalAssignments: dto.items
+          ? dto.items.length
+          : existing.totalAssignments,
         updatedAt: nowStr,
       };
       this.fallbackRosters.set(id, updated);
@@ -1419,12 +1678,12 @@ class MonthlyRosterRepository {
   public async delete(id: number): Promise<boolean> {
     try {
       const sb = getDb();
-      await sb.from('monthly_roster_items').delete().eq('roster_id', id);
-      await sb.from('monthly_rosters').delete().eq('id', id);
+      await sb.from("monthly_roster_items").delete().eq("roster_id", id);
+      await sb.from("monthly_rosters").delete().eq("id", id);
       this.fallbackRosters.delete(id);
       return true;
     } catch (err) {
-      console.warn('[MonthlyRosterRepository.delete fallback]:', err);
+      console.warn("[MonthlyRosterRepository.delete fallback]:", err);
       this.fallbackRosters.delete(id);
       return true;
     }

@@ -6,13 +6,9 @@
 ALTER TABLE public.companies 
   ADD COLUMN IF NOT EXISTS company_code VARCHAR(6);
 
--- 1-2. 기존 데이터에 6자리 회사 코드 부여 (기본 대국 회사는 'DK1001', 기타는 난수 생성)
+-- 1-2. 기존 회사 데이터에 6자리 랜덤 고유 코드 부여 (미설정 시)
 UPDATE public.companies 
-SET company_code = 'DK1001' 
-WHERE name = '대국' AND (company_code IS NULL OR company_code = '');
-
-UPDATE public.companies 
-SET company_code = UPPER(SUBSTRING(MD5(RANDOM()::TEXT) FROM 1 FOR 6))
+SET company_code = UPPER(SUBSTRING(MD5(RANDOM()::TEXT || id::TEXT) FROM 1 FOR 6))
 WHERE company_code IS NULL OR company_code = '';
 
 -- 1-3. NOT NULL 및 UNIQUE 제약 조건 부여
@@ -71,27 +67,3 @@ CREATE TABLE IF NOT EXISTS public.admin_camps (
 
 CREATE INDEX IF NOT EXISTS idx_admin_camps_admin_id ON public.admin_camps(admin_id);
 CREATE INDEX IF NOT EXISTS idx_admin_camps_camp_id ON public.admin_camps(camp_id);
-
-
--- ==============================================================================
--- 4. 초기 기본 관리자 계정 시드 (대국 회사: ID 'kkh', PW '1010', 전체 권한)
--- ==============================================================================
-
-DO $$
-DECLARE
-  target_company_id INT;
-BEGIN
-  SELECT id INTO target_company_id FROM public.companies WHERE company_code = 'DK1001' LIMIT 1;
-  
-  IF target_company_id IS NOT NULL THEN
-    INSERT INTO public.admins (
-      company_id, login_id, password, name, 
-      is_all_camps_accessible, can_create, can_read, can_update, can_delete
-    ) 
-    VALUES (
-      target_company_id, 'kkh', '1010', '총괄관리자', 
-      TRUE, TRUE, TRUE, TRUE, TRUE
-    )
-    ON CONFLICT (company_id, login_id) DO NOTHING;
-  END IF;
-END $$;

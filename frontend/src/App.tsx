@@ -21,7 +21,30 @@ export function App() {
     const saved = localStorage.getItem("fleetsync_session");
     if (saved) {
       try {
-        setCurrentUser(JSON.parse(saved));
+        const parsed = JSON.parse(saved);
+        if (!parsed || !parsed.companyId || !parsed.loginId) {
+          localStorage.removeItem("fleetsync_session");
+          return;
+        }
+        const normalized: UserSession = {
+          adminId: parsed.adminId || 0,
+          loginId: parsed.loginId,
+          adminName: parsed.adminName || parsed.loginId,
+          companyId: parsed.companyId,
+          companyCode: parsed.companyCode || "",
+          companyName: parsed.companyName || "",
+          permissions: parsed.permissions || {
+            isAllCampsAccessible: true,
+            canCreate: true,
+            canRead: true,
+            canUpdate: true,
+            canDelete: true,
+            assignedCampIds: [],
+            assignedCampNames: [],
+          },
+        };
+        setCurrentUser(normalized);
+        localStorage.setItem("fleetsync_session", JSON.stringify(normalized));
       } catch (e) {
         localStorage.removeItem("fleetsync_session");
       }
