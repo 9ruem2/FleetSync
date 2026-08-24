@@ -36,9 +36,13 @@ export function isDateMatchingFixedHoliday(
     if (cycle === '매주') {
       return true;
     } else if (cycle === '1,3주' || cycle === '1,3') {
-      return weekNum === 1 || weekNum === 3 || weekNum === 5;
+      return weekNum === 1 || weekNum === 3;
     } else if (cycle === '2,4주' || cycle === '2,4') {
       return weekNum === 2 || weekNum === 4;
+    } else if (cycle === '1,3,5주' || cycle === '1,3,5' || cycle === '홀수주') {
+      return weekNum === 1 || weekNum === 3 || weekNum === 5;
+    } else if (cycle === '2,4,5주' || cycle === '2,4,5') {
+      return weekNum === 2 || weekNum === 4 || weekNum === 5;
     } else if (cycle === '1주') {
       return weekNum === 1;
     } else if (cycle === '2주') {

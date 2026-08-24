@@ -1027,17 +1027,84 @@ async function saveRoutePatterns(
   try {
     await sb.from("driver_route_patterns").delete().eq("driver_id", driverId);
     if (routePatterns && routePatterns.length > 0) {
-      const inserts = routePatterns
-        .filter((p) => p.weekCycle && p.dayOfWeek && (p.campName || p.routeName))
-        .map((p) => ({
+      // 1. 캠프 목록 및 라우트 목록 조회
+      const { data: campsData } = await sb.from("camps").select("id, name");
+      const campMap = new Map<string, number>();
+      ((campsData || []) as { id: number; name: string }[]).forEach((c) => {
+        campMap.set(c.name.toLowerCase().trim(), c.id);
+      });
+
+      const { data: routesData } = await sb.from("routes").select("id, camp_id, name");
+      const routeMap = new Map<string, number>();
+      ((routesData || []) as { id: number; camp_id: number; name: string }[]).forEach((r) => {
+        routeMap.set(`${r.camp_id}_${r.name.toLowerCase().trim()}`, r.id);
+      });
+
+      const validPatterns = routePatterns.filter(
+        (p) => p.weekCycle && p.dayOfWeek && (p.campName || p.routeName)
+      );
+
+      const inserts: any[] = [];
+      const updatedPatternsForCache: any[] = [];
+
+      for (const p of validPatterns) {
+        const cName = (p.campName || "").trim();
+        const rName = (p.routeName || "").trim();
+
+        let campId = p.campId || (cName ? campMap.get(cName.toLowerCase()) : null);
+
+        // 캠프가 등록되어 있지 않은 경우 자동 생성
+        if (!campId && cName) {
+          const { data: insertedCamp } = await sb
+            .from("camps")
+            .insert({ name: cName })
+            .select()
+            .single();
+          if (insertedCamp) {
+            campId = (insertedCamp as { id: number }).id;
+            campMap.set(cName.toLowerCase(), campId);
+          }
+        }
+
+        let routeId = p.routeId;
+        if (!routeId && campId && rName) {
+          const routeKey = `${campId}_${rName.toLowerCase()}`;
+          routeId = routeMap.get(routeKey);
+
+          if (!routeId) {
+            const { data: insertedRoute } = await sb
+              .from("routes")
+              .insert({ camp_id: campId, name: rName })
+              .select()
+              .single();
+            if (insertedRoute) {
+              routeId = (insertedRoute as { id: number }).id;
+              routeMap.set(routeKey, routeId);
+            }
+          }
+        }
+
+        inserts.push({
           driver_id: driverId,
           week_cycle: p.weekCycle.trim(),
           day_of_week: p.dayOfWeek.trim(),
-          camp_id: p.campId || null,
-          camp_name: (p.campName || '').trim(),
-          route_id: p.routeId || null,
-          route_name: (p.routeName || '').trim(),
-        }));
+          camp_id: campId || null,
+          camp_name: cName,
+          route_id: routeId || null,
+          route_name: rName,
+        });
+
+        updatedPatternsForCache.push({
+          driverId,
+          weekCycle: p.weekCycle.trim(),
+          dayOfWeek: p.dayOfWeek.trim(),
+          campId: campId || undefined,
+          campName: cName,
+          routeId: routeId || undefined,
+          routeName: rName,
+        });
+      }
+
       if (inserts.length > 0) {
         await sb.from("driver_route_patterns").insert(inserts);
       }
@@ -1065,6 +1132,85 @@ async function saveRoutePatterns(
     );
   } else {
     fallbackRoutePatternsMap.delete(driverId);
+  }
+}
+
+/**
+ * DB에 이미 null로 저장된 driver_route_patterns의 camp_id, route_id를 자동 복구(Backfill)
+ */
+async function backfillDriverRoutePatternIds() {
+  try {
+    const sb = getDb();
+    const { data: rows, error } = await sb
+      .from("driver_route_patterns")
+      .select("id, camp_id, camp_name, route_id, route_name");
+
+    if (error || !rows || rows.length === 0) return;
+
+    const needsFix = rows.filter(
+      (r: any) => (!r.camp_id && r.camp_name) || (!r.route_id && r.route_name)
+    );
+
+    if (needsFix.length === 0) return;
+
+    const { data: campsData } = await sb.from("camps").select("id, name");
+    const campMap = new Map<string, number>();
+    ((campsData || []) as { id: number; name: string }[]).forEach((c) => {
+      campMap.set(c.name.toLowerCase().trim(), c.id);
+    });
+
+    const { data: routesData } = await sb.from("routes").select("id, camp_id, name");
+    const routeMap = new Map<string, number>();
+    ((routesData || []) as { id: number; camp_id: number; name: string }[]).forEach((r) => {
+      routeMap.set(`${r.camp_id}_${r.name.toLowerCase().trim()}`, r.id);
+    });
+
+    for (const r of needsFix) {
+      const cName = (r.camp_name || "").trim();
+      const rName = (r.route_name || "").trim();
+
+      let campId = r.camp_id || (cName ? campMap.get(cName.toLowerCase()) : null);
+      if (!campId && cName) {
+        const { data: insertedCamp } = await sb
+          .from("camps")
+          .insert({ name: cName })
+          .select()
+          .single();
+        if (insertedCamp) {
+          campId = (insertedCamp as { id: number }).id;
+          campMap.set(cName.toLowerCase(), campId);
+        }
+      }
+
+      let routeId = r.route_id;
+      if (!routeId && campId && rName) {
+        const routeKey = `${campId}_${rName.toLowerCase()}`;
+        routeId = routeMap.get(routeKey);
+        if (!routeId) {
+          const { data: insertedRoute } = await sb
+            .from("routes")
+            .insert({ camp_id: campId, name: rName })
+            .select()
+            .single();
+          if (insertedRoute) {
+            routeId = (insertedRoute as { id: number }).id;
+            routeMap.set(routeKey, routeId);
+          }
+        }
+      }
+
+      if (campId !== r.camp_id || routeId !== r.route_id) {
+        await sb
+          .from("driver_route_patterns")
+          .update({
+            camp_id: campId || null,
+            route_id: routeId || null,
+          })
+          .eq("id", r.id);
+      }
+    }
+  } catch (err) {
+    console.warn("[backfillDriverRoutePatternIds error]:", err);
   }
 }
 
@@ -1265,7 +1411,9 @@ class DriverRepository {
         }
       });
 
-      // 배치 조회: driver_route_patterns
+      // 배치 조회: driver_route_patterns (null ID 자동 복구 포함)
+      await backfillDriverRoutePatternIds().catch(() => {});
+
       let allRoutePatternsData: any[] = [];
       try {
         const { data, error } = await sb

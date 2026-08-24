@@ -94,6 +94,13 @@ export function useCalendarViewModel() {
             const date = key.slice(0, splitIdx);
             const routeKey = key.slice(splitIdx + 1); // "남양주3/905CD"
             const [cName, rName] = routeKey.split('/');
+
+            // 담당 캠프 권한 필터
+            if (allowedCamps.length > 0) {
+              const campLower = (cName || '').toLowerCase().trim();
+              if (!allowedCamps.includes(campLower)) return;
+            }
+
             const shortCamp = getShortCampName(cName);
             const displayRoute = rName ? `${shortCamp}/${rName}` : cName;
 
@@ -113,7 +120,7 @@ export function useCalendarViewModel() {
         }
       });
 
-      // 3. 기사별 고정 휴무일(fixedHolidays) 자동 계산하여 병합
+      // 3. 기사별 고정 휴무일(fixedHolidays) 자동 계산하여 병합 (관리자 담당 캠프 기준)
       const mergedMap = new Map<string, OffDayRecord>();
 
       // 달력에 표시될 전체 날짜 리스트 생성 (전후 45일)
@@ -128,30 +135,77 @@ export function useCalendarViewModel() {
         cur.setDate(cur.getDate() + 1);
       }
 
-      // 기사별 고정 휴무일 주입
-      driversData.forEach(driver => {
+      // 기사별 고정 휴무일 주입 (관리자의 담당 캠프에 해당하는 소속 정보로 정확히 배정)
+      driversData.forEach((driver) => {
         if (driver.fixedHolidays && driver.fixedHolidays.length > 0) {
-          const campList = (driver.camp || '').split(',').map(s => s.trim()).filter(Boolean);
-          const routeList = (driver.routes || '').split(',').map(s => s.trim()).filter(Boolean);
-          const firstCamp = campList[0] || '';
-          const firstRoute = routeList[0] || '';
-          const shortCamp = getShortCampName(firstCamp);
-          const displayRoute = firstRoute ? (shortCamp ? `${shortCamp}/${firstRoute}` : firstRoute) : shortCamp;
+          // 기사가 소속된 모든 캠프 및 라우트 목록 추출
+          const driverCamps: { campName: string; routeName: string }[] = [];
+          if (driver.campRoutes && driver.campRoutes.length > 0) {
+            driver.campRoutes.forEach((cr) => {
+              if (cr.campName) driverCamps.push({ campName: cr.campName, routeName: cr.route || "" });
+            });
+          } else {
+            const cList = (driver.camp || "").split(",").map((s) => s.trim()).filter(Boolean);
+            const rList = (driver.routes || "").split(",").map((s) => s.trim());
+            cList.forEach((c, i) => {
+              driverCamps.push({ campName: c, routeName: rList[i] || "" });
+            });
+          }
 
-          dateList.forEach(dStr => {
-            const isFixed = driver.fixedHolidays!.some(h =>
+          // 현재 로그인된 관리자가 볼 수 있는 이 기사의 캠프들만 선별
+          const targetCampsForManager =
+            allowedCamps.length > 0
+              ? driverCamps.filter((dc) => allowedCamps.includes(dc.campName.toLowerCase().trim()))
+              : driverCamps;
+
+          if (targetCampsForManager.length === 0) return;
+
+          dateList.forEach((dStr) => {
+            const isFixed = driver.fixedHolidays!.some((h) =>
               isDateMatchingFixedHoliday(dStr, h.weekCycle, h.dayOfWeek)
             );
+
             if (isFixed) {
+              // 해당 요일/주차에 매칭되는 정기 패턴이 있으면 그 캠프를 우선, 없으면 1순위 담당 캠프 선택
+              let chosenCamp = targetCampsForManager[0];
+              if (driver.routePatterns && driver.routePatterns.length > 0) {
+                const matchedPattern = driver.routePatterns.find((p) =>
+                  isDateMatchingFixedHoliday(dStr, p.weekCycle, p.dayOfWeek)
+                );
+                if (matchedPattern && matchedPattern.campName) {
+                  const found = targetCampsForManager.find(
+                    (tc) => tc.campName.toLowerCase().trim() === matchedPattern.campName.toLowerCase().trim()
+                  );
+                  if (found) {
+                    chosenCamp = {
+                      campName: matchedPattern.campName,
+                      routeName: matchedPattern.routeName || found.routeName,
+                    };
+                  }
+                }
+              }
+
+              const shortCamp = getShortCampName(chosenCamp.campName);
+              const displayRoute = chosenCamp.routeName
+                ? shortCamp
+                  ? `${shortCamp}/${chosenCamp.routeName}`
+                  : chosenCamp.routeName
+                : shortCamp;
+
               const backup = backupMap.get(`${dStr}_${driver.id}`);
               mergedMap.set(`${dStr}_${driver.id}`, {
-                id: driver.id * 10000 + Math.abs(dStr.split('').reduce((a, b) => (a << 5) - a + b.charCodeAt(0), 0) % 1000),
+                id:
+                  driver.id * 10000 +
+                  Math.abs(
+                    `${dStr}_${chosenCamp.campName}`.split("").reduce((a, b) => (a << 5) - a + b.charCodeAt(0), 0) %
+                      1000
+                  ),
                 driverId: driver.id,
                 driverName: driver.name,
-                campName: firstCamp,
-                routeName: firstRoute,
+                campName: chosenCamp.campName,
+                routeName: chosenCamp.routeName,
                 displayRoute,
-                routeNumber: firstRoute || '-',
+                routeNumber: chosenCamp.routeName || "-",
                 date: dStr,
                 backupAssigned: !!backup,
                 backupDriverName: backup?.backupDriverName,
@@ -161,39 +215,61 @@ export function useCalendarViewModel() {
         }
       });
 
-      // 4. DB 오프데이 데이터 병합 (수동 지정 오프데이)
-      offDaysData.forEach(r => {
-        const dObj = driversData.find(d => d.id === r.driverId);
-        const campList = (dObj?.camp || '').split(',').map(s => s.trim()).filter(Boolean);
-        const routeList = (dObj?.routes || '').split(',').map(s => s.trim()).filter(Boolean);
-        
-        let matchedCamp = campList[0] || '';
-        if (r.routeNumber) {
-          const rIdx = routeList.indexOf(r.routeNumber);
-          if (rIdx !== -1 && campList[rIdx]) {
-            matchedCamp = campList[rIdx];
-          } else if (campList.length > 0) {
-            matchedCamp = campList[campList.length - 1];
-          }
+      // 4. DB 오프데이 데이터 병합 (수동 지정 오프데이 - 담당 캠프만)
+      offDaysData.forEach((r) => {
+        const dObj = driversData.find((d) => d.id === r.driverId);
+        if (!dObj) return;
+
+        const dCamps: { campName: string; routeName: string }[] = [];
+        if (dObj.campRoutes && dObj.campRoutes.length > 0) {
+          dObj.campRoutes.forEach((cr) => {
+            if (cr.campName) dCamps.push({ campName: cr.campName, routeName: cr.route || "" });
+          });
+        } else {
+          const cList = (dObj.camp || "").split(",").map((s) => s.trim()).filter(Boolean);
+          const rList = (dObj.routes || "").split(",").map((s) => s.trim());
+          cList.forEach((c, i) => dCamps.push({ campName: c, routeName: rList[i] || "" }));
         }
-        
-        const shortCamp = getShortCampName(matchedCamp);
-        const displayRoute = r.routeNumber ? (shortCamp ? `${shortCamp}/${r.routeNumber}` : r.routeNumber) : shortCamp;
-        
+
+        const validCamps =
+          allowedCamps.length > 0
+            ? dCamps.filter((dc) => allowedCamps.includes(dc.campName.toLowerCase().trim()))
+            : dCamps;
+
+        if (validCamps.length === 0) return;
+
+        const matchedCamp =
+          validCamps.find((vc) => r.campName && vc.campName.toLowerCase() === r.campName.toLowerCase()) ||
+          validCamps[0];
+
+        const shortCamp = getShortCampName(matchedCamp.campName);
+        const displayRoute = matchedCamp.routeName
+          ? shortCamp
+            ? `${shortCamp}/${matchedCamp.routeName}`
+            : matchedCamp.routeName
+          : shortCamp;
+
         mergedMap.set(`${r.date}_${r.driverId}`, {
           ...r,
-          campName: matchedCamp,
-          routeName: r.routeNumber,
+          campName: matchedCamp.campName,
+          routeName: matchedCamp.routeName,
           displayRoute,
         });
       });
 
       // 5. 슬롯 배정 우선 적용 오버라이드
-      slotOffDays.forEach(r => {
+      slotOffDays.forEach((r) => {
         mergedMap.set(`${r.date}_${r.driverId}`, r);
       });
 
-      setOffDays(Array.from(mergedMap.values()));
+      // 6. 최종 담당 캠프 항목만 엄격하게 필터링하여 상태 설정
+      const filteredOffDays = Array.from(mergedMap.values()).filter((r) => {
+        if (allowedCamps.length === 0) return true;
+        const cLower = (r.campName || "").toLowerCase().trim();
+        return allowedCamps.includes(cLower);
+      });
+
+      setOffDays(filteredOffDays);
       setAllDrivers(driversData);
     } catch (err: any) {
       setError(err.message || '휴무 데이터를 불러올 수 없습니다.');
@@ -211,7 +287,10 @@ export function useCalendarViewModel() {
     const map = new Map<string, OffDayRecord[]>();
     offDays.forEach(record => {
       const existing = map.get(record.date) || [];
-      existing.push(record);
+      // Ensure no duplicate driver on the same date
+      if (!existing.some(e => e.driverId === record.driverId)) {
+        existing.push(record);
+      }
       map.set(record.date, existing);
     });
     return map;
