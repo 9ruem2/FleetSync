@@ -2,20 +2,58 @@ import { Driver, CreateDriverForm, UpdateDriverForm } from '../models/driver.mod
 import { ScheduleGridRow, ShiftStatus, OffDayRecord, MonthlyRoster, CreateMonthlyRosterForm } from '../models/schedule.model';
 import { BackupAssignment, AssignBackupForm } from '../models/backup.model';
 import { Company, Camp, Route } from '../models/master.model';
+import { UserSession, AdminUser } from '../models/user.model';
 
 const API_BASE = '/api';
 
 export class ApiService {
   // Auth
-  public static async login(userId: string, password: string): Promise<{ userId: string; companyId: number; companyName: string }> {
+  public static async login(companyCode: string, loginId: string, password: string): Promise<UserSession> {
     const res = await fetch(`${API_BASE}/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userId, password })
+      body: JSON.stringify({ companyCode, loginId, password })
     });
     const json = await res.json();
     if (!json.success) throw new Error(json.message || '로그인에 실패했습니다.');
     return json.data;
+  }
+
+  // Admins API
+  public static async getAdmins(companyId?: number): Promise<AdminUser[]> {
+    const url = companyId ? `${API_BASE}/admins?companyId=${companyId}` : `${API_BASE}/admins`;
+    const res = await fetch(url);
+    const json = await res.json();
+    if (!json.success) throw new Error(json.message);
+    return json.data;
+  }
+
+  public static async createAdmin(dto: Partial<AdminUser> & { password?: string }): Promise<AdminUser> {
+    const res = await fetch(`${API_BASE}/admins`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(dto),
+    });
+    const json = await res.json();
+    if (!json.success) throw new Error(json.message);
+    return json.data;
+  }
+
+  public static async updateAdmin(id: number, dto: Partial<AdminUser> & { password?: string }): Promise<AdminUser> {
+    const res = await fetch(`${API_BASE}/admins/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(dto),
+    });
+    const json = await res.json();
+    if (!json.success) throw new Error(json.message);
+    return json.data;
+  }
+
+  public static async deleteAdmin(id: number): Promise<void> {
+    const res = await fetch(`${API_BASE}/admins/${id}`, { method: 'DELETE' });
+    const json = await res.json();
+    if (!json.success) throw new Error(json.message);
   }
 
   // Master Data API (Company / Camp / Route)

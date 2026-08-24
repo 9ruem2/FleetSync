@@ -19,8 +19,24 @@ import {
   MapPin,
 } from "lucide-react";
 
+import { UserSession } from "../../models/user.model";
+
 export const DriverListView: React.FC = () => {
   const vm = useDriverViewModel();
+
+  // Load session permissions
+  const session: UserSession | null = React.useMemo(() => {
+    try {
+      const saved = localStorage.getItem("fleetsync_session");
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
+  }, []);
+
+  const canCreate = session?.permissions?.canCreate ?? true;
+  const canUpdate = session?.permissions?.canUpdate ?? true;
+  const canDelete = session?.permissions?.canDelete ?? true;
 
   return (
     <div className="p-4 sm:p-8 space-y-4 sm:space-y-6">
@@ -49,13 +65,15 @@ export const DriverListView: React.FC = () => {
             <RefreshCw className="w-4 h-4" />
           </button>
 
-          <button
-            onClick={() => vm.setIsAddModalOpen(true)}
-            className="flex items-center gap-1.5 px-4 sm:px-5 py-2 sm:py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-md shadow-blue-500/20 transition whitespace-nowrap"
-          >
-            <Plus className="w-4 h-4" />
-            <span>신규 기사 등록</span>
-          </button>
+          {canCreate && (
+            <button
+              onClick={() => vm.setIsAddModalOpen(true)}
+              className="flex items-center gap-1.5 px-4 sm:px-5 py-2 sm:py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-md shadow-blue-500/20 transition whitespace-nowrap"
+            >
+              <Plus className="w-4 h-4" />
+              <span>신규 기사 등록</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -235,21 +253,25 @@ export const DriverListView: React.FC = () => {
                       {/* Action buttons */}
                       <td className="py-3.5 px-4 sm:px-6 text-right whitespace-nowrap">
                         <div className="inline-flex items-center justify-end gap-1.5">
-                          <button
-                            onClick={() => vm.setEditingDriver(driver)}
-                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-slate-200 text-slate-700 font-semibold hover:bg-slate-100 transition text-[11px]"
-                          >
-                            <Edit2 className="w-3.5 h-3.5 text-blue-600" />
-                            <span>수정</span>
-                          </button>
+                          {canUpdate && (
+                            <button
+                              onClick={() => vm.setEditingDriver(driver)}
+                              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-slate-200 text-slate-700 font-semibold hover:bg-slate-100 transition text-[11px]"
+                            >
+                              <Edit2 className="w-3.5 h-3.5 text-blue-600" />
+                              <span>수정</span>
+                            </button>
+                          )}
 
-                          <button
-                            onClick={() => vm.setDeletingDriver(driver)}
-                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-red-200 text-red-600 font-semibold hover:bg-red-50 transition text-[11px]"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                            <span>삭제</span>
-                          </button>
+                          {canDelete && (
+                            <button
+                              onClick={() => vm.setDeletingDriver(driver)}
+                              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-red-200 text-red-600 font-semibold hover:bg-red-50 transition text-[11px]"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                              <span>삭제</span>
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -285,20 +307,24 @@ export const DriverListView: React.FC = () => {
                     </div>
 
                     <div className="flex items-center gap-1">
-                      <button
-                        onClick={() => vm.setEditingDriver(driver)}
-                        className="p-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-100 transition"
-                        title="수정"
-                      >
-                        <Edit2 className="w-3.5 h-3.5 text-blue-600" />
-                      </button>
-                      <button
-                        onClick={() => vm.setDeletingDriver(driver)}
-                        className="p-1.5 rounded-lg border border-red-200 text-red-600 hover:bg-red-50 transition"
-                        title="삭제"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
+                      {canUpdate && (
+                        <button
+                          onClick={() => vm.setEditingDriver(driver)}
+                          className="p-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-100 transition"
+                          title="수정"
+                        >
+                          <Edit2 className="w-3.5 h-3.5 text-blue-600" />
+                        </button>
+                      )}
+                      {canDelete && (
+                        <button
+                          onClick={() => vm.setDeletingDriver(driver)}
+                          className="p-1.5 rounded-lg border border-red-200 text-red-600 hover:bg-red-50 transition"
+                          title="삭제"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
                     </div>
                   </div>
 

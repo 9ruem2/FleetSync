@@ -4,7 +4,80 @@ export type ShiftStatus = '고정' | '용차' | '백업' | '휴무';
 export interface Company {
   id: number;
   name: string;
+  companyCode: string;
   createdAt: string;
+}
+
+export interface Admin {
+  id: number;
+  companyId: number;
+  loginId: string;
+  password?: string;
+  name: string;
+  isAllCampsAccessible: boolean;
+  canCreate: boolean;
+  canRead: boolean;
+  canUpdate: boolean;
+  canDelete: boolean;
+  assignedCampIds?: number[];
+  assignedCampNames?: string[];
+  createdAt: string;
+}
+
+export interface AdminCamp {
+  id: number;
+  adminId: number;
+  campId: number;
+  createdAt: string;
+}
+
+export interface CreateAdminDTO {
+  companyId: number;
+  loginId: string;
+  password: string;
+  name: string;
+  isAllCampsAccessible?: boolean;
+  canCreate?: boolean;
+  canRead?: boolean;
+  canUpdate?: boolean;
+  canDelete?: boolean;
+  assignedCampIds?: number[];
+}
+
+export interface UpdateAdminDTO {
+  loginId?: string;
+  password?: string;
+  name?: string;
+  isAllCampsAccessible?: boolean;
+  canCreate?: boolean;
+  canRead?: boolean;
+  canUpdate?: boolean;
+  canDelete?: boolean;
+  assignedCampIds?: number[];
+}
+
+export interface LoginDTO {
+  companyCode: string;
+  loginId: string;
+  password: string;
+}
+
+export interface LoginResponseDTO {
+  adminId: number;
+  loginId: string;
+  adminName: string;
+  companyId: number;
+  companyCode: string;
+  companyName: string;
+  permissions: {
+    isAllCampsAccessible: boolean;
+    canCreate: boolean;
+    canRead: boolean;
+    canUpdate: boolean;
+    canDelete: boolean;
+    assignedCampIds: number[];
+    assignedCampNames: string[];
+  };
 }
 
 export interface Camp {

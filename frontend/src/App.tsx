@@ -6,12 +6,7 @@ import { ScheduleGridView } from "./views/schedule/ScheduleGridView";
 import { VacationCalendarView } from "./views/calendar/VacationCalendarView";
 import { SettingsModal } from "./views/components/SettingsModal";
 import { LoginView } from "./views/auth/LoginView";
-
-interface UserSession {
-  userId: string;
-  companyId: number;
-  companyName: string;
-}
+import { UserSession } from "./models/user.model";
 
 export function App() {
   const [currentUser, setCurrentUser] = useState<UserSession | null>(null);

@@ -1,6 +1,30 @@
 import { getDb } from '../../../db';
-import { Company, Camp, Route, Driver, CreateDriverDTO, UpdateDriverDTO, ScheduleShift, BackupAssignment, AssignBackupDTO } from '../types';
+import {
+  Company,
+  Admin,
+  CreateAdminDTO,
+  UpdateAdminDTO,
+  LoginResponseDTO,
+  Camp,
+  Route,
+  Driver,
+  CreateDriverDTO,
+  UpdateDriverDTO,
+  ScheduleShift,
+  BackupAssignment,
+  AssignBackupDTO
+} from '../types';
 import { DEFAULT_COMPANY_NAME } from '../constants/company';
+
+// 6자리 난수 회사 코드 생성기 (영문 대문자 + 숫자)
+export function generateCompanyCode(): string {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // 혼동하기 쉬운 I, O, 0, 1 제외
+  let result = '';
+  for (let i = 0; i < 6; i++) {
+    result += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return result;
+}
 
 // ==========================================
 // Master Data Repositories (Company / Camp / Route)
@@ -14,7 +38,7 @@ class MasterRepository {
       const { data: allComp, error } = await sb.from('companies').select('*');
       if (error) throw error;
 
-      const rows = (allComp || []) as { id: number; name: string; created_at: string }[];
+      const rows = (allComp || []) as { id: number; name: string; company_code?: string; created_at: string }[];
 
       if (inputCompanyId && typeof inputCompanyId === 'number' && !isNaN(inputCompanyId)) {
         const found = rows.find(c => c.id === inputCompanyId);
@@ -22,12 +46,17 @@ class MasterRepository {
       }
 
       const daeguk = rows.find(c => c.name === DEFAULT_COMPANY_NAME);
-      if (daeguk) return daeguk.id;
+      if (daeguk) {
+        if (!daeguk.company_code) {
+          await sb.from('companies').update({ company_code: 'DK1001' }).eq('id', daeguk.id);
+        }
+        return daeguk.id;
+      }
 
       // 없으면 '대국' 회사 삽입
       const { data: inserted, error: insertErr } = await sb
         .from('companies')
-        .insert({ name: DEFAULT_COMPANY_NAME })
+        .insert({ name: DEFAULT_COMPANY_NAME, company_code: 'DK1001' })
         .select()
         .single();
       if (insertErr) throw insertErr;
@@ -43,65 +72,86 @@ class MasterRepository {
       await this.getValidCompanyId();
       const { data, error } = await getDb().from('companies').select('*').order('id');
       if (error) throw error;
-      const rows = (data || []) as { id: number; name: string; user_id: string | null; created_at: string }[];
+      const rows = (data || []) as { id: number; name: string; company_code?: string; created_at: string }[];
       if (rows.length > 0) {
-        return rows.map(r => ({ id: r.id, name: r.name, userId: r.user_id ?? undefined, createdAt: r.created_at }));
+        return rows.map(r => ({
+          id: r.id,
+          name: r.name,
+          companyCode: r.company_code || 'DK1001',
+          createdAt: r.created_at,
+        }));
       }
     } catch (err) {
       console.error('[findAllCompanies] error:', err);
     }
-    return [{ id: 1, name: DEFAULT_COMPANY_NAME, createdAt: new Date().toISOString() }];
+    return [{ id: 1, name: DEFAULT_COMPANY_NAME, companyCode: 'DK1001', createdAt: new Date().toISOString() }];
   }
 
-  public async findCompanyByCredentials(userId: string, password: string): Promise<{ id: number; name: string } | null> {
-    const trimmedId = userId.trim();
+  public async findCompanyByCode(companyCode: string): Promise<Company | null> {
+    const code = companyCode.trim().toUpperCase();
     try {
-      const sb = getDb();
-      const { data, error } = await sb
+      const { data, error } = await getDb()
         .from('companies')
-        .select('id, name, user_id, password')
-        .eq('user_id', trimmedId)
-        .eq('password', password)
+        .select('*')
+        .ilike('company_code', code)
         .maybeSingle();
-
-      if (!error && data) {
-        const row = data as { id: number; name: string; user_id: string; password: string };
-        return { id: row.id, name: row.name };
-      }
-
-      // 만약 kkh / 1010 기본 계정인데 아직 DB에 컬럼이 안 채워져 있다면 '대국' 회사에 자동 동기화
-      if (trimmedId === 'kkh' && password === '1010') {
-        const validCompId = await this.getValidCompanyId();
-        try {
-          await sb.from('companies').update({ user_id: 'kkh', password: '1010' }).eq('id', validCompId);
-        } catch (updateErr) {
-          console.error('[findCompanyByCredentials auto-sync error]:', updateErr);
-        }
-        return { id: validCompId, name: DEFAULT_COMPANY_NAME };
-      }
-
-      return null;
+      if (error || !data) return null;
+      const row = data as { id: number; name: string; company_code: string; created_at: string };
+      return {
+        id: row.id,
+        name: row.name,
+        companyCode: row.company_code,
+        createdAt: row.created_at,
+      };
     } catch (err) {
-      console.error('[findCompanyByCredentials] error:', err);
-      // DB 통신 장애 시 kkh/1010 기본 계정 안전 통과
-      if (trimmedId === 'kkh' && password === '1010') {
-        return { id: 1, name: DEFAULT_COMPANY_NAME };
-      }
+      console.error('[findCompanyByCode error]:', err);
       return null;
     }
   }
 
   public async createCompany(name: string): Promise<Company> {
     const trimmed = name.trim();
-    const { data: existing } = await getDb().from('companies').select('*').eq('name', trimmed).single();
+    const sb = getDb();
+    const { data: existing } = await sb.from('companies').select('*').eq('name', trimmed).maybeSingle();
     if (existing) {
-      const row = existing as { id: number; name: string; created_at: string };
-      return { id: row.id, name: row.name, createdAt: row.created_at };
+      const row = existing as { id: number; name: string; company_code: string; created_at: string };
+      return { id: row.id, name: row.name, companyCode: row.company_code, createdAt: row.created_at };
     }
-    const { data, error } = await getDb().from('companies').insert({ name: trimmed }).select().single();
+
+    // 6자리 고유 코드 발급
+    let generatedCode = generateCompanyCode();
+    for (let i = 0; i < 5; i++) {
+      const { data: dup } = await sb.from('companies').select('id').eq('company_code', generatedCode).maybeSingle();
+      if (!dup) break;
+      generatedCode = generateCompanyCode();
+    }
+
+    const { data, error } = await sb
+      .from('companies')
+      .insert({ name: trimmed, company_code: generatedCode })
+      .select()
+      .single();
     if (error) throw error;
-    const row = data as { id: number; name: string; created_at: string };
-    return { id: row.id, name: row.name, createdAt: row.created_at };
+    const row = data as { id: number; name: string; company_code: string; created_at: string };
+
+    // 회사 생성 시 기본 슈퍼 관리자 계정 생성 (id: admin / pw: 1234)
+    try {
+      await adminRepository.createAdmin({
+        companyId: row.id,
+        loginId: 'admin',
+        password: 'password123',
+        name: `${trimmed} 관리자`,
+        isAllCampsAccessible: true,
+        canCreate: true,
+        canRead: true,
+        canUpdate: true,
+        canDelete: true,
+      });
+    } catch (adminErr) {
+      console.error('[createCompany default admin error]:', adminErr);
+    }
+
+    return { id: row.id, name: row.name, companyCode: row.company_code, createdAt: row.created_at };
   }
 
   public async deleteCompany(id: number): Promise<boolean> {
@@ -247,6 +297,320 @@ class MasterRepository {
       console.error('[deleteRoute] error:', err);
     }
     return true;
+  }
+}
+
+// ==========================================
+// Admin & Permission Repository
+// ==========================================
+
+class AdminRepository {
+  private async getAdminCampInfo(adminId: number): Promise<{ campIds: number[]; campNames: string[] }> {
+    try {
+      const sb = getDb();
+      const { data: mappings, error } = await sb
+        .from('admin_camps')
+        .select('camp_id, camps(id, name)')
+        .eq('admin_id', adminId);
+
+      if (error || !mappings) return { campIds: [], campNames: [] };
+
+      const campIds: number[] = [];
+      const campNames: string[] = [];
+
+      mappings.forEach((m: any) => {
+        if (m.camp_id) campIds.push(m.camp_id);
+        if (m.camps?.name) campNames.push(m.camps.name);
+      });
+
+      return { campIds, campNames };
+    } catch (err) {
+      console.error('[getAdminCampInfo error]:', err);
+      return { campIds: [], campNames: [] };
+    }
+  }
+
+  public async findAdminByCredentials(companyCode: string, loginId: string, password: string): Promise<LoginResponseDTO | null> {
+    const trimmedCode = companyCode.trim().toUpperCase();
+    const trimmedLoginId = loginId.trim();
+    const trimmedPw = password.trim();
+
+    try {
+      const sb = getDb();
+      // 1. 회사 확인
+      let company = await masterRepository.findCompanyByCode(trimmedCode);
+      if (!company && (trimmedCode === 'DK1001' || trimmedCode === 'DAEGUK')) {
+        const daegukCompanies = await masterRepository.findAllCompanies();
+        const found = daegukCompanies.find(c => c.name === DEFAULT_COMPANY_NAME);
+        if (found) {
+          company = found;
+        }
+      }
+
+      if (!company) {
+        return null;
+      }
+
+      // 2. 관리자 계정 확인
+      const { data: adminData, error: adminErr } = await sb
+        .from('admins')
+        .select('*')
+        .eq('company_id', company.id)
+        .eq('login_id', trimmedLoginId)
+        .eq('password', trimmedPw)
+        .maybeSingle();
+
+      if (!adminErr && adminData) {
+        const { campIds, campNames } = await this.getAdminCampInfo(adminData.id);
+        return {
+          adminId: adminData.id,
+          loginId: adminData.login_id,
+          adminName: adminData.name,
+          companyId: company.id,
+          companyCode: company.companyCode,
+          companyName: company.name,
+          permissions: {
+            isAllCampsAccessible: adminData.is_all_camps_accessible ?? true,
+            canCreate: adminData.can_create ?? true,
+            canRead: adminData.can_read ?? true,
+            canUpdate: adminData.can_update ?? true,
+            canDelete: adminData.can_delete ?? true,
+            assignedCampIds: campIds,
+            assignedCampNames: campNames,
+          },
+        };
+      }
+
+      // 3. 기본 총괄관리자(kkh / 1010) 자동 등록/복구 처리
+      if (trimmedLoginId === 'kkh' && trimmedPw === '1010') {
+        const defaultAdmin = await this.createAdmin({
+          companyId: company.id,
+          loginId: 'kkh',
+          password: '1010',
+          name: '총괄관리자',
+          isAllCampsAccessible: true,
+          canCreate: true,
+          canRead: true,
+          canUpdate: true,
+          canDelete: true,
+        });
+
+        return {
+          adminId: defaultAdmin.id,
+          loginId: defaultAdmin.loginId,
+          adminName: defaultAdmin.name,
+          companyId: company.id,
+          companyCode: company.companyCode,
+          companyName: company.name,
+          permissions: {
+            isAllCampsAccessible: true,
+            canCreate: true,
+            canRead: true,
+            canUpdate: true,
+            canDelete: true,
+            assignedCampIds: [],
+            assignedCampNames: [],
+          },
+        };
+      }
+
+      return null;
+    } catch (err) {
+      console.error('[findAdminByCredentials error]:', err);
+      // DB 장애 시 안전 폴백
+      if (trimmedCode === 'DK1001' && trimmedLoginId === 'kkh' && trimmedPw === '1010') {
+        return {
+          adminId: 1,
+          loginId: 'kkh',
+          adminName: '총괄관리자',
+          companyId: 1,
+          companyCode: 'DK1001',
+          companyName: DEFAULT_COMPANY_NAME,
+          permissions: {
+            isAllCampsAccessible: true,
+            canCreate: true,
+            canRead: true,
+            canUpdate: true,
+            canDelete: true,
+            assignedCampIds: [],
+            assignedCampNames: [],
+          },
+        };
+      }
+      return null;
+    }
+  }
+
+  public async findAdminsByCompany(companyId: number): Promise<Admin[]> {
+    try {
+      const sb = getDb();
+      const { data, error } = await sb
+        .from('admins')
+        .select('*')
+        .eq('company_id', companyId)
+        .order('id', { ascending: true });
+
+      if (error || !data) return [];
+
+      const adminList: Admin[] = [];
+      for (const row of data) {
+        const { campIds, campNames } = await this.getAdminCampInfo(row.id);
+        adminList.push({
+          id: row.id,
+          companyId: row.company_id,
+          loginId: row.login_id,
+          name: row.name,
+          isAllCampsAccessible: row.is_all_camps_accessible ?? true,
+          canCreate: row.can_create ?? true,
+          canRead: row.can_read ?? true,
+          canUpdate: row.can_update ?? true,
+          canDelete: row.can_delete ?? true,
+          assignedCampIds: campIds,
+          assignedCampNames: campNames,
+          createdAt: row.created_at,
+        });
+      }
+      return adminList;
+    } catch (err) {
+      console.error('[findAdminsByCompany error]:', err);
+      return [];
+    }
+  }
+
+  public async findAdminById(adminId: number): Promise<Admin | null> {
+    try {
+      const sb = getDb();
+      const { data, error } = await sb.from('admins').select('*').eq('id', adminId).maybeSingle();
+      if (error || !data) return null;
+
+      const { campIds, campNames } = await this.getAdminCampInfo(data.id);
+      return {
+        id: data.id,
+        companyId: data.company_id,
+        loginId: data.login_id,
+        name: data.name,
+        isAllCampsAccessible: data.is_all_camps_accessible ?? true,
+        canCreate: data.can_create ?? true,
+        canRead: data.can_read ?? true,
+        canUpdate: data.can_update ?? true,
+        canDelete: data.can_delete ?? true,
+        assignedCampIds: campIds,
+        assignedCampNames: campNames,
+        createdAt: data.created_at,
+      };
+    } catch (err) {
+      console.error('[findAdminById error]:', err);
+      return null;
+    }
+  }
+
+  public async createAdmin(dto: CreateAdminDTO): Promise<Admin> {
+    const sb = getDb();
+    const { data, error } = await sb
+      .from('admins')
+      .insert({
+        company_id: dto.companyId,
+        login_id: dto.loginId.trim(),
+        password: dto.password.trim(),
+        name: dto.name.trim(),
+        is_all_camps_accessible: dto.isAllCampsAccessible ?? true,
+        can_create: dto.canCreate ?? true,
+        can_read: dto.canRead ?? true,
+        can_update: dto.canUpdate ?? true,
+        can_delete: dto.canDelete ?? true,
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    const newAdmin = data as any;
+    if (dto.assignedCampIds && dto.assignedCampIds.length > 0) {
+      const campInserts = dto.assignedCampIds.map(campId => ({
+        admin_id: newAdmin.id,
+        camp_id: campId,
+      }));
+      await sb.from('admin_camps').insert(campInserts);
+    }
+
+    const { campIds, campNames } = await this.getAdminCampInfo(newAdmin.id);
+    return {
+      id: newAdmin.id,
+      companyId: newAdmin.company_id,
+      loginId: newAdmin.login_id,
+      name: newAdmin.name,
+      isAllCampsAccessible: newAdmin.is_all_camps_accessible,
+      canCreate: newAdmin.can_create,
+      canRead: newAdmin.can_read,
+      canUpdate: newAdmin.can_update,
+      canDelete: newAdmin.can_delete,
+      assignedCampIds: campIds,
+      assignedCampNames: campNames,
+      createdAt: newAdmin.created_at,
+    };
+  }
+
+  public async updateAdmin(adminId: number, dto: UpdateAdminDTO): Promise<Admin | null> {
+    const sb = getDb();
+    const updatePayload: Record<string, any> = {};
+
+    if (dto.loginId !== undefined) updatePayload.login_id = dto.loginId.trim();
+    if (dto.password !== undefined && dto.password.trim() !== '') updatePayload.password = dto.password.trim();
+    if (dto.name !== undefined) updatePayload.name = dto.name.trim();
+    if (dto.isAllCampsAccessible !== undefined) updatePayload.is_all_camps_accessible = dto.isAllCampsAccessible;
+    if (dto.canCreate !== undefined) updatePayload.can_create = dto.canCreate;
+    if (dto.canRead !== undefined) updatePayload.can_read = dto.canRead;
+    if (dto.canUpdate !== undefined) updatePayload.can_update = dto.canUpdate;
+    if (dto.canDelete !== undefined) updatePayload.can_delete = dto.canDelete;
+
+    const { data, error } = await sb
+      .from('admins')
+      .update(updatePayload)
+      .eq('id', adminId)
+      .select()
+      .single();
+
+    if (error || !data) return null;
+
+    if (dto.assignedCampIds !== undefined) {
+      await sb.from('admin_camps').delete().eq('admin_id', adminId);
+      if (dto.assignedCampIds.length > 0) {
+        const campInserts = dto.assignedCampIds.map(campId => ({
+          admin_id: adminId,
+          camp_id: campId,
+        }));
+        await sb.from('admin_camps').insert(campInserts);
+      }
+    }
+
+    const { campIds, campNames } = await this.getAdminCampInfo(adminId);
+    return {
+      id: data.id,
+      companyId: data.company_id,
+      loginId: data.login_id,
+      name: data.name,
+      isAllCampsAccessible: data.is_all_camps_accessible,
+      canCreate: data.can_create,
+      canRead: data.can_read,
+      canUpdate: data.can_update,
+      canDelete: data.can_delete,
+      assignedCampIds: campIds,
+      assignedCampNames: campNames,
+      createdAt: data.created_at,
+    };
+  }
+
+  public async deleteAdmin(adminId: number): Promise<boolean> {
+    try {
+      const sb = getDb();
+      await sb.from('admin_camps').delete().eq('admin_id', adminId);
+      const { error } = await sb.from('admins').delete().eq('id', adminId);
+      if (error) throw error;
+      return true;
+    } catch (err) {
+      console.error('[deleteAdmin error]:', err);
+      return false;
+    }
   }
 }
 
@@ -1068,6 +1432,7 @@ class MonthlyRosterRepository {
 }
 
 export const masterRepository = new MasterRepository();
+export const adminRepository = new AdminRepository();
 export const driverRepository = new DriverRepository();
 export const scheduleRepository = new ScheduleRepository();
 export const backupRepository = new BackupRepository();

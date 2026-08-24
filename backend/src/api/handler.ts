@@ -1,6 +1,6 @@
-import { masterRepository, driverRepository } from '../repositories/dbRepository';
+import { masterRepository, adminRepository, driverRepository } from '../repositories/dbRepository';
 import { driverService, scheduleService, backupService } from '../services/index';
-import { CreateDriverDTO, UpdateDriverDTO, UpdateShiftStatusDTO, AssignBackupDTO } from '../types';
+import { CreateDriverDTO, UpdateDriverDTO, UpdateShiftStatusDTO, AssignBackupDTO, CreateAdminDTO, UpdateAdminDTO } from '../types';
 import { getDb } from '../../../db';
 
 const CORS_HEADERS = {
@@ -81,22 +81,64 @@ export async function handleApiRequest(req: Request): Promise<Response> {
     // ==========================================
 
     if (path === '/api/auth/login' && method === 'POST') {
-      const body = await parseBody<{ userId: string; password: string }>(req);
-      if (!body.userId || !body.password) {
+      const body = await parseBody<{ companyCode?: string; loginId?: string; userId?: string; password?: string }>(req);
+      const companyCode = (body.companyCode || 'DK1001').trim();
+      const loginId = (body.loginId || body.userId || '').trim();
+      const password = (body.password || '').trim();
+
+      if (!loginId || !password) {
         return errorResponse('아이디와 비밀번호를 모두 입력해주세요.', 400);
       }
-      const company = await masterRepository.findCompanyByCredentials(body.userId, body.password);
-      if (!company) {
-        return errorResponse('아이디 또는 비밀번호가 올바르지 않습니다.', 401);
+      if (!companyCode) {
+        return errorResponse('6자리 회사 코드를 입력해주세요.', 400);
       }
+
+      const loginResult = await adminRepository.findAdminByCredentials(companyCode, loginId, password);
+      if (!loginResult) {
+        return errorResponse('회사코드 또는 아이디/비밀번호가 올바르지 않습니다.', 401);
+      }
+
       return jsonResponse({
         success: true,
-        data: {
-          userId: body.userId,
-          companyId: company.id,
-          companyName: company.name,
-        }
+        data: loginResult,
       });
+    }
+
+    // ==========================================
+    // Admins & Permissions APIs
+    // ==========================================
+
+    if (path === '/api/admins' && method === 'GET') {
+      const companyIdStr = url.searchParams.get('companyId');
+      const companyId = companyIdStr ? parseId(companyIdStr) : 1;
+      const data = await adminRepository.findAdminsByCompany(companyId ?? 1);
+      return jsonResponse({ success: true, data });
+    }
+
+    if (path === '/api/admins' && method === 'POST') {
+      const body = await parseBody<CreateAdminDTO>(req);
+      if (!body.companyId || !body.loginId?.trim() || !body.password?.trim() || !body.name?.trim()) {
+        return errorResponse('회사, 아이디, 비밀번호, 이름을 모두 입력해주세요.', 400);
+      }
+      const data = await adminRepository.createAdmin(body);
+      return jsonResponse({ success: true, data, message: '관리자가 등록되었습니다.' }, 201);
+    }
+
+    const adminMatch = path.match(/^\/api\/admins\/([^/]+)$/);
+    if (adminMatch && method === 'PUT') {
+      const id = parseId(adminMatch[1]);
+      if (id === null) return errorResponse('유효하지 않은 관리자 ID입니다', 400);
+      const body = await parseBody<UpdateAdminDTO>(req);
+      const data = await adminRepository.updateAdmin(id, body);
+      if (!data) return errorResponse('관리자를 찾을 수 없습니다.', 404);
+      return jsonResponse({ success: true, data, message: '관리자 정보 및 권한이 수정되었습니다.' });
+    }
+
+    if (adminMatch && method === 'DELETE') {
+      const id = parseId(adminMatch[1]);
+      if (id === null) return errorResponse('유효하지 않은 관리자 ID입니다', 400);
+      const ok = await adminRepository.deleteAdmin(id);
+      return jsonResponse({ success: ok, message: ok ? '관리자가 삭제되었습니다.' : '삭제 실패' });
     }
 
     // ==========================================

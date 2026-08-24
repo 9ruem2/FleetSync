@@ -1,14 +1,16 @@
 import React, { useState } from 'react';
-import { Lock, User, KeyRound, ArrowRight, ShieldCheck, Truck } from 'lucide-react';
+import { Lock, User, KeyRound, ArrowRight, ShieldCheck, Truck, Building2 } from 'lucide-react';
 import { ApiService } from '../../services/apiService';
+import { UserSession } from '../../models/user.model';
 
 interface Props {
-  onLoginSuccess: (userInfo: { userId: string; companyId: number; companyName: string }) => void;
+  onLoginSuccess: (userInfo: UserSession) => void;
 }
 
 export const LoginView: React.FC<Props> = ({ onLoginSuccess }) => {
-  const [userId, setUserId] = useState('');
-  const [password, setPassword] = useState('');
+  const [companyCode, setCompanyCode] = useState('DK1001');
+  const [loginId, setLoginId] = useState('kkh');
+  const [password, setPassword] = useState('1010');
   const [errorMessage, setErrorMessage] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -17,10 +19,10 @@ export const LoginView: React.FC<Props> = ({ onLoginSuccess }) => {
     setErrorMessage('');
     setLoading(true);
     try {
-      const result = await ApiService.login(userId.trim(), password);
+      const result = await ApiService.login(companyCode.trim().toUpperCase(), loginId.trim(), password);
       onLoginSuccess(result);
     } catch (err: unknown) {
-      setErrorMessage(err instanceof Error ? err.message : '아이디 또는 비밀번호가 올바르지 않습니다.');
+      setErrorMessage(err instanceof Error ? err.message : '회사코드 또는 아이디/비밀번호가 올바르지 않습니다.');
     } finally {
       setLoading(false);
     }
@@ -45,7 +47,7 @@ export const LoginView: React.FC<Props> = ({ onLoginSuccess }) => {
             FleetSync <span className="px-2 py-0.5 text-xs font-bold bg-blue-500/20 text-blue-400 rounded-full border border-blue-500/30">PRO</span>
           </h1>
           <p className="text-xs text-slate-400 font-medium mt-1.5">
-            통합 배차 및 기사 관리를 위한 스마트 스마트 물류 솔루션
+            통합 배차 및 기사 관리를 위한 스마트 물류 솔루션
           </p>
         </div>
 
@@ -55,12 +57,12 @@ export const LoginView: React.FC<Props> = ({ onLoginSuccess }) => {
             <div>
               <h2 className="text-lg font-bold text-white flex items-center gap-2">
                 <Lock className="w-4 h-4 text-blue-400" />
-                시스템 관리자 로그인
+                관리자 계정 로그인
               </h2>
-              <p className="text-xs text-slate-400 mt-0.5">승인된 관리자 계정 정보를 입력하세요.</p>
+              <p className="text-xs text-slate-400 mt-0.5">회사코드와 승인된 계정을 입력하세요.</p>
             </div>
             <span className="px-2.5 py-1 bg-slate-800 text-blue-400 rounded-lg text-[11px] font-extrabold border border-slate-700">
-              대국 물류
+              보안 인증
             </span>
           </div>
 
@@ -72,27 +74,49 @@ export const LoginView: React.FC<Props> = ({ onLoginSuccess }) => {
           )}
 
           <form onSubmit={handleSubmit} className="space-y-4">
-            {/* 아이디 */}
+            {/* 1. 회사 코드 (6자리) */}
+            <div>
+              <div className="flex justify-between items-center mb-1.5">
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-400">
+                  회사 코드 (Company Code)
+                </label>
+                <span className="text-[10px] text-blue-400 font-medium">영문/숫자 6자리</span>
+              </div>
+              <div className="relative">
+                <Building2 className="w-4 h-4 text-slate-500 absolute left-3.5 top-3.5 z-10" />
+                <input
+                  type="text"
+                  maxLength={6}
+                  placeholder="예: DK1001"
+                  value={companyCode}
+                  onChange={e => setCompanyCode(e.target.value.toUpperCase())}
+                  required
+                  autoFocus
+                  className="w-full pl-10 pr-4 py-3 bg-slate-950/70 border border-slate-800 rounded-xl text-sm text-white placeholder-slate-600 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition font-mono font-bold tracking-wider uppercase"
+                />
+              </div>
+            </div>
+
+            {/* 2. 관리자 아이디 */}
             <div>
               <label className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1.5">
-                관리자 아이디 (User ID)
+                관리자 아이디 (Admin ID)
               </label>
               <div className="relative">
                 <User className="w-4 h-4 text-slate-500 absolute left-3.5 top-3.5 z-10" />
                 <input
                   type="text"
                   placeholder="아이디 입력"
-                  value={userId}
-                  onChange={e => setUserId(e.target.value)}
+                  value={loginId}
+                  onChange={e => setLoginId(e.target.value)}
                   autoComplete="username"
                   required
-                  autoFocus
                   className="w-full pl-10 pr-4 py-3 bg-slate-950/70 border border-slate-800 rounded-xl text-sm text-white placeholder-slate-600 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition font-medium"
                 />
               </div>
             </div>
 
-            {/* 비밀번호 */}
+            {/* 3. 비밀번호 */}
             <div>
               <label className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1.5">
                 비밀번호 (Password)
@@ -111,11 +135,10 @@ export const LoginView: React.FC<Props> = ({ onLoginSuccess }) => {
               </div>
             </div>
 
-
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-3.5 px-4 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white text-sm font-bold rounded-xl shadow-lg shadow-blue-600/30 flex items-center justify-center gap-2 transition disabled:opacity-50 mt-2"
+              className="w-full py-3.5 px-4 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white text-sm font-bold rounded-xl shadow-lg shadow-blue-600/30 flex items-center justify-center gap-2 transition disabled:opacity-50 mt-3"
             >
               {loading ? (
                 <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
@@ -131,7 +154,7 @@ export const LoginView: React.FC<Props> = ({ onLoginSuccess }) => {
 
         {/* Footer info */}
         <p className="text-center text-[11px] text-slate-600 mt-6">
-          © 2026 FleetSync. All rights reserved. (소속 회사: 대국)
+          © 2026 FleetSync. All rights reserved.
         </p>
       </div>
     </div>

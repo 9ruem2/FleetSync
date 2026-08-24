@@ -24,12 +24,27 @@ import { RouteAssignModal } from "./RouteAssignModal";
 import { ScheduleFinalizeModal } from "./ScheduleFinalizeModal";
 import { StatusBadge } from "../components/StatusBadge";
 
+import { UserSession } from "../../models/user.model";
+
 export const ScheduleGridView: React.FC = () => {
   const vm = useScheduleViewModel();
   const [draggedDriverId, setDraggedDriverId] = useState<number | null>(null);
   const [dragOverSlot, setDragOverSlot] = useState<string | null>(null); // "date_routeKey"
   const [isFinalizeModalOpen, setIsFinalizeModalOpen] = useState(false);
   const [isMobileDriversOpen, setIsMobileDriversOpen] = useState(false);
+
+  // Load session permissions
+  const session: UserSession | null = React.useMemo(() => {
+    try {
+      const saved = localStorage.getItem("fleetsync_session");
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
+  }, []);
+
+  const canUpdate = session?.permissions?.canUpdate ?? true;
+  const canCreate = session?.permissions?.canCreate ?? true;
 
   // 날짜 이전/다음 이동 핸들러
   const handleDateShift = (direction: "prev" | "next") => {
@@ -45,6 +60,7 @@ export const ScheduleGridView: React.FC = () => {
 
   // 드래그 앤 드롭 이벤트
   const handleDragStart = (driverId: number) => {
+    if (!canUpdate) return;
     setDraggedDriverId(driverId);
   };
 
@@ -54,6 +70,7 @@ export const ScheduleGridView: React.FC = () => {
   };
 
   const handleDropOnSlot = async (dateStr: string, routeKey: string) => {
+    if (!canUpdate) return;
     if (draggedDriverId !== null) {
       await vm.handleAssignDriver(dateStr, routeKey, draggedDriverId);
       setDraggedDriverId(null);
