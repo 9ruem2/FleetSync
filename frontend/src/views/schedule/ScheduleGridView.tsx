@@ -126,129 +126,134 @@ export const ScheduleGridView: React.FC = () => {
         </div>
       )}
 
+
       {/* Top Banner / Actions */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-white p-4 sm:p-6 rounded-2xl border border-slate-200 shadow-xs">
-        <div>
-          <div className="flex items-center gap-2">
-            <div className="p-2 rounded-xl bg-blue-600 text-white shadow-xs">
-              <CalendarIcon className="w-5 h-5" />
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
+        {/* 헤더 행: 타이틀 + 뷰/날짜 컨트롤 */}
+        <div className="flex items-center justify-between gap-3 px-4 sm:px-5 py-4 border-b border-slate-100">
+          {/* 타이틀 */}
+          <div className="flex items-center gap-2.5 min-w-0 shrink">
+            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-blue-600 text-white flex items-center justify-center shrink-0 shadow-sm">
+              <CalendarIcon style={{ width: "16px", height: "16px" }} />
             </div>
-            <div>
-              <h2 className="text-lg sm:text-xl font-bold text-slate-900 flex items-center gap-2">
-                <span>노선 배차 관리</span>
+            <div className="min-w-0">
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <h2 className="text-sm sm:text-base font-black text-slate-900 whitespace-nowrap">노선 배차 관리</h2>
                 {vm.isPreviousMonth && (
-                  <span className="text-xs px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 font-semibold">
+                  <span className="shrink-0 text-[10px] px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 font-bold border border-amber-200 whitespace-nowrap">
                     조회 전용
                   </span>
                 )}
-              </h2>
-              <p className="text-xs text-slate-500 mt-0.5">
+              </div>
+              <p className="text-[11px] text-slate-400 mt-0.5 hidden md:block truncate">
                 {vm.isPreviousMonth
                   ? "이전달 배차표 조회 및 기사별 PDF/이미지 발급 화면입니다."
-                  : "날짜별 각 캠프 및 라우터 구역에 기사를 드래그하여 배정하고 일정을 편성합니다."}
+                  : "기사를 드래그하여 날짜별 구역에 배정하고 일정을 편성합니다."}
               </p>
+            </div>
+          </div>
+
+          {/* 뷰 전환 + 날짜 내비게이터 */}
+          <div className="flex items-center gap-1.5 shrink-0">
+            {/* Weekly / Monthly Toggle */}
+            <div className="flex items-center bg-slate-100 p-0.5 rounded-lg border border-slate-200">
+              <button
+                onClick={() => vm.setViewMode("weekly")}
+                className={`px-2.5 py-1.5 rounded-md text-xs font-bold transition ${
+                  vm.viewMode === "weekly"
+                    ? "bg-white text-blue-600 shadow-sm"
+                    : "text-slate-500 hover:text-slate-800"
+                }`}
+              >
+                주간
+              </button>
+              <button
+                onClick={() => vm.setViewMode("monthly")}
+                className={`px-2.5 py-1.5 rounded-md text-xs font-bold transition ${
+                  vm.viewMode === "monthly"
+                    ? "bg-white text-blue-600 shadow-sm"
+                    : "text-slate-500 hover:text-slate-800"
+                }`}
+              >
+                월간
+              </button>
+            </div>
+
+            {/* Date Navigator */}
+            <div className="flex items-center bg-slate-50 border border-slate-200 rounded-lg overflow-hidden">
+              <button
+                onClick={() => handleDateShift("prev")}
+                className="p-1.5 sm:p-2 hover:bg-slate-100 text-slate-500 hover:text-slate-800 transition"
+                title="이전"
+              >
+                <ChevronLeft className="w-3.5 h-3.5" />
+              </button>
+              <span className="px-1.5 sm:px-3 text-[10px] sm:text-xs font-bold text-slate-800 font-mono whitespace-nowrap border-x border-slate-200 py-1.5">
+                {vm.dateRows[0]?.dateStr} ~ {vm.dateRows[vm.dateRows.length - 1]?.dateStr}
+              </span>
+              <button
+                onClick={() => handleDateShift("next")}
+                className="p-1.5 sm:p-2 hover:bg-slate-100 text-slate-500 hover:text-slate-800 transition"
+                title="다음"
+              >
+                <ChevronRight className="w-3.5 h-3.5" />
+              </button>
             </div>
           </div>
         </div>
 
-        {/* View Mode & Date Navigation */}
-        <div className="flex items-center gap-2 flex-wrap">
-          {/* Weekly / Monthly Toggle */}
-          <div className="flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200 shadow-2xs">
+        {/* 액션 버튼 행: 왼쪽 3개 묶음 | 오른쪽 초기화 단독 */}
+        <div className="flex items-center justify-between gap-2 px-4 sm:px-5 py-2.5 bg-slate-50/70">
+          {/* 왼쪽: 정기패턴 + 저장 + 배차표발급 */}
+          <div className="flex items-center gap-1.5">
+            {canUpdate && (
+              <button
+                onClick={() => {
+                  if (
+                    window.confirm(
+                      "등록된 모든 기사의 1,3주/2,4주 정기 패턴에 따라 현재 기간의 배차표를 일괄 자동 배치하시겠습니까?",
+                    )
+                  ) {
+                    vm.handleAutoAssignAllRegularPatterns();
+                  }
+                }}
+                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-violet-50 border border-violet-200 hover:bg-violet-100 text-violet-700 font-bold text-xs transition whitespace-nowrap"
+                title="기사별 정기 노선 패턴에 맞춰 현재 달력에 일괄 자동 배치"
+              >
+                <Sparkles className="w-3 h-3 shrink-0" />
+                <span className="hidden sm:inline">정기패턴 배차</span>
+                <span className="sm:hidden">패턴배차</span>
+              </button>
+            )}
+
+            {canUpdate && (
+              <button
+                disabled={vm.isSavingRoster}
+                onClick={vm.handleSaveMonthlySchedule}
+                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-bold text-xs shadow-sm transition disabled:opacity-50 whitespace-nowrap"
+                title="현재 편성된 근무표를 DB에 저장"
+              >
+                {vm.isSavingRoster ? (
+                  <RotateCcw className="w-3 h-3 animate-spin shrink-0" />
+                ) : (
+                  <Save className="w-3 h-3 shrink-0" />
+                )}
+                <span>{vm.isSavingRoster ? "저장 중..." : "근무표 저장"}</span>
+              </button>
+            )}
+
             <button
-              onClick={() => vm.setViewMode("weekly")}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${
-                vm.viewMode === "weekly"
-                  ? "bg-white text-blue-600 shadow-xs"
-                  : "text-slate-600 hover:text-slate-900"
-              }`}
+              onClick={() => setIsFinalizeModalOpen(true)}
+              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 font-bold text-xs transition whitespace-nowrap"
+              title="기사별 PDF / 이미지 배차표 발급"
             >
-              주간
-            </button>
-            <button
-              onClick={() => vm.setViewMode("monthly")}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${
-                vm.viewMode === "monthly"
-                  ? "bg-white text-blue-600 shadow-xs"
-                  : "text-slate-600 hover:text-slate-900"
-              }`}
-            >
-              월간
+              <FileText className="w-3 h-3 text-blue-500 shrink-0" />
+              <span className="hidden sm:inline">배차표 발급</span>
+              <span className="sm:hidden">배차표</span>
             </button>
           </div>
 
-          {/* Date Navigator */}
-          <div className="flex items-center gap-1 bg-slate-50 border border-slate-200 rounded-xl p-1 shadow-2xs">
-            <button
-              onClick={() => handleDateShift("prev")}
-              className="p-1.5 rounded-lg hover:bg-white text-slate-600 hover:text-slate-900 transition"
-              title="이전"
-            >
-              <ChevronLeft className="w-4 h-4" />
-            </button>
-
-            <span className="px-2 font-bold text-xs sm:text-sm text-slate-900 font-mono">
-              {vm.dateRows[0]?.dateStr} ~{" "}
-              {vm.dateRows[vm.dateRows.length - 1]?.dateStr}
-            </span>
-
-            <button
-              onClick={() => handleDateShift("next")}
-              className="p-1.5 rounded-lg hover:bg-white text-slate-600 hover:text-slate-900 transition"
-              title="다음"
-            >
-              <ChevronRight className="w-4 h-4" />
-            </button>
-          </div>
-
-          {/* 정기 패턴 일괄 자동 배차 버튼 (현재달/다음달만) */}
-          {canUpdate && (
-            <button
-              onClick={() => {
-                if (
-                  window.confirm(
-                    "등록된 모든 기사의 1,3주/2,4주 정기 패턴에 따라 현재 기간의 배차표를 일괄 자동 배치하시겠습니까?",
-                  )
-                ) {
-                  vm.handleAutoAssignAllRegularPatterns();
-                }
-              }}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-indigo-50 border border-indigo-200 hover:bg-indigo-100 text-indigo-700 font-bold text-xs shadow-2xs transition"
-              title="기사별 정기 노선 패턴에 맞춰 현재 달력에 일괄 자동 배치"
-            >
-              <Sparkles className="w-3.5 h-3.5" />
-              <span>정기 패턴 일괄 배차</span>
-            </button>
-          )}
-
-          {/* 근무표 DB 저장 버튼 (현재달/다음달만) */}
-          {canUpdate && (
-            <button
-              disabled={vm.isSavingRoster}
-              onClick={vm.handleSaveMonthlySchedule}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-bold text-xs shadow-xs transition disabled:opacity-50"
-              title="현재 편성된 근무표를 DB에 저장"
-            >
-              {vm.isSavingRoster ? (
-                <RotateCcw className="w-3.5 h-3.5 animate-spin" />
-              ) : (
-                <Save className="w-3.5 h-3.5" />
-              )}
-              <span>{vm.isSavingRoster ? "저장 중..." : "근무표 저장"}</span>
-            </button>
-          )}
-
-          {/* 배차표 발급 버튼 */}
-          <button
-            onClick={() => setIsFinalizeModalOpen(true)}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white border border-slate-200 hover:bg-slate-50 text-slate-800 font-bold text-xs shadow-2xs transition"
-            title="기사별 PDF / 이미지 배차표 발급"
-          >
-            <FileText className="w-3.5 h-3.5 text-blue-600" />
-            <span>배차표 발급</span>
-          </button>
-
-          {/* 배차 전체 초기화 버튼 (현재달/다음달만) */}
+          {/* 오른쪽: 초기화 단독 */}
           {canUpdate && (
             <button
               onClick={() => {
@@ -260,26 +265,16 @@ export const ScheduleGridView: React.FC = () => {
                   vm.handleResetAllAssignments();
                 }
               }}
-              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-red-50 border border-red-200 hover:bg-red-100 text-red-700 font-bold text-xs shadow-2xs transition"
+              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-red-50 border border-red-200 hover:bg-red-100 text-red-600 font-bold text-xs transition whitespace-nowrap"
               title="현재 기간의 모든 슬롯 배정 내역 전체 초기화"
             >
-              <RotateCcw className="w-3.5 h-3.5" />
-              <span>전체 초기화</span>
+              <RotateCcw className="w-3 h-3 shrink-0" />
+              <span>초기화</span>
             </button>
           )}
-
-          {/* Refresh
-          <button
-            onClick={vm.reload}
-            className="p-2.5 rounded-xl border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 transition shadow-2xs"
-            title="새로고침"
-          >
-            <RotateCcw
-              className={`w-4 h-4 ${vm.loading ? "animate-spin text-blue-600" : ""}`}
-            />
-          </button> */}
         </div>
       </div>
+
 
       {/* Filter Bar */}
       <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs space-y-3">
