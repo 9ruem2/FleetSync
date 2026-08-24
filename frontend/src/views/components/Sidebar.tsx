@@ -7,11 +7,14 @@ import {
   X,
   ExternalLink,
   Settings,
+  Crown,
 } from "lucide-react";
+import { UserSession } from "../../models/user.model";
 
 interface Props {
-  activeTab: "drivers" | "schedule" | "calendar";
-  setActiveTab: (tab: "drivers" | "schedule" | "calendar") => void;
+  activeTab: "drivers" | "schedule" | "calendar" | "admins";
+  setActiveTab: (tab: "drivers" | "schedule" | "calendar" | "admins") => void;
+  currentUser?: UserSession | null;
   isOpen?: boolean;
   onClose?: () => void;
   onOpenSettings?: () => void;
@@ -20,30 +23,40 @@ interface Props {
 export const Sidebar: React.FC<Props> = ({
   activeTab,
   setActiveTab,
+  currentUser,
   isOpen = false,
   onClose,
   onOpenSettings,
 }) => {
   const menuItems = [
     {
-      id: "drivers",
+      id: "drivers" as const,
       label: "기사 관리",
       icon: Users,
       description: "기사 관리 및 계약 형태",
     },
     {
-      id: "schedule",
+      id: "schedule" as const,
       label: "노선 배차 관리",
       icon: CalendarRange,
       description: "캠프별 노선별 기사 배차 관리",
     },
     {
-      id: "calendar",
+      id: "calendar" as const,
       label: "휴무 달력 (Calendar)",
       icon: CalendarDays,
       description: "월간/주간 휴무 관리",
     },
-  ] as const;
+  ];
+
+  if (currentUser?.isMaster) {
+    menuItems.push({
+      id: "admins" as any,
+      label: "관리자 / 권한 관리",
+      icon: Crown,
+      description: "총괄: 관리자 및 권한 배정",
+    });
+  }
 
   return (
     <>

@@ -3,6 +3,8 @@ import { X, UserCheck, Calendar, MapPin, Building2, UserX, Search } from 'lucide
 import { Driver } from '../../models/driver.model';
 import { SlotAssignment } from '../../viewmodels/useScheduleViewModel';
 import { StatusBadge } from '../components/StatusBadge';
+import { FixedHolidayConfirmModal } from '../components/FixedHolidayConfirmModal';
+import { getDriverFixedHolidayOnDate } from '../../utils/fixedHolidayUtils';
 
 interface RouteAssignModalProps {
   isOpen: boolean;
@@ -39,6 +41,7 @@ export const RouteAssignModal: React.FC<RouteAssignModalProps> = ({
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [confirmDriver, setConfirmDriver] = useState<Driver | null>(null);
   const [mode, setMode] = useState<'assign' | 'backup'>(() =>
     currentAssignment?.status === '휴무' ? 'backup' : 'assign'
   );
@@ -54,7 +57,7 @@ export const RouteAssignModal: React.FC<RouteAssignModalProps> = ({
       d.driverCode.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const handleSelect = async (driverId: number) => {
+  const executeAssign = async (driverId: number) => {
     try {
       setSubmitting(true);
       if (isOffDay && onAssignBackup) {
@@ -62,8 +65,19 @@ export const RouteAssignModal: React.FC<RouteAssignModalProps> = ({
       } else {
         await onAssign(driverId);
       }
+      setConfirmDriver(null);
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleSelect = (driver: Driver) => {
+    // 해당 일자 고정 휴무자 여부 확인
+    const fixedHoliday = getDriverFixedHolidayOnDate(driver, dateStr);
+    if (fixedHoliday) {
+      setConfirmDriver(driver);
+    } else {
+      executeAssign(driver.id);
     }
   };
 
@@ -79,7 +93,7 @@ export const RouteAssignModal: React.FC<RouteAssignModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-[9990] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
       <div className="bg-white rounded-3xl shadow-2xl max-w-lg w-full overflow-hidden border border-slate-100 flex flex-col max-h-[85vh]">
         {/* Header */}
         <div className="px-6 py-5 bg-slate-900 text-white flex items-center justify-between">
@@ -248,15 +262,19 @@ export const RouteAssignModal: React.FC<RouteAssignModalProps> = ({
                 ? getDriverAssignmentOnDate(dateStr, driver.id)
                 : undefined;
 
+              const driverFixedHoliday = getDriverFixedHolidayOnDate(driver, dateStr);
+
               return (
                 <div
                   key={driver.id}
-                  onClick={() => !isSelected && !submitting && handleSelect(driver.id)}
+                  onClick={() => !isSelected && !submitting && handleSelect(driver)}
                   className={`p-3 rounded-xl flex items-center justify-between gap-3 transition cursor-pointer ${
                     isSelected
                       ? isBackupSelected
                         ? 'bg-emerald-50/80 border border-emerald-300 cursor-default'
                         : 'bg-blue-50/70 border border-blue-200 cursor-default'
+                      : driverFixedHoliday
+                      ? 'bg-amber-50/50 border border-amber-300/80 hover:bg-amber-100/70'
                       : otherAssignment
                       ? 'bg-amber-50/40 border border-amber-200/60 hover:bg-amber-50/80'
                       : 'hover:bg-slate-100/80 border border-transparent'
@@ -267,6 +285,8 @@ export const RouteAssignModal: React.FC<RouteAssignModalProps> = ({
                     <div className={`w-8 h-8 rounded-full font-bold flex items-center justify-center text-xs shrink-0 ${
                       isBackupSelected
                         ? 'bg-emerald-600 text-white'
+                        : driverFixedHoliday
+                        ? 'bg-amber-500 text-white shadow-xs'
                         : 'bg-slate-200 text-slate-700'
                     }`}>
                       {driver.name.slice(0, 1)}
@@ -275,6 +295,11 @@ export const RouteAssignModal: React.FC<RouteAssignModalProps> = ({
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="font-bold text-slate-900 text-xs truncate">{driver.name}</span>
                         <StatusBadge status={driver.contractType} size="sm" />
+                        {driverFixedHoliday && (
+                          <span className="px-1.5 py-0.5 rounded text-[10px] font-extrabold bg-amber-100 text-amber-900 border border-amber-300 shadow-2xs">
+                            고정휴무 ({driverFixedHoliday.weekCycle} {driverFixedHoliday.dayOfWeek})
+                          </span>
+                        )}
                         {isBackupSelected && (
                           <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
                             현재 대차 기사
@@ -319,6 +344,8 @@ export const RouteAssignModal: React.FC<RouteAssignModalProps> = ({
                         ? isBackupSelected
                           ? 'bg-emerald-600 text-white shadow-xs'
                           : 'bg-blue-600 text-white shadow-xs'
+                        : driverFixedHoliday
+                        ? 'border border-amber-400 bg-amber-500 text-white hover:bg-amber-600 shadow-2xs'
                         : isOffDay
                         ? 'border border-emerald-300 bg-emerald-50 text-emerald-800 hover:bg-emerald-600 hover:text-white'
                         : otherAssignment
@@ -330,6 +357,8 @@ export const RouteAssignModal: React.FC<RouteAssignModalProps> = ({
                       ? '대차 배정됨'
                       : isDirectSelected
                       ? '배정됨'
+                      : driverFixedHoliday
+                      ? '휴무자 배치'
                       : isOffDay
                       ? '대차 지정'
                       : otherAssignment
@@ -352,6 +381,26 @@ export const RouteAssignModal: React.FC<RouteAssignModalProps> = ({
           </button>
         </div>
       </div>
+
+      {/* 고정 휴무자 노선 배치 확인 팝업 (취소 / 배치) */}
+      <FixedHolidayConfirmModal
+        isOpen={!!confirmDriver}
+        driverName={confirmDriver?.name || ''}
+        dateStr={dateStr}
+        targetRouteName={`${campName} / ${routeName}`}
+        fixedHolidayInfo={
+          confirmDriver
+            ? getDriverFixedHolidayOnDate(confirmDriver, dateStr)
+            : undefined
+        }
+        loading={submitting}
+        onClose={() => setConfirmDriver(null)}
+        onConfirm={() => {
+          if (confirmDriver) {
+            executeAssign(confirmDriver.id);
+          }
+        }}
+      />
     </div>
   );
 };

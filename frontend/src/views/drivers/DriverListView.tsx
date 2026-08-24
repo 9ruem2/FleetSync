@@ -20,6 +20,32 @@ import {
 } from "lucide-react";
 
 import { UserSession } from "../../models/user.model";
+import { DriverFixedHoliday } from "../../models/driver.model";
+
+const CYCLE_ORDER = ['매주', '1,3주', '2,4주', '1주', '2주', '3주', '4주', '5주'];
+const DAY_ORDER = ['일', '월', '화', '수', '목', '금', '토'];
+
+export function sortFixedHolidays<T extends { weekCycle: string; dayOfWeek: string }>(holidays: T[]): T[] {
+  return [...holidays].sort((a, b) => {
+    const cycleA = CYCLE_ORDER.indexOf(a.weekCycle);
+    const cycleB = CYCLE_ORDER.indexOf(b.weekCycle);
+    const idxA = cycleA === -1 ? 999 : cycleA;
+    const idxB = cycleB === -1 ? 999 : cycleB;
+
+    if (idxA !== idxB) {
+      return idxA - idxB;
+    }
+
+    const firstDayA = (a.dayOfWeek || '').split(',')[0]?.trim() || '';
+    const firstDayB = (b.dayOfWeek || '').split(',')[0]?.trim() || '';
+    const dayIdxA = DAY_ORDER.indexOf(firstDayA);
+    const dayIdxB = DAY_ORDER.indexOf(firstDayB);
+    const validDayA = dayIdxA === -1 ? 999 : dayIdxA;
+    const validDayB = dayIdxB === -1 ? 999 : dayIdxB;
+
+    return validDayA - validDayB;
+  });
+}
 
 export const DriverListView: React.FC = () => {
   const vm = useDriverViewModel();
@@ -135,19 +161,34 @@ export const DriverListView: React.FC = () => {
                       key={driver.id}
                       className="hover:bg-slate-50/80 transition"
                     >
-                      {/* Driver Name */}
+                      {/* Driver Name & Fixed Holidays */}
                       <td className="py-3.5 px-4 sm:px-6 whitespace-nowrap">
                         <div className="flex items-center gap-2.5 sm:gap-3">
                           <div className="w-8 h-8 rounded-full bg-blue-50 text-blue-600 font-bold flex items-center justify-center text-xs shrink-0 border border-blue-100">
                             {driver.name.slice(0, 1)}
                           </div>
                           <div>
-                            <span className="font-bold text-slate-900 text-sm">
-                              {driver.name}
-                            </span>
-                            <span className="block text-[11px] text-slate-500 font-mono">
-                              ID: {driver.driverCode || "없음"}
-                            </span>
+                            <div className="flex items-center gap-1.5">
+                              <span className="font-bold text-slate-900 text-sm">
+                                {driver.name}
+                              </span>
+                              <span className="text-[11px] text-slate-500 font-mono">
+                                ({driver.driverCode || "ID 없음"})
+                              </span>
+                            </div>
+                            {driver.fixedHolidays && driver.fixedHolidays.length > 0 ? (
+                              <div className="flex flex-wrap gap-1 mt-1">
+                                {sortFixedHolidays(driver.fixedHolidays).map((fh, idx) => (
+                                  <span
+                                    key={idx}
+                                    className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-700 border border-indigo-200 text-[10px] font-bold"
+                                    title={`정기 고정 휴무: ${fh.weekCycle} ${fh.dayOfWeek}요일`}
+                                  >
+                                    휴무: {fh.weekCycle} {fh.dayOfWeek}
+                                  </span>
+                                ))}
+                              </div>
+                            ) : null}
                           </div>
                         </div>
                       </td>
@@ -303,6 +344,18 @@ export const DriverListView: React.FC = () => {
                         <span className="text-[11px] text-slate-500 font-mono">
                           ID: {driver.driverCode || "없음"}
                         </span>
+                        {driver.fixedHolidays && driver.fixedHolidays.length > 0 && (
+                          <div className="flex flex-wrap gap-1 mt-1">
+                            {sortFixedHolidays(driver.fixedHolidays).map((fh, idx) => (
+                              <span
+                                key={idx}
+                                className="inline-flex items-center px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-700 border border-indigo-200 text-[10px] font-bold"
+                              >
+                                {fh.weekCycle} {fh.dayOfWeek}
+                              </span>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     </div>
 

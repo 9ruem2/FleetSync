@@ -391,30 +391,84 @@ class MasterRepository {
 // ==========================================
 
 class AdminRepository {
-  private async getAdminCampInfo(
-    adminId: number,
-  ): Promise<{ campIds: number[]; campNames: string[] }> {
+  private async syncMasterAdminIds(companyId: number): Promise<void> {
     try {
       const sb = getDb();
-      const { data: mappings, error } = await sb
+      const { data: masterAdmins } = await sb
+        .from("admins")
+        .select("login_id")
+        .eq("company_id", companyId)
+        .eq("is_master", true);
+
+      const masterIds = (masterAdmins || [])
+        .map((a: any) => a.login_id)
+        .filter(Boolean)
+        .join(",");
+
+      await sb
+        .from("companies")
+        .update({ master_admin_ids: masterIds || null })
+        .eq("id", companyId);
+    } catch (err) {
+      console.error("[syncMasterAdminIds error]:", err);
+    }
+  }
+
+  private async getAdminCampInfo(adminId: number): Promise<{
+    campIds: number[];
+    campNames: string[];
+    assignedCampRoutes: {
+      campId: number;
+      campName: string;
+      routeId?: number | null;
+      routeName: string;
+    }[];
+  }> {
+    try {
+      const sb = getDb();
+      // 1. admin_camps 조회
+      const { data: campMappings } = await sb
         .from("admin_camps")
         .select("camp_id, camps(id, name)")
         .eq("admin_id", adminId);
 
-      if (error || !mappings) return { campIds: [], campNames: [] };
-
       const campIds: number[] = [];
       const campNames: string[] = [];
-
-      mappings.forEach((m: any) => {
-        if (m.camp_id) campIds.push(m.camp_id);
-        if (m.camps?.name) campNames.push(m.camps.name);
+      (campMappings || []).forEach((m: any) => {
+        if (m.camp_id && !campIds.includes(m.camp_id)) campIds.push(m.camp_id);
+        if (m.camps?.name && !campNames.includes(m.camps.name))
+          campNames.push(m.camps.name);
       });
 
-      return { campIds, campNames };
+      // 2. admin_camp_routes 상세 매핑 조회 (캠프별 라우트)
+      const { data: routeMappings } = await sb
+        .from("admin_camp_routes")
+        .select("camp_id, route_id, route_name, camps(id, name)")
+        .eq("admin_id", adminId);
+
+      const assignedCampRoutes: {
+        campId: number;
+        campName: string;
+        routeId?: number | null;
+        routeName: string;
+      }[] = [];
+
+      (routeMappings || []).forEach((rm: any) => {
+        const cName = rm.camps?.name || "";
+        if (rm.camp_id && !campIds.includes(rm.camp_id)) campIds.push(rm.camp_id);
+        if (cName && !campNames.includes(cName)) campNames.push(cName);
+        assignedCampRoutes.push({
+          campId: rm.camp_id,
+          campName: cName,
+          routeId: rm.route_id ?? null,
+          routeName: rm.route_name || "",
+        });
+      });
+
+      return { campIds, campNames, assignedCampRoutes };
     } catch (err) {
       console.error("[getAdminCampInfo error]:", err);
-      return { campIds: [], campNames: [] };
+      return { campIds: [], campNames: [], assignedCampRoutes: [] };
     }
   }
 
@@ -451,12 +505,15 @@ class AdminRepository {
       throw new Error("비밀번호가 일치하지 않습니다.");
     }
 
-    // 4. 권한 및 담당 캠프 정보 조회
-    const { campIds, campNames } = await this.getAdminCampInfo(adminData.id);
+    // 4. 권한 및 담당 캠프/라우터 정보 조회
+    const { campIds, campNames, assignedCampRoutes } =
+      await this.getAdminCampInfo(adminData.id);
+
     return {
       adminId: adminData.id,
       loginId: adminData.login_id,
       adminName: adminData.name,
+      isMaster: !!adminData.is_master,
       companyId: company.id,
       companyCode: company.companyCode,
       companyName: company.name,
@@ -468,6 +525,7 @@ class AdminRepository {
         canDelete: adminData.can_delete ?? true,
         assignedCampIds: campIds,
         assignedCampNames: campNames,
+        assignedCampRoutes,
       },
     };
   }
@@ -485,12 +543,14 @@ class AdminRepository {
 
       const adminList: Admin[] = [];
       for (const row of data) {
-        const { campIds, campNames } = await this.getAdminCampInfo(row.id);
+        const { campIds, campNames, assignedCampRoutes } =
+          await this.getAdminCampInfo(row.id);
         adminList.push({
           id: row.id,
           companyId: row.company_id,
           loginId: row.login_id,
           name: row.name,
+          isMaster: !!row.is_master,
           isAllCampsAccessible: row.is_all_camps_accessible ?? true,
           canCreate: row.can_create ?? true,
           canRead: row.can_read ?? true,
@@ -498,6 +558,7 @@ class AdminRepository {
           canDelete: row.can_delete ?? true,
           assignedCampIds: campIds,
           assignedCampNames: campNames,
+          assignedCampRoutes,
           createdAt: row.created_at,
         });
       }
@@ -518,12 +579,14 @@ class AdminRepository {
         .maybeSingle();
       if (error || !data) return null;
 
-      const { campIds, campNames } = await this.getAdminCampInfo(data.id);
+      const { campIds, campNames, assignedCampRoutes } =
+        await this.getAdminCampInfo(data.id);
       return {
         id: data.id,
         companyId: data.company_id,
         loginId: data.login_id,
         name: data.name,
+        isMaster: !!data.is_master,
         isAllCampsAccessible: data.is_all_camps_accessible ?? true,
         canCreate: data.can_create ?? true,
         canRead: data.can_read ?? true,
@@ -531,6 +594,7 @@ class AdminRepository {
         canDelete: data.can_delete ?? true,
         assignedCampIds: campIds,
         assignedCampNames: campNames,
+        assignedCampRoutes,
         createdAt: data.created_at,
       };
     } catch (err) {
@@ -548,9 +612,10 @@ class AdminRepository {
         login_id: dto.loginId.trim(),
         password: dto.password.trim(),
         name: dto.name.trim(),
+        is_master: dto.isMaster ?? false,
         is_all_camps_accessible: dto.isAllCampsAccessible ?? true,
         can_create: dto.canCreate ?? true,
-        can_read: dto.canRead ?? true,
+        canRead: dto.canRead ?? true,
         can_update: dto.canUpdate ?? true,
         can_delete: dto.canDelete ?? true,
       })
@@ -560,6 +625,8 @@ class AdminRepository {
     if (error) throw error;
 
     const newAdmin = data as any;
+
+    // 1. admin_camps 삽입
     if (dto.assignedCampIds && dto.assignedCampIds.length > 0) {
       const campInserts = dto.assignedCampIds.map((campId) => ({
         admin_id: newAdmin.id,
@@ -568,12 +635,29 @@ class AdminRepository {
       await sb.from("admin_camps").insert(campInserts);
     }
 
-    const { campIds, campNames } = await this.getAdminCampInfo(newAdmin.id);
+    // 2. admin_camp_routes 상세 매핑 삽입
+    if (dto.assignedCampRoutes && dto.assignedCampRoutes.length > 0) {
+      const routeInserts = dto.assignedCampRoutes.map((cr) => ({
+        admin_id: newAdmin.id,
+        camp_id: cr.campId,
+        route_id: cr.routeId ?? null,
+        route_name: cr.routeName || "",
+      }));
+      await sb.from("admin_camp_routes").insert(routeInserts);
+    }
+
+    // 3. 총괄관리자 목록 동기화
+    await this.syncMasterAdminIds(dto.companyId);
+
+    const { campIds, campNames, assignedCampRoutes } =
+      await this.getAdminCampInfo(newAdmin.id);
+
     return {
       id: newAdmin.id,
       companyId: newAdmin.company_id,
       loginId: newAdmin.login_id,
       name: newAdmin.name,
+      isMaster: !!newAdmin.is_master,
       isAllCampsAccessible: newAdmin.is_all_camps_accessible,
       canCreate: newAdmin.can_create,
       canRead: newAdmin.can_read,
@@ -581,6 +665,7 @@ class AdminRepository {
       canDelete: newAdmin.can_delete,
       assignedCampIds: campIds,
       assignedCampNames: campNames,
+      assignedCampRoutes,
       createdAt: newAdmin.created_at,
     };
   }
@@ -596,6 +681,7 @@ class AdminRepository {
     if (dto.password !== undefined && dto.password.trim() !== "")
       updatePayload.password = dto.password.trim();
     if (dto.name !== undefined) updatePayload.name = dto.name.trim();
+    if (dto.isMaster !== undefined) updatePayload.is_master = dto.isMaster;
     if (dto.isAllCampsAccessible !== undefined)
       updatePayload.is_all_camps_accessible = dto.isAllCampsAccessible;
     if (dto.canCreate !== undefined) updatePayload.can_create = dto.canCreate;
@@ -612,6 +698,7 @@ class AdminRepository {
 
     if (error || !data) return null;
 
+    // 1. admin_camps 재갱신
     if (dto.assignedCampIds !== undefined) {
       await sb.from("admin_camps").delete().eq("admin_id", adminId);
       if (dto.assignedCampIds.length > 0) {
@@ -623,12 +710,32 @@ class AdminRepository {
       }
     }
 
-    const { campIds, campNames } = await this.getAdminCampInfo(adminId);
+    // 2. admin_camp_routes 재갱신
+    if (dto.assignedCampRoutes !== undefined) {
+      await sb.from("admin_camp_routes").delete().eq("admin_id", adminId);
+      if (dto.assignedCampRoutes.length > 0) {
+        const routeInserts = dto.assignedCampRoutes.map((cr) => ({
+          admin_id: adminId,
+          camp_id: cr.campId,
+          route_id: cr.routeId ?? null,
+          route_name: cr.routeName || "",
+        }));
+        await sb.from("admin_camp_routes").insert(routeInserts);
+      }
+    }
+
+    // 3. 총괄관리자 목록 동기화
+    await this.syncMasterAdminIds(data.company_id);
+
+    const { campIds, campNames, assignedCampRoutes } =
+      await this.getAdminCampInfo(adminId);
+
     return {
       id: data.id,
       companyId: data.company_id,
       loginId: data.login_id,
       name: data.name,
+      isMaster: !!data.is_master,
       isAllCampsAccessible: data.is_all_camps_accessible,
       canCreate: data.can_create,
       canRead: data.can_read,
@@ -636,6 +743,7 @@ class AdminRepository {
       canDelete: data.can_delete,
       assignedCampIds: campIds,
       assignedCampNames: campNames,
+      assignedCampRoutes,
       createdAt: data.created_at,
     };
   }
@@ -643,9 +751,14 @@ class AdminRepository {
   public async deleteAdmin(adminId: number): Promise<boolean> {
     try {
       const sb = getDb();
+      const existing = await this.findAdminById(adminId);
+      await sb.from("admin_camp_routes").delete().eq("admin_id", adminId);
       await sb.from("admin_camps").delete().eq("admin_id", adminId);
       const { error } = await sb.from("admins").delete().eq("id", adminId);
       if (error) throw error;
+      if (existing) {
+        await this.syncMasterAdminIds(existing.companyId);
+      }
       return true;
     } catch (err) {
       console.error("[deleteAdmin error]:", err);
@@ -827,6 +940,134 @@ async function saveCampRoutes(
   }
 }
 
+const CYCLE_ORDER = ['매주', '1,3주', '2,4주', '1주', '2주', '3주', '4주', '5주'];
+const DAY_ORDER = ['일', '월', '화', '수', '목', '금', '토'];
+
+export function sortFixedHolidays<T extends { weekCycle: string; dayOfWeek: string }>(holidays: T[]): T[] {
+  return [...holidays].sort((a, b) => {
+    const cycleA = CYCLE_ORDER.indexOf(a.weekCycle);
+    const cycleB = CYCLE_ORDER.indexOf(b.weekCycle);
+    const idxA = cycleA === -1 ? 999 : cycleA;
+    const idxB = cycleB === -1 ? 999 : cycleB;
+
+    if (idxA !== idxB) {
+      return idxA - idxB;
+    }
+
+    const firstDayA = (a.dayOfWeek || '').split(',')[0]?.trim() || '';
+    const firstDayB = (b.dayOfWeek || '').split(',')[0]?.trim() || '';
+    const dayIdxA = DAY_ORDER.indexOf(firstDayA);
+    const dayIdxB = DAY_ORDER.indexOf(firstDayB);
+    const validDayA = dayIdxA === -1 ? 999 : dayIdxA;
+    const validDayB = dayIdxB === -1 ? 999 : dayIdxB;
+
+    return validDayA - validDayB;
+  });
+}
+
+// 메모리 폴백 캐시 (driver_id -> DriverFixedHoliday[])
+const fallbackFixedHolidaysMap = new Map<number, import('../types').DriverFixedHoliday[]>();
+
+// 메모리 폴백 캐시 (driver_id -> DriverRoutePattern[])
+const fallbackRoutePatternsMap = new Map<number, import('../types').DriverRoutePattern[]>();
+
+async function saveFixedHolidays(
+  driverId: number,
+  fixedHolidays?: { weekCycle: string; dayOfWeek: string }[],
+) {
+  const sb = getDb();
+  try {
+    await sb.from("driver_fixed_holidays").delete().eq("driver_id", driverId);
+    if (fixedHolidays && fixedHolidays.length > 0) {
+      const inserts = fixedHolidays
+        .filter((h) => h.weekCycle && h.dayOfWeek)
+        .map((h) => ({
+          driver_id: driverId,
+          week_cycle: h.weekCycle.trim(),
+          day_of_week: h.dayOfWeek.trim(),
+        }));
+      if (inserts.length > 0) {
+        await sb.from("driver_fixed_holidays").insert(inserts);
+      }
+    }
+  } catch (err) {
+    console.warn("[saveFixedHolidays DB error, using in-memory cache]:", err);
+  }
+
+  // 메모리 캐시 동기화
+  if (fixedHolidays && fixedHolidays.length > 0) {
+    fallbackFixedHolidaysMap.set(
+      driverId,
+      fixedHolidays
+        .filter((h) => h.weekCycle && h.dayOfWeek)
+        .map((h, idx) => ({
+          id: idx + 1,
+          driverId,
+          weekCycle: h.weekCycle.trim(),
+          dayOfWeek: h.dayOfWeek.trim(),
+        })),
+    );
+  } else {
+    fallbackFixedHolidaysMap.delete(driverId);
+  }
+}
+
+async function saveRoutePatterns(
+  driverId: number,
+  routePatterns?: {
+    weekCycle: string;
+    dayOfWeek: string;
+    campId?: number;
+    campName: string;
+    routeId?: number;
+    routeName: string;
+  }[],
+) {
+  const sb = getDb();
+  try {
+    await sb.from("driver_route_patterns").delete().eq("driver_id", driverId);
+    if (routePatterns && routePatterns.length > 0) {
+      const inserts = routePatterns
+        .filter((p) => p.weekCycle && p.dayOfWeek && (p.campName || p.routeName))
+        .map((p) => ({
+          driver_id: driverId,
+          week_cycle: p.weekCycle.trim(),
+          day_of_week: p.dayOfWeek.trim(),
+          camp_id: p.campId || null,
+          camp_name: (p.campName || '').trim(),
+          route_id: p.routeId || null,
+          route_name: (p.routeName || '').trim(),
+        }));
+      if (inserts.length > 0) {
+        await sb.from("driver_route_patterns").insert(inserts);
+      }
+    }
+  } catch (err) {
+    console.warn("[saveRoutePatterns DB error, using in-memory cache]:", err);
+  }
+
+  // 메모리 캐시 동기화
+  if (routePatterns && routePatterns.length > 0) {
+    fallbackRoutePatternsMap.set(
+      driverId,
+      routePatterns
+        .filter((p) => p.weekCycle && p.dayOfWeek && (p.campName || p.routeName))
+        .map((p, idx) => ({
+          id: idx + 1,
+          driverId,
+          weekCycle: p.weekCycle.trim(),
+          dayOfWeek: p.dayOfWeek.trim(),
+          campId: p.campId,
+          campName: (p.campName || '').trim(),
+          routeId: p.routeId,
+          routeName: (p.routeName || '').trim(),
+        })),
+    );
+  } else {
+    fallbackRoutePatternsMap.delete(driverId);
+  }
+}
+
 async function getDriverFull(driverRow: {
   id: number;
   company_id: number | null;
@@ -877,6 +1118,54 @@ async function getDriverFull(driverRow: {
   const campNames = mappings.map((m) => m.camps?.name || "");
   const routes = mappings.map((m) => m.route_name);
 
+  // 고정 휴무일 조회
+  let fixedHolidays: import('../types').DriverFixedHoliday[] = [];
+  try {
+    const { data: holidaysData, error } = await sb
+      .from("driver_fixed_holidays")
+      .select("id, driver_id, week_cycle, day_of_week, created_at")
+      .eq("driver_id", driverRow.id);
+    if (!error && holidaysData) {
+      fixedHolidays = holidaysData.map((h: any) => ({
+        id: h.id,
+        driverId: h.driver_id,
+        weekCycle: h.week_cycle,
+        dayOfWeek: h.day_of_week,
+        createdAt: h.created_at,
+      }));
+    } else {
+      fixedHolidays = fallbackFixedHolidaysMap.get(driverRow.id) || [];
+    }
+  } catch (err) {
+    fixedHolidays = fallbackFixedHolidaysMap.get(driverRow.id) || [];
+  }
+
+  // 정기 노선 패턴 조회
+  let routePatterns: import('../types').DriverRoutePattern[] = [];
+  try {
+    const { data: patternsData, error } = await sb
+      .from("driver_route_patterns")
+      .select("id, driver_id, week_cycle, day_of_week, camp_id, camp_name, route_id, route_name, created_at")
+      .eq("driver_id", driverRow.id);
+    if (!error && patternsData) {
+      routePatterns = patternsData.map((p: any) => ({
+        id: p.id,
+        driverId: p.driver_id,
+        weekCycle: p.week_cycle,
+        dayOfWeek: p.day_of_week,
+        campId: p.camp_id ?? undefined,
+        campName: p.camp_name || '',
+        routeId: p.route_id ?? undefined,
+        routeName: p.route_name || '',
+        createdAt: p.created_at,
+      }));
+    } else {
+      routePatterns = fallbackRoutePatternsMap.get(driverRow.id) || [];
+    }
+  } catch (err) {
+    routePatterns = fallbackRoutePatternsMap.get(driverRow.id) || [];
+  }
+
   return {
     id: driverRow.id,
     companyId: driverRow.company_id ?? undefined,
@@ -895,6 +1184,8 @@ async function getDriverFull(driverRow: {
       routeId: m.route_id ?? undefined,
       route: m.route_name,
     })),
+    fixedHolidays: sortFixedHolidays(fixedHolidays),
+    routePatterns,
   };
 }
 
@@ -930,7 +1221,7 @@ class DriverRepository {
 
       if (filteredDrivers.length === 0) return [];
 
-      // 배치 조회
+      // 배치 조회: driver_camp_routes
       const { data: allCampRoutesData, error: campRouteErr } = await sb
         .from("driver_camp_routes")
         .select("driver_id, camp_id, route_id, route_name, camps(name)");
@@ -940,6 +1231,75 @@ class DriverRepository {
           campRouteErr,
         );
       }
+
+      // 배치 조회: driver_fixed_holidays
+      let allFixedHolidaysData: any[] = [];
+      try {
+        const { data, error } = await sb
+          .from("driver_fixed_holidays")
+          .select("id, driver_id, week_cycle, day_of_week, created_at");
+        if (!error && data) {
+          allFixedHolidaysData = data;
+        }
+      } catch (err) {
+        console.warn("[DriverRepository driver_fixed_holidays query error]:", err);
+      }
+
+      const holidayMap = new Map<number, import('../types').DriverFixedHoliday[]>();
+      allFixedHolidaysData.forEach((h: any) => {
+        const list = holidayMap.get(h.driver_id) || [];
+        list.push({
+          id: h.id,
+          driverId: h.driver_id,
+          weekCycle: h.week_cycle,
+          dayOfWeek: h.day_of_week,
+          createdAt: h.created_at,
+        });
+        holidayMap.set(h.driver_id, list);
+      });
+
+      // 메모리 캐시 병합
+      fallbackFixedHolidaysMap.forEach((list, dId) => {
+        if (!holidayMap.has(dId) || holidayMap.get(dId)!.length === 0) {
+          holidayMap.set(dId, list);
+        }
+      });
+
+      // 배치 조회: driver_route_patterns
+      let allRoutePatternsData: any[] = [];
+      try {
+        const { data, error } = await sb
+          .from("driver_route_patterns")
+          .select("id, driver_id, week_cycle, day_of_week, camp_id, camp_name, route_id, route_name, created_at");
+        if (!error && data) {
+          allRoutePatternsData = data;
+        }
+      } catch (err) {
+        console.warn("[DriverRepository driver_route_patterns query error]:", err);
+      }
+
+      const patternMap = new Map<number, import('../types').DriverRoutePattern[]>();
+      allRoutePatternsData.forEach((p: any) => {
+        const list = patternMap.get(p.driver_id) || [];
+        list.push({
+          id: p.id,
+          driverId: p.driver_id,
+          weekCycle: p.week_cycle,
+          dayOfWeek: p.day_of_week,
+          campId: p.camp_id ?? undefined,
+          campName: p.camp_name || '',
+          routeId: p.route_id ?? undefined,
+          routeName: p.route_name || '',
+          createdAt: p.created_at,
+        });
+        patternMap.set(p.driver_id, list);
+      });
+
+      fallbackRoutePatternsMap.forEach((list, dId) => {
+        if (!patternMap.has(dId) || patternMap.get(dId)!.length === 0) {
+          patternMap.set(dId, list);
+        }
+      });
 
       const { data: compRowsData } = await sb
         .from("companies")
@@ -984,6 +1344,8 @@ class DriverRepository {
 
       return filteredDrivers.map((d) => {
         const mappings = mappingMap.get(d.id) || [];
+        const fixedHolidays = holidayMap.get(d.id) || [];
+        const routePatterns = patternMap.get(d.id) || [];
         return {
           id: d.id,
           companyId: d.company_id ?? undefined,
@@ -1002,6 +1364,8 @@ class DriverRepository {
             routeId: m.route_id ?? undefined,
             route: m.route_name,
           })),
+          fixedHolidays: sortFixedHolidays(fixedHolidays),
+          routePatterns,
         };
       });
     } catch (err) {
@@ -1046,6 +1410,8 @@ class DriverRepository {
 
     const driverRow = row as Parameters<typeof getDriverFull>[0];
     await saveCampRoutes(driverRow.id, dto.camp, dto.routes, dto.companyId);
+    await saveFixedHolidays(driverRow.id, dto.fixedHolidays);
+    await saveRoutePatterns(driverRow.id, dto.routePatterns);
     return getDriverFull(driverRow);
   }
 
@@ -1086,6 +1452,14 @@ class DriverRepository {
       );
     }
 
+    if (dto.fixedHolidays !== undefined) {
+      await saveFixedHolidays(id, dto.fixedHolidays);
+    }
+
+    if (dto.routePatterns !== undefined) {
+      await saveRoutePatterns(id, dto.routePatterns);
+    }
+
     return row
       ? getDriverFull(row as Parameters<typeof getDriverFull>[0])
       : null;
@@ -1095,8 +1469,12 @@ class DriverRepository {
     const existing = await this.findById(id);
     if (!existing) return false;
     const sb = getDb();
-    // 기사와 연결된 driver_camp_routes 데이터 함께 삭제
+    // 기사와 연결된 driver_camp_routes, driver_fixed_holidays, driver_route_patterns 데이터 함께 삭제
     await sb.from("driver_camp_routes").delete().eq("driver_id", id);
+    await sb.from("driver_fixed_holidays").delete().eq("driver_id", id);
+    await sb.from("driver_route_patterns").delete().eq("driver_id", id);
+    fallbackFixedHolidaysMap.delete(id);
+    fallbackRoutePatternsMap.delete(id);
     const { error } = await sb
       .from("drivers")
       .update({ is_deleted: true })
@@ -1107,9 +1485,13 @@ class DriverRepository {
 
   public async delete(id: number): Promise<boolean> {
     const sb = getDb();
-    // 기사와 연결된 driver_camp_routes 및 스케줄 데이터 함께 삭제
+    // 기사와 연결된 driver_camp_routes 및 스케줄, 고정 휴무, 정기 패턴 데이터 함께 삭제
     await sb.from("driver_camp_routes").delete().eq("driver_id", id);
+    await sb.from("driver_fixed_holidays").delete().eq("driver_id", id);
+    await sb.from("driver_route_patterns").delete().eq("driver_id", id);
     await sb.from("schedule_shifts").delete().eq("driver_id", id);
+    fallbackFixedHolidaysMap.delete(id);
+    fallbackRoutePatternsMap.delete(id);
     const { error } = await sb.from("drivers").delete().eq("id", id);
     if (error) throw error;
     return true;

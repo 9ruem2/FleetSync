@@ -132,11 +132,12 @@ export class ApiService {
   }
 
   // Driver Management API [F-01]
-  public static async getDrivers(search?: string, route?: string, contractType?: string): Promise<Driver[]> {
+  public static async getDrivers(search?: string, route?: string, contractType?: string, camps?: string): Promise<Driver[]> {
     const params = new URLSearchParams();
     if (search) params.append('search', search);
     if (route) params.append('route', route);
     if (contractType) params.append('contractType', contractType);
+    if (camps) params.append('camps', camps);
 
     const res = await fetch(`${API_BASE}/drivers?${params.toString()}`);
     const json = await res.json();
@@ -166,18 +167,17 @@ export class ApiService {
     return json.data;
   }
 
-  public static async deleteDriver(id: number): Promise<boolean> {
-    const res = await fetch(`${API_BASE}/drivers/${id}`, {
-      method: 'DELETE'
-    });
+  public static async deleteDriver(id: number): Promise<void> {
+    const res = await fetch(`${API_BASE}/drivers/${id}`, { method: 'DELETE' });
     const json = await res.json();
     if (!json.success) throw new Error(json.message);
-    return true;
   }
 
-  // Schedule Grid API [F-02-1]
-  public static async getScheduleGrid(startDate: string, endDate: string): Promise<ScheduleGridRow[]> {
-    const res = await fetch(`${API_BASE}/schedules/grid?startDate=${startDate}&endDate=${endDate}`);
+  // Schedule Management API [F-02]
+  public static async getScheduleGrid(startDate: string, endDate: string, camps?: string): Promise<ScheduleGridRow[]> {
+    const params = new URLSearchParams({ startDate, endDate });
+    if (camps) params.append('camps', camps);
+    const res = await fetch(`${API_BASE}/schedules/grid?${params.toString()}`);
     const json = await res.json();
     if (!json.success) throw new Error(json.message);
     return json.data;

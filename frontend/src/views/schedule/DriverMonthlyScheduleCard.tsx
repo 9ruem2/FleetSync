@@ -1,6 +1,7 @@
 import React from 'react';
 import { Driver } from '../../models/driver.model';
 import { SlotAssignment } from '../../viewmodels/useScheduleViewModel';
+import { getShortCampName } from '../../utils/routeUtils';
 import { Truck, Calendar, User, Phone, MapPin } from 'lucide-react';
 
 interface Props {
@@ -68,7 +69,7 @@ export const DriverMonthlyScheduleCard: React.FC<Props> = ({
 
     if (matchedSlot) {
       const [cName, rName] = matchedRouteKey.split('/');
-      const shortCamp = (cName || '').replace('남양주', '남').replace('구리', '구');
+      const shortCamp = getShortCampName(cName);
       routeDisplay = rName ? `${shortCamp}/${rName}` : matchedRouteKey;
 
       if (isBackup) {

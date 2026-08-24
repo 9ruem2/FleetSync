@@ -306,8 +306,10 @@ export async function handleApiRequest(req: Request): Promise<Response> {
     if (path === "/api/drivers" && method === "GET") {
       const drivers = await driverService.getAllDrivers(
         url.searchParams.get("search") ?? undefined,
+        url.searchParams.get("camp") ?? undefined,
         url.searchParams.get("route") ?? undefined,
         url.searchParams.get("contractType") ?? undefined,
+        url.searchParams.get("camps") ?? undefined,
       );
       return jsonResponse({ success: true, data: drivers });
     }
@@ -359,11 +361,12 @@ export async function handleApiRequest(req: Request): Promise<Response> {
     if (path === "/api/schedules/grid" && method === "GET") {
       const startDate = url.searchParams.get("startDate");
       const endDate = url.searchParams.get("endDate");
+      const camps = url.searchParams.get("camps") ?? undefined;
       if (!startDate || !endDate) {
         return errorResponse("startDate와 endDate 조회가 필요합니다", 400);
       }
       try {
-        const grid = await scheduleService.getScheduleGrid(startDate, endDate);
+        const grid = await scheduleService.getScheduleGrid(startDate, endDate, camps);
         return jsonResponse({ success: true, data: grid });
       } catch (err: any) {
         console.error("[GET /api/schedules/grid error]:", err);

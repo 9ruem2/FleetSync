@@ -29,8 +29,18 @@ export function useDriverViewModel() {
     try {
       setLoading(true);
       setError(null);
-      const data = await ApiService.getDrivers();
-      console.log('[loadDrivers SUCCESS] 로드된 기사 수:', data.length, data);
+      let campsParam: string | undefined = undefined;
+      try {
+        const saved = localStorage.getItem("fleetsync_session");
+        if (saved) {
+          const session = JSON.parse(saved);
+          if (session?.permissions?.isAllCampsAccessible === false && session?.permissions?.assignedCampNames?.length > 0) {
+            campsParam = session.permissions.assignedCampNames.join(",");
+          }
+        }
+      } catch {}
+
+      const data = await ApiService.getDrivers(undefined, undefined, undefined, campsParam);
       setDrivers(data);
     } catch (err: any) {
       console.error('[loadDrivers ERROR]:', err);
