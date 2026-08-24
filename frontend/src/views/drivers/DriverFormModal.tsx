@@ -101,6 +101,7 @@ export const DriverFormModal: React.FC<Props> = ({
   >(undefined);
 
   const [availableCamps, setAvailableCamps] = useState<Camp[]>([]);
+  const [routesCache, setRoutesCache] = useState<Route[]>([]);
 
   const [driverCode, setDriverCode] = useState("");
   const [name, setName] = useState("");
@@ -127,9 +128,10 @@ export const DriverFormModal: React.FC<Props> = ({
 
   const loadInitialData = async () => {
     try {
-      const [compList, campList] = await Promise.all([
+      const [compList, campList, allRoutesList] = await Promise.all([
         ApiService.getCompanies().catch(() => []),
         ApiService.getCamps().catch(() => []),
+        ApiService.getRoutes().catch(() => []),
       ]);
 
       setCompanies(compList);
@@ -137,12 +139,22 @@ export const DriverFormModal: React.FC<Props> = ({
         a.name.localeCompare(b.name, undefined, { numeric: true }),
       );
       setAvailableCamps(sortedCamps);
+      setRoutesCache(allRoutesList);
 
       let compId = driver?.companyId;
       if (!compId && compList.length > 0) {
         compId = compList[0].id;
       }
       setSelectedCompanyId(compId);
+
+      const getRoutesByCampId = (campId?: number) => {
+        if (!campId) return [];
+        return allRoutesList
+          .filter((r) => r.campId === campId)
+          .sort((a, b) =>
+            a.name.localeCompare(b.name, undefined, { numeric: true }),
+          );
+      };
 
       // 기사 정보가 있는 경우 폼 초기화
       if (driver) {
@@ -162,30 +174,21 @@ export const DriverFormModal: React.FC<Props> = ({
           setFixedHolidays([]);
         }
 
-        // 정기 노선 패턴 초기화
+        // 정기 노선 패턴 초기화 (메모리 캐시에서 즉시 매핑)
         if (driver.routePatterns && driver.routePatterns.length > 0) {
-          const initialPatterns = await Promise.all(
-            driver.routePatterns.map(async (p) => {
-              const matchedCamp = sortedCamps.find(
-                (c) => c.name.toLowerCase() === p.campName.toLowerCase(),
-              );
-              let rList: Route[] = [];
-              if (matchedCamp) {
-                try {
-                  rList = await ApiService.getRoutes(matchedCamp.id);
-                } catch {
-                  rList = [];
-                }
-              }
-              return {
-                weekCycle: p.weekCycle,
-                dayOfWeek: p.dayOfWeek,
-                campName: p.campName,
-                routeName: p.routeName,
-                availableRoutes: rList,
-              };
-            }),
-          );
+          const initialPatterns = driver.routePatterns.map((p) => {
+            const matchedCamp = sortedCamps.find(
+              (c) => c.name.toLowerCase() === p.campName.toLowerCase(),
+            );
+            const rList = matchedCamp ? getRoutesByCampId(matchedCamp.id) : [];
+            return {
+              weekCycle: p.weekCycle,
+              dayOfWeek: p.dayOfWeek,
+              campName: p.campName,
+              routeName: p.routeName,
+              availableRoutes: rList,
+            };
+          });
           setRoutePatterns(initialPatterns);
         } else {
           setRoutePatterns([]);
@@ -198,28 +201,23 @@ export const DriverFormModal: React.FC<Props> = ({
         const routes = (driver.routes || "").split(",").map((s) => s.trim());
 
         if (camps.length > 0) {
-          // 각 캠프에 대한 라우터 목록 병렬 로드
-          const initialSelections: CampRouteSelection[] = await Promise.all(
-            camps.map(async (cName, i) => {
+          // 각 캠프에 대한 라우터 목록 즉시 생성
+          const initialSelections: CampRouteSelection[] = camps.map(
+            (cName, i) => {
               const rName = routes[i] || "";
               const matchedCamp = sortedCamps.find(
                 (c) => c.name.toLowerCase() === cName.toLowerCase(),
               );
-              let rList: Route[] = [];
-              if (matchedCamp) {
-                try {
-                  rList = await ApiService.getRoutes(matchedCamp.id);
-                } catch {
-                  rList = [];
-                }
-              }
+              const rList = matchedCamp
+                ? getRoutesByCampId(matchedCamp.id)
+                : [];
               return {
                 campId: matchedCamp?.id,
                 campName: cName,
                 routeName: rName,
                 availableRoutes: rList,
               };
-            }),
+            },
           );
           setCampRoutes(initialSelections);
         } else {
@@ -259,9 +257,14 @@ export const DriverFormModal: React.FC<Props> = ({
       return;
     }
 
-    const matchedCamp = availableCamps.find((c) => c.name === campName);
-    let rList: Route[] = [];
-    if (matchedCamp) {
+    const matchedCamp = availableCamps.find(
+      (c) => c.name.toLowerCase() === campName.toLowerCase(),
+    );
+    let rList = matchedCamp
+      ? routesCache.filter((r) => r.campId === matchedCamp.id)
+      : [];
+
+    if (matchedCamp && rList.length === 0) {
       try {
         rList = await ApiService.getRoutes(matchedCamp.id);
       } catch (err) {
@@ -395,6 +398,7 @@ export const DriverFormModal: React.FC<Props> = ({
         } else {
           nextDays = [...currentDays, day];
         }
+
         nextDays.sort((a, b) => WEEK_DAYS.indexOf(a) - WEEK_DAYS.indexOf(b));
 
         return {
@@ -412,8 +416,11 @@ export const DriverFormModal: React.FC<Props> = ({
     const matchedCamp = availableCamps.find(
       (c) => c.name.toLowerCase() === campName.toLowerCase(),
     );
-    let rList: Route[] = [];
-    if (matchedCamp) {
+    let rList = matchedCamp
+      ? routesCache.filter((r) => r.campId === matchedCamp.id)
+      : [];
+
+    if (matchedCamp && rList.length === 0) {
       try {
         rList = await ApiService.getRoutes(matchedCamp.id);
       } catch {
@@ -470,11 +477,85 @@ export const DriverFormModal: React.FC<Props> = ({
     const validRoutePatterns = routePatterns
       .filter((p) => p.weekCycle && p.dayOfWeek && (p.campName || p.routeName))
       .map((p) => ({
-        weekCycle: p.weekCycle,
-        dayOfWeek: p.dayOfWeek,
-        campName: p.campName,
-        routeName: p.routeName,
+        weekCycle: p.weekCycle.trim(),
+        dayOfWeek: p.dayOfWeek.trim(),
+        campName: p.campName.trim(),
+        routeName: p.routeName.trim(),
       }));
+
+    // 기사 수정 시 변경된 내용이 없는지 검사
+    if (driver) {
+      const origCompanyId = driver.companyId;
+      const origDriverCode = (driver.driverCode || "").trim();
+      const origName = (driver.name || "").trim();
+      const origPhone = normalizePhoneNumber(driver.phone || "");
+      const origContractType = driver.contractType;
+      const origCamp = (driver.camp || "")
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean)
+        .join(",");
+      const origRoutes = (driver.routes || "")
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean)
+        .join(",");
+
+      const currentCamp = validPairs.map((p) => p.campName.trim()).join(",");
+      const currentRoutes = validPairs.map((p) => p.routeName.trim()).join(",");
+
+      const origHolidaysStr = JSON.stringify(
+        sortFixedHolidays(
+          (driver.fixedHolidays || []).map((h) => ({
+            weekCycle: h.weekCycle.trim(),
+            dayOfWeek: h.dayOfWeek.trim(),
+          })),
+        ),
+      );
+      const currentHolidaysStr = JSON.stringify(
+        sortFixedHolidays(
+          fixedHolidays
+            .filter((h) => h.weekCycle && h.dayOfWeek)
+            .map((h) => ({
+              weekCycle: h.weekCycle.trim(),
+              dayOfWeek: h.dayOfWeek.trim(),
+            })),
+        ),
+      );
+
+      const origPatternsStr = JSON.stringify(
+        (driver.routePatterns || []).map((p) => ({
+          weekCycle: p.weekCycle.trim(),
+          dayOfWeek: p.dayOfWeek.trim(),
+          campName: (p.campName || "").trim(),
+          routeName: (p.routeName || "").trim(),
+        })),
+      );
+      const currentPatternsStr = JSON.stringify(
+        validRoutePatterns.map((p) => ({
+          weekCycle: p.weekCycle,
+          dayOfWeek: p.dayOfWeek,
+          campName: p.campName,
+          routeName: p.routeName,
+        })),
+      );
+
+      const isUnchanged =
+        (selectedCompanyId ?? undefined) === (origCompanyId ?? undefined) &&
+        driverCode.trim() === origDriverCode &&
+        name.trim() === origName &&
+        normalizePhoneNumber(phone) === origPhone &&
+        contractType === origContractType &&
+        currentCamp === origCamp &&
+        currentRoutes === origRoutes &&
+        origHolidaysStr === currentHolidaysStr &&
+        origPatternsStr === currentPatternsStr;
+
+      if (isUnchanged) {
+        alert("수정할 변경 내용이 없습니다.");
+        return;
+      }
+    }
 
     try {
       setIsSubmitting(true);

@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Company, Camp, Route } from '../../models/master.model';
 import { ApiService } from '../../services/apiService';
-import { INITIAL_COMPANIES } from '../../constants/company';
 import { X, Building2, MapPin, Settings, Plus, Trash2, ChevronRight, Layers, CheckCircle2, Lock } from 'lucide-react';
 
 interface Props {

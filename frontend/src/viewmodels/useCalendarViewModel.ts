@@ -6,7 +6,7 @@ import { isDateMatchingFixedHoliday } from '../utils/fixedHolidayUtils';
 import { getShortCampName } from '../utils/routeUtils';
 
 export function useCalendarViewModel() {
-  const [currentDate, setCurrentDate] = useState<Date>(new Date('2026-08-01'));
+  const [currentDate, setCurrentDate] = useState<Date>(new Date());
   const [offDays, setOffDays] = useState<OffDayRecord[]>([]);
   const [allDrivers, setAllDrivers] = useState<Driver[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
@@ -292,7 +292,7 @@ export function useCalendarViewModel() {
   };
 
   const setTodayMonth = () => {
-    setCurrentDate(new Date('2026-08-01'));
+    setCurrentDate(new Date());
   };
 
   return {

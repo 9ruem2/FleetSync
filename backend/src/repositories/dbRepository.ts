@@ -1080,18 +1080,39 @@ async function getDriverFull(driverRow: {
 }): Promise<Driver> {
   const sb = getDb();
 
-  const { data: mappingsData } = await sb
-    .from("driver_camp_routes")
-    .select("camp_id, route_id, route_name, camps(name)")
-    .eq("driver_id", driverRow.id);
-
   type MappingRow = {
     camp_id: number;
     route_id: number | null;
     route_name: string;
     camps: { name: string } | null;
   };
-  const mappings = ((mappingsData || []) as unknown as MappingRow[]).sort(
+
+  // 4개의 쿼리를 병렬로 동시 실행하여 응답 지연 대폭 단축
+  const [mappingsRes, compRes, holidaysRes, patternsRes] = await Promise.all([
+    sb
+      .from("driver_camp_routes")
+      .select("camp_id, route_id, route_name, camps(name)")
+      .eq("driver_id", driverRow.id),
+    driverRow.company_id
+      ? sb
+          .from("companies")
+          .select("name")
+          .eq("id", driverRow.company_id)
+          .single()
+      : Promise.resolve({ data: null, error: null }),
+    sb
+      .from("driver_fixed_holidays")
+      .select("id, driver_id, week_cycle, day_of_week, created_at")
+      .eq("driver_id", driverRow.id),
+    sb
+      .from("driver_route_patterns")
+      .select(
+        "id, driver_id, week_cycle, day_of_week, camp_id, camp_name, route_id, route_name, created_at",
+      )
+      .eq("driver_id", driverRow.id),
+  ]);
+
+  const mappings = ((mappingsRes?.data || []) as unknown as MappingRow[]).sort(
     (a, b) => {
       const campComp = (a.camps?.name || "").localeCompare(
         b.camps?.name || "",
@@ -1106,63 +1127,42 @@ async function getDriverFull(driverRow: {
   );
 
   let companyName = "";
-  if (driverRow.company_id) {
-    const { data: compRow } = await sb
-      .from("companies")
-      .select("name")
-      .eq("id", driverRow.company_id)
-      .single();
-    if (compRow) companyName = (compRow as { name: string }).name;
+  if (compRes?.data) {
+    companyName = (compRes.data as { name: string }).name || "";
   }
 
   const campNames = mappings.map((m) => m.camps?.name || "");
   const routes = mappings.map((m) => m.route_name);
 
-  // 고정 휴무일 조회
-  let fixedHolidays: import('../types').DriverFixedHoliday[] = [];
-  try {
-    const { data: holidaysData, error } = await sb
-      .from("driver_fixed_holidays")
-      .select("id, driver_id, week_cycle, day_of_week, created_at")
-      .eq("driver_id", driverRow.id);
-    if (!error && holidaysData) {
-      fixedHolidays = holidaysData.map((h: any) => ({
-        id: h.id,
-        driverId: h.driver_id,
-        weekCycle: h.week_cycle,
-        dayOfWeek: h.day_of_week,
-        createdAt: h.created_at,
-      }));
-    } else {
-      fixedHolidays = fallbackFixedHolidaysMap.get(driverRow.id) || [];
-    }
-  } catch (err) {
+  // 고정 휴무일
+  let fixedHolidays: import("../types").DriverFixedHoliday[] = [];
+  if (!holidaysRes?.error && holidaysRes?.data && holidaysRes.data.length > 0) {
+    fixedHolidays = holidaysRes.data.map((h: any) => ({
+      id: h.id,
+      driverId: h.driver_id,
+      weekCycle: h.week_cycle,
+      dayOfWeek: h.day_of_week,
+      createdAt: h.created_at,
+    }));
+  } else {
     fixedHolidays = fallbackFixedHolidaysMap.get(driverRow.id) || [];
   }
 
-  // 정기 노선 패턴 조회
-  let routePatterns: import('../types').DriverRoutePattern[] = [];
-  try {
-    const { data: patternsData, error } = await sb
-      .from("driver_route_patterns")
-      .select("id, driver_id, week_cycle, day_of_week, camp_id, camp_name, route_id, route_name, created_at")
-      .eq("driver_id", driverRow.id);
-    if (!error && patternsData) {
-      routePatterns = patternsData.map((p: any) => ({
-        id: p.id,
-        driverId: p.driver_id,
-        weekCycle: p.week_cycle,
-        dayOfWeek: p.day_of_week,
-        campId: p.camp_id ?? undefined,
-        campName: p.camp_name || '',
-        routeId: p.route_id ?? undefined,
-        routeName: p.route_name || '',
-        createdAt: p.created_at,
-      }));
-    } else {
-      routePatterns = fallbackRoutePatternsMap.get(driverRow.id) || [];
-    }
-  } catch (err) {
+  // 정기 노선 패턴
+  let routePatterns: import("../types").DriverRoutePattern[] = [];
+  if (!patternsRes?.error && patternsRes?.data && patternsRes.data.length > 0) {
+    routePatterns = patternsRes.data.map((p: any) => ({
+      id: p.id,
+      driverId: p.driver_id,
+      weekCycle: p.week_cycle,
+      dayOfWeek: p.day_of_week,
+      campId: p.camp_id ?? undefined,
+      campName: p.camp_name || "",
+      routeId: p.route_id ?? undefined,
+      routeName: p.route_name || "",
+      createdAt: p.created_at,
+    }));
+  } else {
     routePatterns = fallbackRoutePatternsMap.get(driverRow.id) || [];
   }
 
@@ -1409,9 +1409,11 @@ class DriverRepository {
     if (error) throw error;
 
     const driverRow = row as Parameters<typeof getDriverFull>[0];
-    await saveCampRoutes(driverRow.id, dto.camp, dto.routes, dto.companyId);
-    await saveFixedHolidays(driverRow.id, dto.fixedHolidays);
-    await saveRoutePatterns(driverRow.id, dto.routePatterns);
+    await Promise.all([
+      saveCampRoutes(driverRow.id, dto.camp, dto.routes, dto.companyId),
+      saveFixedHolidays(driverRow.id, dto.fixedHolidays),
+      saveRoutePatterns(driverRow.id, dto.routePatterns),
+    ]);
     return getDriverFull(driverRow);
   }
 
@@ -1441,23 +1443,31 @@ class DriverRepository {
       .single();
     if (error) throw error;
 
+    const updatePromises: Promise<any>[] = [];
+
     if (row && (dto.camp !== undefined || dto.routes !== undefined)) {
       const campStr = dto.camp !== undefined ? dto.camp : existing.camp;
       const routesStr = dto.routes !== undefined ? dto.routes : existing.routes;
-      await saveCampRoutes(
-        id,
-        campStr,
-        routesStr,
-        dto.companyId ?? existing.companyId,
+      updatePromises.push(
+        saveCampRoutes(
+          id,
+          campStr,
+          routesStr,
+          dto.companyId ?? existing.companyId,
+        ),
       );
     }
 
     if (dto.fixedHolidays !== undefined) {
-      await saveFixedHolidays(id, dto.fixedHolidays);
+      updatePromises.push(saveFixedHolidays(id, dto.fixedHolidays));
     }
 
     if (dto.routePatterns !== undefined) {
-      await saveRoutePatterns(id, dto.routePatterns);
+      updatePromises.push(saveRoutePatterns(id, dto.routePatterns));
+    }
+
+    if (updatePromises.length > 0) {
+      await Promise.all(updatePromises);
     }
 
     return row

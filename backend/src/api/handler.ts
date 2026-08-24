@@ -1,48 +1,17 @@
-import {
-  masterRepository,
-  adminRepository,
-  driverRepository,
-} from "../repositories/dbRepository";
-import {
-  driverService,
-  scheduleService,
-  backupService,
-} from "../services/index";
-import {
-  CreateDriverDTO,
-  UpdateDriverDTO,
-  UpdateShiftStatusDTO,
-  AssignBackupDTO,
-  CreateAdminDTO,
-  UpdateAdminDTO,
-} from "../types";
 import { getDb } from "../../../db";
-
-const CORS_HEADERS = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type, Authorization",
-  "Content-Type": "application/json",
-};
-
-function jsonResponse(body: unknown, status = 200): Response {
-  return new Response(JSON.stringify(body), { status, headers: CORS_HEADERS });
-}
-
-function errorResponse(message: string, status: number): Response {
-  return jsonResponse({ success: false, message }, status);
-}
-
-async function parseBody<T>(req: Request): Promise<T> {
-  const text = await req.text();
-  if (!text) return {} as T;
-  return JSON.parse(text) as T;
-}
-
-function parseId(raw: string): number | null {
-  const id = Number(raw);
-  return Number.isInteger(id) && id > 0 ? id : null;
-}
+import {
+  CORS_HEADERS,
+  jsonResponse,
+  errorResponse,
+  parseId,
+  authController,
+  adminController,
+  masterController,
+  driverController,
+  scheduleController,
+  backupController,
+  monthlyRosterController,
+} from "../controllers";
 
 export async function handleApiRequest(req: Request): Promise<Response> {
   if (req.method === "OPTIONS") {
@@ -54,7 +23,7 @@ export async function handleApiRequest(req: Request): Promise<Response> {
   const method = req.method;
 
   try {
-    // Health check (상세 진단 정보 포함)
+    // Health check (상세 진단 정보)
     if (path === "/api/health" && method === "GET") {
       try {
         const sb = getDb();
@@ -103,429 +72,120 @@ export async function handleApiRequest(req: Request): Promise<Response> {
       }
     }
 
-    // ==========================================
-    // Auth API
-    // ==========================================
-
+    // Auth
     if (path === "/api/auth/login" && method === "POST") {
-      const body = await parseBody<{
-        companyCode?: string;
-        loginId?: string;
-        userId?: string;
-        password?: string;
-      }>(req);
-      const companyCode = (body.companyCode || "").trim();
-      const loginId = (body.loginId || body.userId || "").trim();
-      const password = (body.password || "").trim();
-
-      if (!companyCode) {
-        return errorResponse("회사 코드를 입력해주세요.", 400);
-      }
-      if (!loginId) {
-        return errorResponse("아이디를 입력해주세요.", 400);
-      }
-      if (!password) {
-        return errorResponse("비밀번호를 입력해주세요.", 400);
-      }
-
-      try {
-        const loginResult = await adminRepository.findAdminByCredentials(
-          companyCode,
-          loginId,
-          password,
-        );
-
-        return jsonResponse({
-          success: true,
-          data: loginResult,
-        });
-      } catch (err: any) {
-        return errorResponse(err.message || "로그인에 실패하였습니다.", 401);
-      }
+      return authController.login(req);
     }
 
-    // ==========================================
-    // Admins & Permissions APIs
-    // ==========================================
-
+    // Admins
     if (path === "/api/admins" && method === "GET") {
-      const companyIdStr = url.searchParams.get("companyId");
-      const companyId = companyIdStr ? parseId(companyIdStr) : 1;
-      const data = await adminRepository.findAdminsByCompany(companyId ?? 1);
-      return jsonResponse({ success: true, data });
+      return adminController.getAdmins(url);
     }
-
     if (path === "/api/admins" && method === "POST") {
-      const body = await parseBody<CreateAdminDTO>(req);
-      if (
-        !body.companyId ||
-        !body.loginId?.trim() ||
-        !body.password?.trim() ||
-        !body.name?.trim()
-      ) {
-        return errorResponse(
-          "회사, 아이디, 비밀번호, 이름을 모두 입력해주세요.",
-          400,
-        );
-      }
-      const data = await adminRepository.createAdmin(body);
-      return jsonResponse(
-        { success: true, data, message: "관리자가 등록되었습니다." },
-        201,
-      );
+      return adminController.createAdmin(req);
     }
-
     const adminMatch = path.match(/^\/api\/admins\/([^/]+)$/);
-    if (adminMatch && method === "PUT") {
+    if (adminMatch) {
       const id = parseId(adminMatch[1]);
-      if (id === null)
-        return errorResponse("유효하지 않은 관리자 ID입니다", 400);
-      const body = await parseBody<UpdateAdminDTO>(req);
-      const data = await adminRepository.updateAdmin(id, body);
-      if (!data) return errorResponse("관리자를 찾을 수 없습니다.", 404);
-      return jsonResponse({
-        success: true,
-        data,
-        message: "관리자 정보 및 권한이 수정되었습니다.",
-      });
+      if (id === null) return errorResponse("유효하지 않은 관리자 ID입니다", 400);
+      if (method === "PUT") return adminController.updateAdmin(id, req);
+      if (method === "DELETE") return adminController.deleteAdmin(id);
     }
-
-    if (adminMatch && method === "DELETE") {
-      const id = parseId(adminMatch[1]);
-      if (id === null)
-        return errorResponse("유효하지 않은 관리자 ID입니다", 400);
-      const ok = await adminRepository.deleteAdmin(id);
-      return jsonResponse({
-        success: ok,
-        message: ok ? "관리자가 삭제되었습니다." : "삭제 실패",
-      });
-    }
-
-    // ==========================================
-    // Master Data APIs (Company / Camp / Route)
-    // ==========================================
 
     // Companies
     if (path === "/api/companies" && method === "GET") {
-      try {
-        const data = await masterRepository.findAllCompanies();
-        return jsonResponse({ success: true, data });
-      } catch (err) {
-        console.error("[GET /api/companies] error fallback:", err);
-        return jsonResponse({
-          success: true,
-          data: [],
-        });
-      }
+      return masterController.getCompanies();
     }
     if (path === "/api/companies" && method === "POST") {
-      const body = await parseBody<{ name: string }>(req);
-      if (!body.name?.trim())
-        return errorResponse("회사명을 입력해주세요", 400);
-      const data = await masterRepository.createCompany(body.name);
-      return jsonResponse(
-        { success: true, data, message: "회사가 생성되었습니다" },
-        201,
-      );
+      return masterController.createCompany(req);
     }
     const companyMatch = path.match(/^\/api\/companies\/([^/]+)$/);
     if (companyMatch && method === "DELETE") {
       const id = parseId(companyMatch[1]);
       if (id === null) return errorResponse("유효하지 않은 회사 ID입니다", 400);
-      await masterRepository.deleteCompany(id);
-      return jsonResponse({ success: true, message: "회사가 삭제되었습니다" });
+      return masterController.deleteCompany(id);
     }
 
     // Camps
     if (path === "/api/camps" && method === "GET") {
-      const companyIdStr = url.searchParams.get("companyId");
-      const companyId = companyIdStr ? parseId(companyIdStr) : null;
-      const data =
-        companyId !== null
-          ? await masterRepository.findCampsByCompany(companyId)
-          : await masterRepository.findAllCamps();
-      return jsonResponse({ success: true, data });
+      return masterController.getCamps(url);
     }
     if (path === "/api/camps" && method === "POST") {
-      const body = await parseBody<{ companyId: number; name: string }>(req);
-      if (!body.name?.trim())
-        return errorResponse("캠프명을 입력해주세요", 400);
-      const data = await masterRepository.createCamp(body.companyId, body.name);
-      return jsonResponse(
-        { success: true, data, message: "캠프가 생성되었습니다" },
-        201,
-      );
+      return masterController.createCamp(req);
     }
     const campMatch = path.match(/^\/api\/camps\/([^/]+)$/);
     if (campMatch && method === "DELETE") {
       const id = parseId(campMatch[1]);
       if (id === null) return errorResponse("유효하지 않은 캠프 ID입니다", 400);
-      await masterRepository.deleteCamp(id);
-      return jsonResponse({ success: true, message: "캠프가 삭제되었습니다" });
+      return masterController.deleteCamp(id);
     }
 
     // Routes
     if (path === "/api/routes" && method === "GET") {
-      const campIdStr = url.searchParams.get("campId");
-      const campId = campIdStr ? parseId(campIdStr) : null;
-      const data =
-        campId !== null
-          ? await masterRepository.findRoutesByCamp(campId)
-          : await masterRepository.findAllRoutes();
-      return jsonResponse({ success: true, data });
+      return masterController.getRoutes(url);
     }
     if (path === "/api/routes" && method === "POST") {
-      const body = await parseBody<{ campId: number; name: string }>(req);
-      if (!body.campId || !body.name?.trim())
-        return errorResponse("campId와 라우터명을 입력해주세요", 400);
-      try {
-        const data = await masterRepository.createRoute(body.campId, body.name);
-        return jsonResponse(
-          { success: true, data, message: "라우터가 생성되었습니다" },
-          201,
-        );
-      } catch (err: any) {
-        return errorResponse(err.message || "라우터 등록 실패", 400);
-      }
+      return masterController.createRoute(req);
     }
     const routeMatch = path.match(/^\/api\/routes\/([^/]+)$/);
     if (routeMatch && method === "DELETE") {
       const id = parseId(routeMatch[1]);
-      if (id === null)
-        return errorResponse("유효하지 않은 라우트 ID입니다", 400);
-      await masterRepository.deleteRoute(id);
-      return jsonResponse({
-        success: true,
-        message: "라우트가 삭제되었습니다",
-      });
+      if (id === null) return errorResponse("유효하지 않은 라우트 ID입니다", 400);
+      return masterController.deleteRoute(id);
     }
 
-    // ==========================================
     // Drivers
-    // ==========================================
     if (path === "/api/drivers" && method === "GET") {
-      const drivers = await driverService.getAllDrivers(
-        url.searchParams.get("search") ?? undefined,
-        url.searchParams.get("camp") ?? undefined,
-        url.searchParams.get("route") ?? undefined,
-        url.searchParams.get("contractType") ?? undefined,
-        url.searchParams.get("camps") ?? undefined,
-      );
-      return jsonResponse({ success: true, data: drivers });
+      return driverController.getDrivers(url);
     }
-
+    if (path === "/api/drivers" && method === "POST") {
+      return driverController.createDriver(req);
+    }
     const driverMatch = path.match(/^\/api\/drivers\/([^/]+)$/);
     if (driverMatch) {
       const id = parseId(driverMatch[1]);
       if (id === null) return errorResponse("유효하지 않은 기사 ID입니다", 400);
-
-      if (method === "GET") {
-        const driver = await driverService.getDriverById(id);
-        if (!driver) return errorResponse("기사를 찾을 수 없습니다", 404);
-        return jsonResponse({ success: true, data: driver });
-      }
-
-      if (method === "PUT") {
-        const body = await parseBody<UpdateDriverDTO>(req);
-        const updated = await driverService.updateDriver(id, body);
-        return jsonResponse({
-          success: true,
-          data: updated,
-          message: "기사 정보가 수정되었습니다",
-        });
-      }
-
-      if (method === "DELETE") {
-        await driverService.deleteDriver(id);
-        return jsonResponse({
-          success: true,
-          message: "기사 정보가 소프트 삭제 처리되었습니다",
-        });
-      }
-    }
-
-    if (path === "/api/drivers" && method === "POST") {
-      const body = await parseBody<CreateDriverDTO>(req);
-      const newDriver = await driverService.createDriver(body);
-      return jsonResponse(
-        {
-          success: true,
-          data: newDriver,
-          message: "기사가 신규 등록되었습니다",
-        },
-        201,
-      );
+      if (method === "GET") return driverController.getDriverById(id);
+      if (method === "PUT") return driverController.updateDriver(id, req);
+      if (method === "DELETE") return driverController.deleteDriver(id);
     }
 
     // Schedules
     if (path === "/api/schedules/grid" && method === "GET") {
-      const startDate = url.searchParams.get("startDate");
-      const endDate = url.searchParams.get("endDate");
-      const camps = url.searchParams.get("camps") ?? undefined;
-      if (!startDate || !endDate) {
-        return errorResponse("startDate와 endDate 조회가 필요합니다", 400);
-      }
-      try {
-        const grid = await scheduleService.getScheduleGrid(startDate, endDate, camps);
-        return jsonResponse({ success: true, data: grid });
-      } catch (err: any) {
-        console.error("[GET /api/schedules/grid error]:", err);
-        return errorResponse(err.message || "스케줄 그리드 조회 실패", 500);
-      }
+      return scheduleController.getScheduleGrid(url);
     }
-
     if (path === "/api/schedules/cell" && method === "PUT") {
-      const body = await parseBody<UpdateShiftStatusDTO>(req);
-      if (!body.driverId || !body.date || !body.status) {
-        return errorResponse("driverId, date, status 정보가 필수입니다", 400);
-      }
-      try {
-        const shift = await scheduleService.updateCellStatus(
-          body.driverId,
-          body.date,
-          body.status,
-        );
-        return jsonResponse({
-          success: true,
-          data: shift,
-          message: "근무 상태가 수정되었습니다",
-        });
-      } catch (err: any) {
-        return errorResponse(err.message || "근무 상태 수정 실패", 400);
-      }
+      return scheduleController.updateCellStatus(req);
     }
-
     if (path === "/api/schedules/offdays" && method === "GET") {
-      try {
-        const offDays = await scheduleService.getOffDaySummary(
-          url.searchParams.get("startDate") ?? undefined,
-          url.searchParams.get("endDate") ?? undefined,
-        );
-        return jsonResponse({ success: true, data: offDays });
-      } catch (err: any) {
-        return errorResponse(err.message || "휴무 목록 조회 실패", 500);
-      }
+      return scheduleController.getOffDaySummary(url);
     }
 
     // Backups
     if (path === "/api/backups" && method === "GET") {
-      try {
-        const assignments = await backupService.getAllAssignments();
-        return jsonResponse({ success: true, data: assignments });
-      } catch (err: any) {
-        return errorResponse(err.message || "백업 지정 목록 조회 실패", 500);
-      }
+      return backupController.getAllAssignments();
     }
-
     if (path === "/api/backups/candidates" && method === "GET") {
-      const date = url.searchParams.get("date");
-      if (!date) return errorResponse("조회 기준 날짜(date)가 필요합니다", 400);
-      try {
-        const candidates = await backupService.getAvailableBackupDrivers(date);
-        return jsonResponse({ success: true, data: candidates });
-      } catch (err: any) {
-        return errorResponse(err.message || "백업 후보 조회 실패", 500);
-      }
+      return backupController.getCandidates(url);
     }
-
     if (path === "/api/backups/assign" && method === "POST") {
-      const body = await parseBody<AssignBackupDTO>(req);
-      const assignment = await backupService.assignBackup(body);
-      return jsonResponse(
-        {
-          success: true,
-          data: assignment,
-          message: "대차 기사가 지정되었습니다",
-        },
-        201,
-      );
+      return backupController.assignBackup(req);
     }
 
-    // ==========================================
-    // Monthly Rosters CRUD Endpoints (신규 테이블)
-    // ==========================================
-    const { monthlyRosterRepository } =
-      await import("../repositories/dbRepository");
-
+    // Monthly Rosters
     if (path === "/api/monthly-rosters" && method === "GET") {
-      try {
-        const rosters = await monthlyRosterRepository.findAll();
-        return jsonResponse({ success: true, data: rosters });
-      } catch (err: any) {
-        return errorResponse(err.message || "월별 근무표 목록 조회 실패", 500);
-      }
+      return monthlyRosterController.getRosters();
     }
-
-    if (path.startsWith("/api/monthly-rosters/") && method === "GET") {
-      const idRaw = path.split("/")[3];
-      const id = parseId(idRaw);
-      if (!id) return errorResponse("유효한 근무표 ID가 필요합니다", 400);
-      try {
-        const roster = await monthlyRosterRepository.findById(id);
-        if (!roster)
-          return errorResponse("해당 월별 근무표를 찾을 수 없습니다", 404);
-        return jsonResponse({ success: true, data: roster });
-      } catch (err: any) {
-        return errorResponse(err.message || "월별 근무표 조회 실패", 500);
-      }
-    }
-
     if (path === "/api/monthly-rosters" && method === "POST") {
-      try {
-        const body = await parseBody<any>(req);
-        if (!body.targetMonth || !body.title || !Array.isArray(body.items)) {
-          return errorResponse(
-            "targetMonth, title, items 목록이 필수입니다",
-            400,
-          );
-        }
-        const created = await monthlyRosterRepository.create(body);
-        return jsonResponse(
-          {
-            success: true,
-            data: created,
-            message: "월별 근무표가 DB에 성공적으로 저장되었습니다",
-          },
-          201,
-        );
-      } catch (err: any) {
-        return errorResponse(err.message || "월별 근무표 저장 실패", 500);
-      }
+      return monthlyRosterController.createRoster(req);
     }
-
-    if (path.startsWith("/api/monthly-rosters/") && method === "PUT") {
-      const idRaw = path.split("/")[3];
-      const id = parseId(idRaw);
-      if (!id) return errorResponse("유효한 근무표 ID가 필요합니다", 400);
-      try {
-        const body = await parseBody<any>(req);
-        const updated = await monthlyRosterRepository.update(id, body);
-        if (!updated)
-          return errorResponse("해당 월별 근무표를 찾을 수 없습니다", 404);
-        return jsonResponse({
-          success: true,
-          data: updated,
-          message: "월별 근무표가 수정되었습니다",
-        });
-      } catch (err: any) {
-        return errorResponse(err.message || "월별 근무표 수정 실패", 500);
-      }
-    }
-
-    if (path.startsWith("/api/monthly-rosters/") && method === "DELETE") {
-      const idRaw = path.split("/")[3];
-      const id = parseId(idRaw);
-      if (!id) return errorResponse("유효한 근무표 ID가 필요합니다", 400);
-      try {
-        const deleted = await monthlyRosterRepository.delete(id);
-        return jsonResponse({
-          success: true,
-          data: { id, deleted },
-          message: "월별 근무표가 삭제되었습니다",
-        });
-      } catch (err: any) {
-        return errorResponse(err.message || "월별 근무표 삭제 실패", 500);
-      }
+    const rosterMatch = path.match(/^\/api\/monthly-rosters\/([^/]+)$/);
+    if (rosterMatch) {
+      const id = parseId(rosterMatch[1]);
+      if (id === null) return errorResponse("유효하지 않은 근무표 ID입니다", 400);
+      if (method === "GET") return monthlyRosterController.getRosterById(id);
+      if (method === "PUT") return monthlyRosterController.updateRoster(id, req);
+      if (method === "DELETE") return monthlyRosterController.deleteRoster(id);
     }
 
     return errorResponse("Not Found", 404);
