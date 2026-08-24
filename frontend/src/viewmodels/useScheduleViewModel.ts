@@ -184,9 +184,38 @@ export function useScheduleViewModel() {
         ApiService.getRoutes().catch(() => []),
       ]);
 
-      setDrivers(driverList);
-      setMasterCamps(campsData);
-      setMasterRoutes(routesData);
+      let filteredCamps = campsData;
+      let filteredRoutes = routesData;
+      let filteredDrivers = driverList;
+
+      // 사용자 권한(담당 캠프 범위)에 따른 데이터 필터링
+      try {
+        const saved = localStorage.getItem("fleetsync_session");
+        if (saved) {
+          const session = JSON.parse(saved);
+          if (session?.permissions?.isAllCampsAccessible === false && session?.permissions?.assignedCampNames?.length > 0) {
+            const allowedNames = session.permissions.assignedCampNames.map((c: string) => c.toLowerCase().trim());
+            const allowedIds: number[] = session.permissions.assignedCampIds || [];
+
+            filteredCamps = campsData.filter((c: any) =>
+              allowedNames.includes(c.name.toLowerCase().trim()) || (allowedIds.length > 0 && allowedIds.includes(c.id))
+            );
+
+            const activeCampIds = new Set(filteredCamps.map((c: any) => c.id));
+            filteredRoutes = routesData.filter((r: any) => activeCampIds.has(r.campId));
+
+            filteredDrivers = driverList.filter((d: any) =>
+              parseCamps(d.camp).some((c: string) => allowedNames.includes(c.toLowerCase().trim()))
+            );
+          }
+        }
+      } catch (sessionErr) {
+        console.warn('[loadData session permission filter error]:', sessionErr);
+      }
+
+      setDrivers(filteredDrivers);
+      setMasterCamps(filteredCamps);
+      setMasterRoutes(filteredRoutes);
 
       // shiftsMap 구성
       const sMap: Record<string, Record<number, ShiftStatus>> = {};
@@ -383,6 +412,24 @@ export function useScheduleViewModel() {
     [slotAssignments, shiftsMap]
   );
 
+  // 사용자 권한 조회
+  const session = useMemo(() => {
+    try {
+      const saved = localStorage.getItem("fleetsync_session");
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
+  }, []);
+
+  const now = new Date();
+  const currentMonthStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  const isPreviousMonth = selectedDate.slice(0, 7) < currentMonthStr;
+
+  const canCreate = (session?.permissions?.canCreate ?? true) && !isPreviousMonth;
+  const canUpdate = (session?.permissions?.canUpdate ?? true) && !isPreviousMonth;
+  const canDelete = (session?.permissions?.canDelete ?? true) && !isPreviousMonth;
+
   // 미배정 / 가용 기사 목록
   const unassignedDrivers = useMemo(() => {
     return filteredDrivers;
@@ -390,6 +437,11 @@ export function useScheduleViewModel() {
 
   // 기사 배정 처리 (드래그&드롭 또는 모달에서 선택) - 하루 1기사 1라우트 배정 원칙 (중복 방지)
   const handleAssignDriver = async (dateStr: string, routeKey: string, driverId: number) => {
+    if (!canUpdate) {
+      showToast('error', '수정 권한이 없습니다. (조회 전용)');
+      return;
+    }
+
     try {
       const targetDriver = drivers.find(d => d.id === driverId);
       if (!targetDriver) return;
@@ -441,6 +493,11 @@ export function useScheduleViewModel() {
 
   // 배정 해제 / 삭제
   const handleUnassignDriver = (dateStr: string, routeKey: string) => {
+    if (!canUpdate) {
+      showToast('error', '수정 권한이 없습니다. (조회 전용)');
+      return;
+    }
+
     const slotKey = `${dateStr}_${routeKey}`;
     setSlotAssignments(prev => {
       const copy = { ...prev };
@@ -453,6 +510,11 @@ export function useScheduleViewModel() {
 
   // 휴무 처리
   const handleSetOffDay = async (dateStr: string, routeKey: string, driverId: number) => {
+    if (!canUpdate) {
+      showToast('error', '수정 권한이 없습니다. (조회 전용)');
+      return;
+    }
+
     try {
       const slotKey = `${dateStr}_${routeKey}`;
       setSlotAssignments(prev => {
@@ -476,6 +538,11 @@ export function useScheduleViewModel() {
 
   // 대차(백업) 기사 지정
   const handleAssignBackup = async (dateStr: string, routeKey: string, backupDriverId: number) => {
+    if (!canUpdate) {
+      showToast('error', '수정 권한이 없습니다. (조회 전용)');
+      return;
+    }
+
     try {
       const backupDriver = drivers.find(d => d.id === backupDriverId);
       if (!backupDriver) return;
@@ -524,6 +591,11 @@ export function useScheduleViewModel() {
 
   // 대차(백업) 기사 해제
   const handleRemoveBackup = (dateStr: string, routeKey: string) => {
+    if (!canUpdate) {
+      showToast('error', '수정 권한이 없습니다. (조회 전용)');
+      return;
+    }
+
     const slotKey = `${dateStr}_${routeKey}`;
     setSlotAssignments(prev => {
       if (!prev[slotKey]) return prev;
@@ -548,6 +620,11 @@ export function useScheduleViewModel() {
     targetDates: string[],
     routeKey: string,
   ) => {
+    if (!canUpdate) {
+      showToast('error', '수정 권한이 없습니다. (조회 전용)');
+      return;
+    }
+
     try {
       const targetDriver = drivers.find((d) => d.id === driverId);
       if (!targetDriver || targetDates.length === 0) return;
@@ -635,6 +712,11 @@ export function useScheduleViewModel() {
 
   // 등록된 모든 기사의 정기 패턴(1,3주/2,4주 요일별 캠프/라우트)을 현재 화면의 날짜들에 일괄 자동 배차
   const handleAutoAssignAllRegularPatterns = async () => {
+    if (!canUpdate) {
+      showToast('error', '수정 권한이 없습니다. (조회 전용)');
+      return;
+    }
+
     try {
       const driversWithPatterns = drivers.filter(
         (d) => d.routePatterns && d.routePatterns.length > 0
@@ -714,10 +796,10 @@ export function useScheduleViewModel() {
       if (totalAssignedCount > 0) {
         showToast(
           'success',
-          `정기 노선 패턴에 따라 ${driversWithPatterns.length}명의 기사가 총 ${totalAssignedCount}개 슬롯에 자동 배치되었습니다.`
+          `전체 기사의 정기 패턴이 현재 달력(총 ${totalAssignedCount}개 슬롯)에 일괄 자동 배치되었습니다.`
         );
       } else {
-        showToast('error', '현재 조회된 스케줄 기간에 매칭되는 정기 패턴 일자가 없습니다.');
+        showToast('error', '현재 스케줄 기간에 매칭되는 정기 패턴 일자가 없습니다.');
       }
     } catch (err: any) {
       console.error('[handleAutoAssignAllRegularPatterns error]:', err);
@@ -727,6 +809,11 @@ export function useScheduleViewModel() {
 
   // 단일 기사의 정기 패턴을 현재 화면의 날짜들에 자동 배차
   const handleAssignSingleDriverRegularPattern = async (driverId: number) => {
+    if (!canUpdate) {
+      showToast('error', '수정 권한이 없습니다. (조회 전용)');
+      return;
+    }
+
     try {
       const driver = drivers.find((d) => d.id === driverId);
       if (!driver) return;
@@ -815,18 +902,13 @@ export function useScheduleViewModel() {
     }
   };
 
-  // 현재 선택된 년월이 이전달인지 여부 판별 (이전달은 수정/삭제 불가, 조회만 가능)
-  const now = new Date();
-  const currentMonthStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-  const isPreviousMonth = selectedDate.slice(0, 7) < currentMonthStr;
-
   const [isSavingRoster, setIsSavingRoster] = useState(false);
 
   // 현재달/다음달 근무표 계획 DB 최종 저장
   const handleSaveMonthlySchedule = async () => {
     const targetMonth = selectedDate.slice(0, 7);
-    if (isPreviousMonth) {
-      showToast('error', '이전달 근무표는 수정 및 저장이 불가합니다. (조회 전용)');
+    if (!canUpdate) {
+      showToast('error', '근무표 저장 및 수정 권한이 없습니다. (조회 전용)');
       return;
     }
 
@@ -876,6 +958,9 @@ export function useScheduleViewModel() {
     selectedDate,
     setSelectedDate,
     isPreviousMonth,
+    canCreate,
+    canUpdate,
+    canDelete,
     isSavingRoster,
     handleSaveMonthlySchedule,
     drivers,

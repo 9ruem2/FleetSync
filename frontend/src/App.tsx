@@ -46,26 +46,36 @@ export function App() {
           },
         };
         setCurrentUser(normalized);
+        if (!normalized.isMaster && activeTab === "admins") {
+          setActiveTab("drivers");
+        }
         localStorage.setItem("fleetsync_session", JSON.stringify(normalized));
       } catch (e) {
         localStorage.removeItem("fleetsync_session");
       }
     }
-  }, []);
+  }, [activeTab]);
 
   const handleLoginSuccess = (userInfo: UserSession) => {
     setCurrentUser(userInfo);
+    // 로그인 시 항상 기사 관리(기본 화면)로 안전하게 진입
+    setActiveTab("drivers");
     localStorage.setItem("fleetsync_session", JSON.stringify(userInfo));
   };
 
   const handleLogout = () => {
     if (confirm("로그아웃 하시겠습니까?")) {
       setCurrentUser(null);
+      setActiveTab("drivers");
       localStorage.removeItem("fleetsync_session");
     }
   };
 
   const handleTabChange = (tab: "drivers" | "schedule" | "calendar" | "admins") => {
+    if (tab === "admins" && !currentUser?.isMaster) {
+      setActiveTab("drivers");
+      return;
+    }
     setActiveTab(tab);
     setIsMobileMenuOpen(false);
   };
@@ -112,7 +122,7 @@ export function App() {
         currentUser={currentUser}
         isOpen={isMobileMenuOpen}
         onClose={() => setIsMobileMenuOpen(false)}
-        onOpenSettings={() => setIsSettingsOpen(true)}
+        onOpenSettings={currentUser.isMaster ? () => setIsSettingsOpen(true) : undefined}
       />
 
       {/* Main Content Area (우측 영역만 독립 세로 스크롤) */}
@@ -121,7 +131,7 @@ export function App() {
           title={headerMeta.title}
           subtitle={headerMeta.subtitle}
           onToggleMobileMenu={() => setIsMobileMenuOpen((prev) => !prev)}
-          onOpenSettings={() => setIsSettingsOpen(true)}
+          onOpenSettings={currentUser.isMaster ? () => setIsSettingsOpen(true) : undefined}
           onLogout={handleLogout}
           user={currentUser}
         />
@@ -130,15 +140,17 @@ export function App() {
           {activeTab === "drivers" && <DriverListView />}
           {activeTab === "schedule" && <ScheduleGridView />}
           {activeTab === "calendar" && <VacationCalendarView />}
-          {activeTab === "admins" && <AdminManagementView currentUser={currentUser} />}
+          {activeTab === "admins" && (currentUser.isMaster ? <AdminManagementView currentUser={currentUser} /> : <DriverListView />)}
         </div>
       </main>
 
-      {/* Master Settings Modal (Company -> Camp -> Route) */}
-      <SettingsModal
-        isOpen={isSettingsOpen}
-        onClose={() => setIsSettingsOpen(false)}
-      />
+      {/* Master Settings Modal (Company -> Camp -> Route) - 총괄관리자 전용 */}
+      {currentUser.isMaster && (
+        <SettingsModal
+          isOpen={isSettingsOpen}
+          onClose={() => setIsSettingsOpen(false)}
+        />
+      )}
     </div>
   );
 }

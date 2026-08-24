@@ -476,12 +476,29 @@ export const DriverFormModal: React.FC<Props> = ({
 
     const validRoutePatterns = routePatterns
       .filter((p) => p.weekCycle && p.dayOfWeek && (p.campName || p.routeName))
-      .map((p) => ({
-        weekCycle: p.weekCycle.trim(),
-        dayOfWeek: p.dayOfWeek.trim(),
-        campName: p.campName.trim(),
-        routeName: p.routeName.trim(),
-      }));
+      .map((p) => {
+        const matchedCamp = availableCamps.find(
+          (c) => c.name.toLowerCase().trim() === p.campName.toLowerCase().trim(),
+        );
+        const campId = matchedCamp?.id;
+        const matchedRoute = matchedCamp
+          ? routesCache.find(
+              (r) =>
+                r.campId === campId &&
+                r.name.toLowerCase().trim() === p.routeName.toLowerCase().trim(),
+            )
+          : undefined;
+        const routeId = matchedRoute?.id;
+
+        return {
+          weekCycle: p.weekCycle.trim(),
+          dayOfWeek: p.dayOfWeek.trim(),
+          campId,
+          campName: p.campName.trim(),
+          routeId,
+          routeName: p.routeName.trim(),
+        };
+      });
 
     // 기사 수정 시 변경된 내용이 없는지 검사
     if (driver) {

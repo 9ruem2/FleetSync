@@ -56,8 +56,9 @@ export const ScheduleGridView: React.FC = () => {
     }
   }, []);
 
-  const canUpdate = (session?.permissions?.canUpdate ?? true) && !vm.isPreviousMonth;
-  const canCreate = (session?.permissions?.canCreate ?? true) && !vm.isPreviousMonth;
+  const canUpdate = vm.canUpdate;
+  const canCreate = vm.canCreate;
+  const canDelete = vm.canDelete;
 
   // 날짜 이전/다음 이동 핸들러
   const handleDateShift = (direction: "prev" | "next") => {
@@ -378,12 +379,20 @@ export const ScheduleGridView: React.FC = () => {
                 return (
                   <div
                     key={driver.id}
-                    draggable
-                    onDragStart={() => handleDragStart(driver.id)}
+                    draggable={canUpdate}
+                    onDragStart={() => {
+                      if (canUpdate) handleDragStart(driver.id);
+                    }}
                     onDragEnd={handleDragEnd}
                     onClick={() => setBulkAssignDriver(driver)}
-                    title="클릭하여 기사 근무/휴무 정보 조회 (드래그하여 노선에 직접 배정 가능)"
-                    className={`p-3 rounded-xl border transition select-none cursor-pointer group relative ${
+                    title={
+                      canUpdate
+                        ? "클릭하여 기사 근무/휴무 정보 조회 (드래그하여 노선에 직접 배정 가능)"
+                        : "클릭하여 기사 근무/휴무 정보 조회 (읽기 전용)"
+                    }
+                    className={`p-3 rounded-xl border transition select-none ${
+                      canUpdate ? "cursor-pointer" : "cursor-default"
+                    } group relative ${
                       isDragging
                         ? "opacity-40 border-dashed border-blue-400 bg-blue-50 cursor-grabbing"
                         : "bg-white border-slate-200 hover:border-indigo-300 hover:shadow-xs hover:bg-slate-50/60"
@@ -515,6 +524,7 @@ export const ScheduleGridView: React.FC = () => {
                         <td
                           key={col.key}
                           onDragOver={(e) => {
+                            if (!canUpdate) return;
                             e.preventDefault();
                             setDragOverSlot(slotKey);
                           }}
@@ -523,9 +533,11 @@ export const ScheduleGridView: React.FC = () => {
                           }}
                           onDrop={(e) => {
                             e.preventDefault();
+                            if (!canUpdate) return;
                             handleDropOnSlot(row.dateStr, col.key);
                           }}
                           onClick={() => {
+                            if (!canUpdate) return;
                             vm.setSelectedSlot({
                               dateStr: row.dateStr,
                               routeKey: col.key,
@@ -534,7 +546,9 @@ export const ScheduleGridView: React.FC = () => {
                               currentAssignment: assignment,
                             });
                           }}
-                          className={`p-2 text-center border-r border-slate-100 transition cursor-pointer relative ${
+                          className={`p-2 text-center border-r border-slate-100 transition relative ${
+                            canUpdate ? "cursor-pointer" : "cursor-default"
+                          } ${
                             isDragOver
                               ? "bg-blue-100/80 ring-2 ring-blue-500 ring-inset"
                               : assignment?.status === "휴무"
