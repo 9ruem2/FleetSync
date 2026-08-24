@@ -181,10 +181,12 @@ export const Sidebar: React.FC<Props> = ({
           <div className="p-3.5 bg-slate-800/90 rounded-2xl border border-slate-700/80 text-xs text-slate-400 space-y-1 shadow-lg">
             <div className="flex justify-between items-center text-slate-200 font-semibold">
               <div className="flex items-center gap-2">
-                <span className="font-bold text-slate-100">관리자 모드</span>
+                <span className="font-bold text-slate-100">
+                  {currentUser?.isMaster ? "총괄관리자 모드" : "일반 관리자"}
+                </span>
                 <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
               </div>
-              {onOpenSettings && (
+              {currentUser?.isMaster && onOpenSettings && (
                 <button
                   onClick={onOpenSettings}
                   className="p-1.5 rounded-lg bg-slate-700/70 hover:bg-slate-700 text-slate-300 hover:text-white transition shadow-2xs"
@@ -194,8 +196,12 @@ export const Sidebar: React.FC<Props> = ({
                 </button>
               )}
             </div>
-            <p className="text-[11px] text-slate-400 font-medium">
-              회사 · 캠프 · 라우트 통합 관리
+            <p className="text-[11px] text-slate-400 font-medium truncate">
+              {currentUser?.isMaster
+                ? "회사 · 캠프 · 라우트 통합 관리"
+                : currentUser?.permissions?.assignedCampNames?.length
+                ? `담당: ${currentUser.permissions.assignedCampNames.join(", ")}`
+                : "배정된 담당 캠프 조회"}
             </p>
           </div>
         </div>

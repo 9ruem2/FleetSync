@@ -43,11 +43,32 @@ export function useCalendarViewModel() {
       const startDate = new Date(year, month - 1, 20).toISOString().split('T')[0];
       const endDate = new Date(year, month + 1, 15).toISOString().split('T')[0];
 
-      const [offDaysData, driversData, backupAssignments] = await Promise.all([
+      let campsParam: string | undefined = undefined;
+      let allowedCamps: string[] = [];
+      try {
+        const saved = localStorage.getItem("fleetsync_session");
+        if (saved) {
+          const s = JSON.parse(saved);
+          if (s?.permissions?.isAllCampsAccessible === false && s?.permissions?.assignedCampNames?.length > 0) {
+            allowedCamps = s.permissions.assignedCampNames.map((c: string) => c.toLowerCase().trim());
+            campsParam = s.permissions.assignedCampNames.join(",");
+          }
+        }
+      } catch {}
+
+      const [offDaysData, rawDriversData, backupAssignments] = await Promise.all([
         ApiService.getOffDays(startDate, endDate).catch(() => []),
-        ApiService.getDrivers().catch(() => []),
+        ApiService.getDrivers(undefined, undefined, undefined, campsParam).catch(() => []),
         ApiService.getBackupAssignments().catch(() => []),
       ]);
+
+      let driversData = rawDriversData;
+      if (allowedCamps.length > 0) {
+        driversData = rawDriversData.filter(d => {
+          const cList = (d.camp || "").split(",").map(c => c.trim().toLowerCase()).filter(Boolean);
+          return cList.some(c => allowedCamps.includes(c));
+        });
+      }
 
       const backupMap = new Map<string, any>();
       backupAssignments.forEach((b: any) => {
