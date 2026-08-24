@@ -615,7 +615,7 @@ class AdminRepository {
         is_master: dto.isMaster ?? false,
         is_all_camps_accessible: dto.isAllCampsAccessible ?? true,
         can_create: dto.canCreate ?? true,
-        canRead: dto.canRead ?? true,
+        can_read: dto.canRead ?? true,
         can_update: dto.canUpdate ?? true,
         can_delete: dto.canDelete ?? true,
       })
