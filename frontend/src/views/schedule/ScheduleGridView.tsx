@@ -20,6 +20,9 @@ import {
   AlertTriangle,
   Save,
   FileText,
+  RefreshCw,
+  ArrowRight,
+  Clock,
 } from "lucide-react";
 import { useScheduleViewModel } from "../../viewmodels/useScheduleViewModel";
 import { ToastNotification } from "../components/ToastNotification";
@@ -32,6 +35,7 @@ import { getDriverFixedHolidayOnDate } from "../../utils/fixedHolidayUtils";
 import { Driver } from "../../models/driver.model";
 
 import { UserSession } from "../../models/user.model";
+import { SaveProgressModal } from "./SaveProgressModal";
 
 export const ScheduleGridView: React.FC = () => {
   const vm = useScheduleViewModel();
@@ -86,7 +90,7 @@ export const ScheduleGridView: React.FC = () => {
   const handleDropOnSlot = async (dateStr: string, routeKey: string) => {
     if (!canUpdate) return;
     if (draggedDriverId !== null) {
-      const driver = vm.drivers.find(d => d.id === draggedDriverId);
+      const driver = vm.drivers.find((d) => d.id === draggedDriverId);
       const fixedHoliday = getDriverFixedHolidayOnDate(driver, dateStr);
       if (driver && fixedHoliday) {
         setDragConfirmData({ driver, dateStr, routeKey });
@@ -112,7 +116,8 @@ export const ScheduleGridView: React.FC = () => {
           <div className="flex items-center gap-2">
             <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
             <span>
-              🔒 이전달({vm.selectedDate.slice(0, 7)}) 근무표는 조회 및 배차표 발급 전용입니다. (수정, 삭제 및 배치는 불가합니다)
+              🔒 이전달({vm.selectedDate.slice(0, 7)}) 근무표는 조회 및 배차표
+              발급 전용입니다. (수정, 삭제 및 배치는 불가합니다)
             </span>
           </div>
           <span className="text-[11px] px-2 py-0.5 rounded-md bg-amber-100/80 border border-amber-300 text-amber-800">
@@ -200,7 +205,11 @@ export const ScheduleGridView: React.FC = () => {
           {canUpdate && (
             <button
               onClick={() => {
-                if (window.confirm("등록된 모든 기사의 1,3주/2,4주 정기 패턴에 따라 현재 기간의 배차표를 일괄 자동 배치하시겠습니까?")) {
+                if (
+                  window.confirm(
+                    "등록된 모든 기사의 1,3주/2,4주 정기 패턴에 따라 현재 기간의 배차표를 일괄 자동 배치하시겠습니까?",
+                  )
+                ) {
                   vm.handleAutoAssignAllRegularPatterns();
                 }
               }}
@@ -239,7 +248,27 @@ export const ScheduleGridView: React.FC = () => {
             <span>배차표 발급</span>
           </button>
 
-          {/* Refresh */}
+          {/* 배차 전체 초기화 버튼 (현재달/다음달만) */}
+          {canUpdate && (
+            <button
+              onClick={() => {
+                if (
+                  window.confirm(
+                    `현재 화면(${vm.selectedDate.slice(0, 7)})에 편성된 모든 노선 배정을 전체 초기화하시겠습니까?\n\n* 초기화 후 [근무 확정 저장]을 누르면 DB에도 완전히 반영됩니다.`,
+                  )
+                ) {
+                  vm.handleResetAllAssignments();
+                }
+              }}
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-red-50 border border-red-200 hover:bg-red-100 text-red-700 font-bold text-xs shadow-2xs transition"
+              title="현재 기간의 모든 슬롯 배정 내역 전체 초기화"
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+              <span>전체 초기화</span>
+            </button>
+          )}
+
+          {/* Refresh
           <button
             onClick={vm.reload}
             className="p-2.5 rounded-xl border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 transition shadow-2xs"
@@ -248,7 +277,7 @@ export const ScheduleGridView: React.FC = () => {
             <RotateCcw
               className={`w-4 h-4 ${vm.loading ? "animate-spin text-blue-600" : ""}`}
             />
-          </button>
+          </button> */}
         </div>
       </div>
 
@@ -319,343 +348,367 @@ export const ScheduleGridView: React.FC = () => {
         </div>
       </div>
 
-      {/* Main Content Layout: Left (Unassigned Drivers) + Right (Date-Route Matrix) */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-        {/* Left Side: Unassigned Drivers Panel */}
-        <div className="lg:col-span-3 bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden flex flex-col">
-          {/* Header (모바일에서는 클릭하여 접기/펼치기 토글) */}
-          <div
-            onClick={() => setIsMobileDriversOpen(!isMobileDriversOpen)}
-            className="p-4 bg-slate-900 text-white flex items-center justify-between cursor-pointer lg:cursor-default select-none"
-          >
-            <div className="flex items-center gap-2">
-              <Users className="w-4 h-4 text-blue-400" />
-              <span className="font-bold text-sm">가용 기사</span>
-              <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-blue-600 text-white">
-                {vm.unassignedDrivers.length}명
-              </span>
-            </div>
-
-            {/* Mobile Accordion Toggle Indicator */}
-            <div className="lg:hidden flex items-center gap-1 text-slate-400 text-xs font-bold">
-              <span>{isMobileDriversOpen ? "접기" : "기사 목록 보기"}</span>
-              {isMobileDriversOpen ? (
-                <ChevronUp className="w-4 h-4 text-white" />
-              ) : (
-                <ChevronDown className="w-4 h-4 text-white" />
-              )}
-            </div>
+      {/* Main Content Layout or Loading Skeleton */}
+      {vm.loading ? (
+        <div className="bg-white rounded-2xl border border-slate-200 p-12 sm:p-20 flex flex-col items-center justify-center gap-4 text-center shadow-xs">
+          <div className="w-14 h-14 rounded-2xl bg-blue-50 border border-blue-200 flex items-center justify-center shadow-xs">
+            <RefreshCw className="w-7 h-7 text-blue-600 animate-spin" />
           </div>
-
-          {/* 안내 배너 */}
-          <div
-            className={`${
-              isMobileDriversOpen ? "flex" : "hidden lg:flex"
-            } p-3 bg-blue-50/50 border-b border-blue-100 flex-col gap-1 text-[11px] text-blue-900`}
-          >
-            <div className="flex items-center gap-1.5 font-bold text-blue-800">
-              <Sparkles className="w-3.5 h-3.5 shrink-0 text-blue-600" />
-              <span>배차 및 일괄 배치 방법</span>
-            </div>
-            <p className="text-[10px] text-blue-700 leading-tight">
-              • 셀로 <strong>드래그</strong>하여 당일 배정<br />
-              • 기사 카드를 <strong>더블클릭</strong>하여 주차/요일 <strong>일괄 자동 배치</strong>
+          <div>
+            <h3 className="text-base sm:text-lg font-bold text-slate-900">
+              노선 배차 데이터를 불러오는 중입니다...
+            </h3>
+            <p className="text-xs text-slate-500 mt-1 max-w-sm">
+              담당 캠프, 라우트 구역, 기사 배정 및 근무 상태를 최신 정보로
+              동기화하고 있습니다. 잠시만 기다려주세요.
             </p>
           </div>
-
-          {/* Draggable Drivers List */}
-          <div
-            className={`${
-              isMobileDriversOpen ? "block" : "hidden lg:block"
-            } p-3 space-y-2 max-h-[400px] lg:max-h-[600px] overflow-y-auto`}
-          >
-            {vm.unassignedDrivers.length === 0 ? (
-              <div className="p-6 text-center text-xs text-slate-400">
-                표시할 기사가 없습니다.
-              </div>
-            ) : (
-              vm.unassignedDrivers.map((driver) => {
-                const isDragging = draggedDriverId === driver.id;
-                return (
-                  <div
-                    key={driver.id}
-                    draggable={canUpdate}
-                    onDragStart={() => {
-                      if (canUpdate) handleDragStart(driver.id);
-                    }}
-                    onDragEnd={handleDragEnd}
-                    onClick={() => setBulkAssignDriver(driver)}
-                    title={
-                      canUpdate
-                        ? "클릭하여 기사 근무/휴무 정보 조회 (드래그하여 노선에 직접 배정 가능)"
-                        : "클릭하여 기사 근무/휴무 정보 조회 (읽기 전용)"
-                    }
-                    className={`p-3 rounded-xl border transition select-none ${
-                      canUpdate ? "cursor-pointer" : "cursor-default"
-                    } group relative ${
-                      isDragging
-                        ? "opacity-40 border-dashed border-blue-400 bg-blue-50 cursor-grabbing"
-                        : "bg-white border-slate-200 hover:border-indigo-300 hover:shadow-xs hover:bg-slate-50/60"
-                    }`}
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                        <div className="w-8 h-8 rounded-full bg-slate-100 text-slate-700 font-bold flex items-center justify-center text-xs shrink-0 group-hover:bg-indigo-50 group-hover:text-indigo-600 transition">
-                          {driver.name.slice(0, 1)}
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-1.5">
-                            <span className="font-bold text-slate-900 text-xs truncate">
-                              {driver.name}
-                            </span>
-                            <StatusBadge
-                              status={driver.contractType}
-                              size="sm"
-                            />
-                          </div>
-                          <div className="text-[10px] text-slate-500 font-mono truncate mt-0.5">
-                            {(() => {
-                              const camps = (driver.camp || "")
-                                .split(",")
-                                .map((s) => s.trim())
-                                .filter(Boolean);
-                              const routes = (driver.routes || "")
-                                .split(",")
-                                .map((s) => s.trim());
-                              if (camps.length === 0) return "미지정";
-                              return camps
-                                .map((c, i) =>
-                                  routes[i] ? `${c}/${routes[i]}` : c,
-                                )
-                                .join(", ");
-                            })()}
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-1">
-                        {canUpdate && (
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setBulkAssignDriver(driver);
-                            }}
-                            className="p-1.5 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition opacity-80 group-hover:opacity-100"
-                            title="정기 패턴 일괄 배치"
-                          >
-                            <Sparkles className="w-3.5 h-3.5" />
-                          </button>
-                        )}
-                        <GripVertical className="w-4 h-4 text-slate-300 shrink-0" />
-                      </div>
-                    </div>
-                  </div>
-                );
-              })
-            )}
-          </div>
         </div>
+      ) : (
+        <>
+          {/* Main Content Layout: Left (Unassigned Drivers) + Right (Date-Route Matrix) */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+            {/* Left Side: Unassigned Drivers Panel */}
+            <div className="lg:col-span-3 bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden flex flex-col">
+              {/* Header (모바일에서는 클릭하여 접기/펼치기 토글) */}
+              <div
+                onClick={() => setIsMobileDriversOpen(!isMobileDriversOpen)}
+                className="p-4 bg-slate-900 text-white flex items-center justify-between cursor-pointer lg:cursor-default select-none"
+              >
+                <div className="flex items-center gap-2">
+                  <Users className="w-4 h-4 text-blue-400" />
+                  <span className="font-bold text-sm">가용 기사</span>
+                  <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-blue-600 text-white">
+                    {vm.unassignedDrivers.length}명
+                  </span>
+                </div>
 
-        {/* Right Side: Date-Route Matrix Schedule Table */}
-        <div className="lg:col-span-9 bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="bg-slate-900 text-white text-xs font-bold divide-x divide-slate-800">
-                  {/* Sticky Date Column Header - 고정 너비 (160px) */}
-                  <th className="py-3.5 px-4 w-[160px] min-w-[160px] max-w-[160px] sticky left-0 z-20 bg-slate-900 shadow-md">
-                    날짜
-                  </th>
+                {/* Mobile Accordion Toggle Indicator */}
+                <div className="lg:hidden flex items-center gap-1 text-slate-400 text-xs font-bold">
+                  <span>{isMobileDriversOpen ? "접기" : "기사 목록 보기"}</span>
+                  {isMobileDriversOpen ? (
+                    <ChevronUp className="w-4 h-4 text-white" />
+                  ) : (
+                    <ChevronDown className="w-4 h-4 text-white" />
+                  )}
+                </div>
+              </div>
 
-                  {/* Route Columns Headers (X-Axis: e.g. 남3/905CD, 남4/605D ...) */}
-                  {vm.routeColumns.map((col) => (
-                    <th
-                      key={col.key}
-                      className="py-3.5 px-3 text-center min-w-[130px] font-mono tracking-tight"
-                    >
-                      <div className="text-amber-300 font-bold text-xs sm:text-sm">
-                        {col.displayName}
-                      </div>
-                    </th>
-                  ))}
-                </tr>
-              </thead>
+              {/* 안내 배너 */}
+              <div
+                className={`${
+                  isMobileDriversOpen ? "flex" : "hidden lg:flex"
+                } p-3 bg-blue-50/50 border-b border-blue-100 flex-col gap-1 text-[11px] text-blue-900`}
+              >
+                <div className="flex items-center gap-1.5 font-bold text-blue-800">
+                  <Sparkles className="w-3.5 h-3.5 shrink-0 text-blue-600" />
+                  <span>배차 및 일괄 배치 방법</span>
+                </div>
+                <p className="text-[10px] text-blue-700 leading-tight">
+                  기사를 마우스로 <strong>드래그</strong>하여 우측 원하는 날짜의
+                  구역에 <strong>드롭</strong>하면 배정됩니다. (기사 카드를
+                  클릭하면 일괄 배치도 가능합니다)
+                </p>
+              </div>
 
-              <tbody className="divide-y divide-slate-200 text-xs">
-                {vm.dateRows.map((row) => (
-                  <tr
-                    key={row.dateStr}
-                    className="hover:bg-slate-50/70 transition group"
-                  >
-                    {/* Y-Axis Date Cell - 고정 너비 (160px) */}
-                    <td
-                      className={`py-3 px-4 w-[160px] min-w-[160px] max-w-[160px] sticky left-0 z-10 border-r border-slate-200 font-bold shadow-xs whitespace-nowrap ${
-                        row.isWeekend
-                          ? "bg-amber-50/80 text-amber-900"
-                          : "bg-white text-slate-900"
-                      }`}
-                    >
-                      <div className="flex items-center justify-between gap-2">
-                        <div className="flex items-center gap-1.5">
-                          <CalendarIcon className="w-3.5 h-3.5 text-blue-600 opacity-80" />
-                          <span className="text-xs sm:text-sm">
-                            {row.formattedDate}
-                          </span>
+              {/* Driver List */}
+              <div
+                className={`${
+                  isMobileDriversOpen ? "block" : "hidden lg:block"
+                } p-3 space-y-2 max-h-[480px] overflow-y-auto`}
+              >
+                {vm.unassignedDrivers.length === 0 ? (
+                  <div className="p-8 text-center text-xs text-slate-400 font-medium">
+                    {vm.searchTerm ||
+                    vm.contractTypeFilter ||
+                    vm.campFilter ||
+                    vm.routeFilter
+                      ? "검색 조건에 맞는 기사가 없습니다."
+                      : "가용한 기사가 없습니다."}
+                  </div>
+                ) : (
+                  vm.unassignedDrivers.map((driver) => {
+                    const isDragging = draggedDriverId === driver.id;
+                    return (
+                      <div
+                        key={driver.id}
+                        draggable={canUpdate}
+                        onDragStart={() => {
+                          if (canUpdate) handleDragStart(driver.id);
+                        }}
+                        onDragEnd={handleDragEnd}
+                        onClick={() => setBulkAssignDriver(driver)}
+                        title={
+                          canUpdate
+                            ? "클릭하여 기사 근무/휴무 정보 조회 (드래그하여 노선에 직접 배정 가능)"
+                            : "클릭하여 기사 근무/휴무 정보 조회 (읽기 전용)"
+                        }
+                        className={`p-3 rounded-xl border transition select-none ${
+                          canUpdate ? "cursor-pointer" : "cursor-default"
+                        } group relative ${
+                          isDragging
+                            ? "opacity-40 border-dashed border-blue-400 bg-blue-50 cursor-grabbing"
+                            : "bg-white border-slate-200 hover:border-indigo-300 hover:shadow-xs hover:bg-slate-50/60"
+                        }`}
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                            <div className="w-8 h-8 rounded-full bg-slate-100 text-slate-700 font-bold flex items-center justify-center text-xs shrink-0 group-hover:bg-indigo-50 group-hover:text-indigo-600 transition">
+                              {driver.name.slice(0, 1)}
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-1.5">
+                                <span className="font-bold text-slate-900 text-xs truncate">
+                                  {driver.name}
+                                </span>
+                                <StatusBadge
+                                  status={driver.contractType}
+                                  size="sm"
+                                />
+                              </div>
+                              <div className="text-[10px] text-slate-500 font-mono truncate mt-0.5">
+                                {(() => {
+                                  const camps = (driver.camp || "")
+                                    .split(",")
+                                    .map((s) => s.trim())
+                                    .filter(Boolean);
+                                  const routes = (driver.routes || "")
+                                    .split(",")
+                                    .map((s) => s.trim());
+                                  if (camps.length === 0) return "미지정";
+                                  return camps
+                                    .map((c, i) =>
+                                      routes[i] ? `${c}/${routes[i]}` : c,
+                                    )
+                                    .join(", ");
+                                })()}
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-1">
+                            {canUpdate && (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setBulkAssignDriver(driver);
+                                }}
+                                className="px-2 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg text-[10px] font-bold transition flex items-center gap-1 shrink-0"
+                                title="일괄 배치 모달 열기"
+                              >
+                                <span>배치</span>
+                                <ArrowRight className="w-2.5 h-2.5" />
+                              </button>
+                            )}
+                          </div>
                         </div>
-                        {row.weekLabel && (
-                          <span className="px-1.5 py-0.5 rounded text-[10px] font-extrabold bg-blue-600 text-white shadow-2xs tracking-tight">
-                            {row.weekLabel}
-                          </span>
-                        )}
                       </div>
-                    </td>
+                    );
+                  })
+                )}
+              </div>
+            </div>
 
-                    {/* Route Slots for this Date */}
-                    {vm.routeColumns.map((col) => {
-                      const assignment = vm.getSlotAssignment(
-                        row.dateStr,
-                        col.key,
-                      );
-                      const slotKey = `${row.dateStr}_${col.key}`;
-                      const isDragOver = dragOverSlot === slotKey;
+            {/* Right Side: Matrix (Y-Axis: Date, X-Axis: Routes) */}
+            <div className="lg:col-span-9 bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full border-collapse text-left min-w-[700px]">
+                  <thead>
+                    <tr className="bg-slate-900 text-white text-xs font-bold border-b border-slate-800">
+                      {/* Y-Axis Label Header - 고정 너비 (160px) */}
+                      <th className="py-3.5 px-4 w-[160px] min-w-[160px] max-w-[160px] sticky left-0 z-20 bg-slate-900 border-r border-slate-800 shadow-xs whitespace-nowrap">
+                        <div className="flex items-center gap-2">
+                          <Clock className="w-4 h-4 text-blue-400 shrink-0" />
+                          <span>날짜 (일정)</span>
+                        </div>
+                      </th>
 
-                      return (
-                        <td
+                      {/* Route Columns Headers (X-Axis: e.g. 남3/905CD, 남4/605D ...) */}
+                      {vm.routeColumns.map((col) => (
+                        <th
                           key={col.key}
-                          onDragOver={(e) => {
-                            if (!canUpdate) return;
-                            e.preventDefault();
-                            setDragOverSlot(slotKey);
-                          }}
-                          onDragLeave={() => {
-                            if (dragOverSlot === slotKey) setDragOverSlot(null);
-                          }}
-                          onDrop={(e) => {
-                            e.preventDefault();
-                            if (!canUpdate) return;
-                            handleDropOnSlot(row.dateStr, col.key);
-                          }}
-                          onClick={() => {
-                            if (!canUpdate) return;
-                            vm.setSelectedSlot({
-                              dateStr: row.dateStr,
-                              routeKey: col.key,
-                              campName: col.campName,
-                              routeName: col.routeName,
-                              currentAssignment: assignment,
-                            });
-                          }}
-                          className={`p-2 text-center border-r border-slate-100 transition relative ${
-                            canUpdate ? "cursor-pointer" : "cursor-default"
-                          } ${
-                            isDragOver
-                              ? "bg-blue-100/80 ring-2 ring-blue-500 ring-inset"
-                              : assignment?.status === "휴무"
-                                ? assignment.backupDriverId
-                                  ? "bg-emerald-50/80 border-emerald-200 hover:bg-emerald-100/70"
-                                  : "bg-red-50/90 border-red-200 ring-1 ring-red-300/80 hover:bg-red-100/80"
-                                : assignment
-                                  ? "hover:bg-blue-50/50"
-                                  : "hover:bg-slate-100/60"
+                          className="py-3.5 px-3 text-center min-w-[130px] font-mono tracking-tight"
+                        >
+                          <div className="text-amber-300 font-bold text-xs sm:text-sm">
+                            {col.displayName}
+                          </div>
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+
+                  <tbody className="divide-y divide-slate-200 text-xs">
+                    {vm.dateRows.map((row) => (
+                      <tr
+                        key={row.dateStr}
+                        className="hover:bg-slate-50/70 transition group"
+                      >
+                        {/* Y-Axis Date Cell - 고정 너비 (160px) */}
+                        <td
+                          className={`py-3 px-4 w-[160px] min-w-[160px] max-w-[160px] sticky left-0 z-10 border-r border-slate-200 font-bold shadow-xs whitespace-nowrap ${
+                            row.isWeekend
+                              ? "bg-amber-50/80 text-amber-900"
+                              : "bg-white text-slate-900"
                           }`}
                         >
-                          {assignment ? (
-                            <div className="flex flex-col items-center justify-center gap-1 py-1">
-                              {/* 1. 휴무 + 대차 완료 상태 */}
-                              {assignment.status === "휴무" &&
-                              assignment.backupDriverId ? (
-                                <>
-                                  <span className="text-[10px] text-slate-400 line-through">
-                                    {assignment.driverName} (휴무)
-                                  </span>
-                                  <div className="flex items-center gap-1">
-                                    <span className="font-bold text-xs sm:text-sm text-emerald-950">
-                                      {assignment.backupDriverName}
-                                    </span>
-                                    <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
-                                      대차완료
-                                    </span>
-                                  </div>
-                                </>
-                              ) : assignment.status === "휴무" ? (
-                                /* 2. 휴무 + 대차 미지정 (결원 발생 중) 상태 */
-                                <>
-                                  <span className="font-bold text-xs sm:text-sm text-red-600 line-through">
-                                    {assignment.driverName}
-                                  </span>
-                                  <div className="flex items-center gap-1">
-                                    <span className="px-1.5 py-0.5 rounded text-[10px] font-extrabold bg-red-100 text-red-700 border border-red-300 animate-pulse">
-                                      대차 미지정
-                                    </span>
-                                  </div>
-                                </>
-                              ) : (
-                                /* 3. 정상 근무 배정 */
-                                <>
-                                  <span className="font-bold text-xs sm:text-sm text-slate-900">
-                                    {assignment.driverName}
-                                  </span>
-                                  <div className="flex items-center gap-1">
-                                    <StatusBadge
-                                      status={assignment.contractType as any}
-                                      size="sm"
-                                    />
-                                  </div>
-                                </>
-                              )}
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-1.5">
+                              <CalendarIcon className="w-3.5 h-3.5 text-blue-600 opacity-80" />
+                              <span className="text-xs sm:text-sm">
+                                {row.formattedDate}
+                              </span>
                             </div>
-                          ) : (
-                            <div className="py-2.5 text-slate-300 hover:text-blue-500 flex items-center justify-center gap-1 transition">
-                              <Plus className="w-3.5 h-3.5" />
-                              <span className="text-[11px]">배정</span>
-                            </div>
-                          )}
+                            {row.weekLabel && (
+                              <span className="px-1.5 py-0.5 rounded text-[10px] font-extrabold bg-blue-600 text-white shadow-2xs tracking-tight">
+                                {row.weekLabel}
+                              </span>
+                            )}
+                          </div>
                         </td>
-                      );
-                    })}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+
+                        {/* Route Slots for this Date */}
+                        {vm.routeColumns.map((col) => {
+                          const assignment = vm.getSlotAssignment(
+                            row.dateStr,
+                            col.key,
+                          );
+                          const slotKey = `${row.dateStr}_${col.key}`;
+                          const isDragOver = dragOverSlot === slotKey;
+
+                          return (
+                            <td
+                              key={col.key}
+                              onDragOver={(e) => {
+                                if (!canUpdate) return;
+                                e.preventDefault();
+                                setDragOverSlot(slotKey);
+                              }}
+                              onDragLeave={() => {
+                                if (dragOverSlot === slotKey)
+                                  setDragOverSlot(null);
+                              }}
+                              onDrop={(e) => {
+                                e.preventDefault();
+                                if (!canUpdate) return;
+                                handleDropOnSlot(row.dateStr, col.key);
+                              }}
+                              onClick={() => {
+                                if (!canUpdate) return;
+                                vm.setSelectedSlot({
+                                  dateStr: row.dateStr,
+                                  routeKey: col.key,
+                                  campName: col.campName,
+                                  routeName: col.routeName,
+                                  currentAssignment: assignment,
+                                });
+                              }}
+                              className={`p-2 text-center border-r border-slate-100 transition relative ${
+                                canUpdate ? "cursor-pointer" : "cursor-default"
+                              } ${
+                                isDragOver
+                                  ? "bg-blue-100/80 ring-2 ring-blue-500 ring-inset"
+                                  : assignment?.status === "휴무"
+                                    ? assignment.backupDriverId
+                                      ? "bg-emerald-50/80 border-emerald-200 hover:bg-emerald-100/70"
+                                      : "bg-red-50/90 border-red-200 ring-1 ring-red-300/80 hover:bg-red-100/80"
+                                    : assignment
+                                      ? "hover:bg-blue-50/50"
+                                      : "hover:bg-slate-100/60"
+                              }`}
+                            >
+                              {assignment ? (
+                                <div className="flex flex-col items-center justify-center gap-1 py-1">
+                                  {/* 1. 휴무 + 대차 완료 상태 */}
+                                  {assignment.status === "휴무" &&
+                                  assignment.backupDriverId ? (
+                                    <>
+                                      <span className="text-[10px] text-slate-400 line-through">
+                                        {assignment.driverName}
+                                      </span>
+                                      <div className="flex items-center gap-1">
+                                        <span className="font-extrabold text-emerald-700 text-xs">
+                                          {assignment.backupDriverName}
+                                        </span>
+                                        <span className="px-1 py-0.2 rounded text-[9px] bg-emerald-100 text-emerald-800 font-bold">
+                                          대차
+                                        </span>
+                                      </div>
+                                    </>
+                                  ) : assignment.status === "휴무" ? (
+                                    /* 2. 휴무 + 대차 미지정 (결원 발생) */
+                                    <>
+                                      <span className="text-[10px] text-slate-400 line-through">
+                                        {assignment.driverName}
+                                      </span>
+                                      <span className="text-[10px] font-bold text-red-600 animate-pulse bg-red-100/80 px-1.5 py-0.5 rounded">
+                                        대차 미지정
+                                      </span>
+                                    </>
+                                  ) : (
+                                    /* 3. 일반 배정 (고정 / 용차) */
+                                    <>
+                                      <span className="font-bold text-slate-900 text-xs">
+                                        {assignment.driverName}
+                                      </span>
+                                      <StatusBadge
+                                        status={
+                                          (assignment.contractType ||
+                                            assignment.status) as any
+                                        }
+                                        size="sm"
+                                      />
+                                    </>
+                                  )}
+                                </div>
+                              ) : (
+                                <div className="text-[10px] text-slate-300 font-mono py-2 select-none group-hover:text-slate-400 transition">
+                                  -
+                                </div>
+                              )}
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
           </div>
-        </div>
-      </div>
 
-      {/* Bottom Main Action CTA Banner: 화면 최하단 저장 및 배차표 발급 버튼 */}
-      <div className="pt-2 pb-4 flex flex-col sm:flex-row items-center gap-3">
-        {canUpdate && (
-          <button
-            disabled={vm.isSavingRoster}
-            onClick={vm.handleSaveMonthlySchedule}
-            className="w-full sm:flex-1 py-4 px-6 rounded-2xl bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-black text-sm sm:text-base shadow-lg shadow-blue-600/20 hover:shadow-xl transition-all flex items-center justify-center gap-2.5 cursor-pointer disabled:opacity-50"
-          >
-            {vm.isSavingRoster ? (
-              <RotateCcw className="w-5 h-5 animate-spin text-white" />
-            ) : (
-              <Save className="w-5 h-5 text-white" />
+          {/* Bottom Action Footer (근무표 DB 저장 & 발급) */}
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2">
+            {canUpdate && (
+              <button
+                onClick={vm.handleSaveMonthlySchedule}
+                disabled={vm.isSavingRoster}
+                className="w-full sm:flex-1 py-4 px-6 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-sm sm:text-base shadow-lg transition-all flex items-center justify-center gap-2.5 cursor-pointer disabled:opacity-50"
+              >
+                <Save className="w-5 h-5 text-emerald-200" />
+                <span>
+                  {vm.isSavingRoster
+                    ? "DB에 저장 중..."
+                    : `${vm.selectedDate.slice(0, 7)} 근무표 저장`}
+                </span>
+              </button>
             )}
-            <span>
-              {vm.isSavingRoster
-                ? "DB에 저장 중..."
-                : `${vm.selectedDate.slice(0, 7)} 근무표 DB 저장`}
-            </span>
-          </button>
-        )}
 
-        <button
-          onClick={() => setIsFinalizeModalOpen(true)}
-          className={`w-full ${
-            canUpdate ? "sm:flex-1 bg-slate-900 hover:bg-slate-800 text-white" : "bg-blue-600 hover:bg-blue-700 text-white"
-          } py-4 px-6 rounded-2xl font-black text-sm sm:text-base shadow-lg transition-all flex items-center justify-center gap-2.5 cursor-pointer`}
-        >
-          <FileText className="w-5 h-5 text-blue-300" />
-          <span>
-            {vm.selectedDate.slice(0, 7)} 기사별 배차표 발급 (PDF / 이미지)
-          </span>
-          <Download className="w-4 h-4 text-blue-300" />
-        </button>
-      </div>
+            <button
+              onClick={() => setIsFinalizeModalOpen(true)}
+              className={`w-full ${
+                canUpdate
+                  ? "sm:flex-1 bg-slate-900 hover:bg-slate-800 text-white"
+                  : "bg-blue-600 hover:bg-blue-700 text-white"
+              } py-4 px-6 rounded-2xl font-black text-sm sm:text-base shadow-lg transition-all flex items-center justify-center gap-2.5 cursor-pointer`}
+            >
+              <FileText className="w-5 h-5 text-blue-300" />
+              <span>{vm.selectedDate.slice(0, 7)} 이미지 저장</span>
+              <Download className="w-4 h-4 text-blue-300" />
+            </button>
+          </div>
+        </>
+      )}
 
       {/* Slot Assign & State Change Modal */}
       {vm.selectedSlot && (
@@ -727,12 +780,15 @@ export const ScheduleGridView: React.FC = () => {
       {/* 드래그 앤 드롭 고정 휴무자 노선 배치 확인 팝업 (취소 / 배치) */}
       <FixedHolidayConfirmModal
         isOpen={!!dragConfirmData}
-        driverName={dragConfirmData?.driver.name || ''}
-        dateStr={dragConfirmData?.dateStr || ''}
-        targetRouteName={dragConfirmData?.routeKey || ''}
+        driverName={dragConfirmData?.driver.name || ""}
+        dateStr={dragConfirmData?.dateStr || ""}
+        targetRouteName={dragConfirmData?.routeKey || ""}
         fixedHolidayInfo={
           dragConfirmData
-            ? getDriverFixedHolidayOnDate(dragConfirmData.driver, dragConfirmData.dateStr)
+            ? getDriverFixedHolidayOnDate(
+                dragConfirmData.driver,
+                dragConfirmData.dateStr,
+              )
             : undefined
         }
         onClose={() => setDragConfirmData(null)}
@@ -760,6 +816,19 @@ export const ScheduleGridView: React.FC = () => {
               }
             : undefined
         }
+      />
+
+      {/* DB 저장 진행 상태 모달 */}
+      <SaveProgressModal
+        isOpen={vm.isSavingRoster || vm.saveProgress.step === "done" || vm.saveProgress.step === "error"}
+        state={vm.saveProgress}
+        targetMonth={vm.selectedDate.slice(0, 7)}
+        onClose={() => {
+          if (vm.saveProgress.step === "done") {
+            vm.showToast("success", `${vm.selectedDate.slice(0, 7)} 근무표가 DB에 성공적으로 저장되었습니다.`);
+          }
+          vm.setSaveProgress({ step: "idle", totalItems: 0, insertedItems: 0 });
+        }}
       />
     </div>
   );
