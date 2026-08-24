@@ -53,6 +53,7 @@ export interface ScheduleShift {
 export interface BackupAssignment {
   id: number;
   date: string;
+  campName?: string;
   routeNumber: string;
   originalDriverId: number;
   originalDriverName: string;
@@ -60,12 +61,14 @@ export interface BackupAssignment {
   backupDriverName: string;
   note?: string;
   createdAt: string;
+  updatedAt?: string;
 }
 
 export interface OffDayRecord {
   id: number;
   driverId: number;
   driverName: string;
+  campName?: string;
   routeNumber: string;
   date: string;
   backupAssigned: boolean;
@@ -100,6 +103,7 @@ export interface UpdateShiftStatusDTO {
 
 export interface AssignBackupDTO {
   date: string;
+  campName?: string;
   routeNumber: string;
   originalDriverId: number;
   backupDriverId: number;

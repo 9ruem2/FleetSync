@@ -56,6 +56,7 @@ export const scheduleShifts = pgTable(
 export const backupAssignments = pgTable('backup_assignments', {
   id: serial('id').primaryKey(),
   date: text('date').notNull(),
+  campName: text('camp_name'),
   routeNumber: text('route_number').notNull(),
   originalDriverId: integer('original_driver_id').notNull().references(() => drivers.id),
   originalDriverName: text('original_driver_name').notNull(),
@@ -63,6 +64,7 @@ export const backupAssignments = pgTable('backup_assignments', {
   backupDriverName: text('backup_driver_name').notNull(),
   note: text('note'),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });
 
 export type CompanyRow = typeof companies.$inferSelect;
