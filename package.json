@@ -3,8 +3,8 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "dev": "netlify dev",
-    "dev:legacy": "concurrently -k -n \"BACKEND,FRONTEND\" -c \"blue,cyan\" \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "dev": "vercel dev",
+    "dev:local": "concurrently -k -n \"BACKEND,FRONTEND\" -c \"blue,cyan\" \"npm run dev:backend\" \"npm run dev:frontend\"",
     "dev:backend": "npm --prefix backend run dev",
     "dev:frontend": "npm --prefix frontend run dev",
     "build": "npm run build:frontend",
@@ -20,13 +20,11 @@
     "concurrently": "^8.2.2",
     "dotenv": "^17.4.2",
     "drizzle-kit": "^1.0.0-beta.22",
-    "netlify-cli": "^27.1.1"
+    "vercel": "^39.3.0"
   },
   "dependencies": {
-    "@netlify/functions": "^5.3.0",
     "@supabase/supabase-js": "^2.112.3",
     "cors": "^2.8.5",
-    "dotenv": "^16.4.5",
     "drizzle-orm": "^1.0.0-beta.22",
     "postgres": "^3.4.9"
   }

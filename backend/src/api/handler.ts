@@ -35,11 +35,7 @@ export async function handleApiRequest(req: Request): Promise<Response> {
   }
 
   const url = new URL(req.url);
-  let rawPath = url.pathname.replace(/\/$/, '') || '/';
-  if (rawPath.startsWith('/.netlify/functions/api')) {
-    rawPath = rawPath.replace('/.netlify/functions/api', '/api');
-  }
-  const path = rawPath;
+  const path = url.pathname.replace(/\/$/, '') || '/';
   const method = req.method;
 
   try {
