@@ -5,6 +5,7 @@ import { ApiService } from '../services/apiService';
 import { matchesDriverSearch } from '../utils/searchFilter';
 import { parseRoutes, parseCamps, getShortCampName } from '../utils/routeUtils';
 import { isDateMatchingFixedHoliday, getDriverFixedHolidayOnDate } from '../utils/fixedHolidayUtils';
+import type { SaveProgressState } from '../views/schedule/SaveProgressModal';
 
 export type ScheduleViewMode = 'weekly' | 'monthly';
 
@@ -177,11 +178,13 @@ export function useScheduleViewModel() {
         }
       } catch {}
 
-      const [driverList, gridData, campsData, routesData] = await Promise.all([
+      const targetMonth = selectedDate.slice(0, 7);
+      const [driverList, gridData, campsData, routesData, rosters] = await Promise.all([
         ApiService.getDrivers(undefined, undefined, undefined, campsParam).catch(() => []),
         ApiService.getScheduleGrid(startDate, endDate, campsParam).catch(() => []),
         ApiService.getCamps().catch(() => []),
         ApiService.getRoutes().catch(() => []),
+        ApiService.getMonthlyRosters().catch(() => []),
       ]);
 
       let filteredCamps = campsData;
@@ -229,15 +232,18 @@ export function useScheduleViewModel() {
 
       // DB에 저장된 월별 근무표(Monthly Roster)가 있다면 slotAssignments에 자동 복원
       try {
-        const targetMonth = selectedDate.slice(0, 7);
-        const rosters = await ApiService.getMonthlyRosters().catch(() => []);
-        const matchedRoster = rosters.find((r) => r.targetMonth === targetMonth);
+        const matchedRoster = (rosters || []).find((r: any) => r.targetMonth === targetMonth);
         if (matchedRoster) {
           const detail = await ApiService.getMonthlyRosterById(matchedRoster.id).catch(() => null);
           if (detail && Array.isArray(detail.items) && detail.items.length > 0) {
             setSlotAssignments((prev) => {
               const next = { ...prev };
               detail.items!.forEach((it) => {
+                const [cName] = (it.routeKey || '').split('/');
+                if (allowedCampNames && cName && !allowedCampNames.includes(cName.toLowerCase().trim())) {
+                  return;
+                }
+
                 const targetKey = `${it.date}_${it.routeKey}`;
                 if (it.driverId) {
                   next[targetKey] = {
@@ -824,6 +830,44 @@ export function useScheduleViewModel() {
     }
   };
 
+  // 현재 기간(또는 담당 캠프 범위)의 모든 배차 내역 전체 초기화
+  const handleResetAllAssignments = async () => {
+    if (!canUpdate) {
+      showToast('error', '수정 권한이 없습니다. (조회 전용)');
+      return;
+    }
+
+    try {
+      setSlotAssignments((prev) => {
+        const next = { ...prev };
+        Object.keys(next).forEach((key) => {
+          const hasCurrentDate = dateRows.some((r) => key.startsWith(`${r.dateStr}_`));
+          if (hasCurrentDate) {
+            if (allowedCampNames && allowedCampNames.length > 0) {
+              const parts = key.split('_');
+              const routeKey = parts.slice(1).join('_');
+              const [cName] = routeKey.split('/');
+              if (allowedCampNames.includes((cName || '').toLowerCase().trim())) {
+                delete next[key];
+              }
+            } else {
+              delete next[key];
+            }
+          }
+        });
+        return next;
+      });
+
+      showToast(
+        'success',
+        '현재 기간의 모든 노선 배정이 초기화되었습니다. 변경사항을 확정하려면 [근무 확정 저장]을 눌러주세요.'
+      );
+    } catch (err: any) {
+      console.error('[handleResetAllAssignments error]:', err);
+      showToast('error', '배차 전체 초기화에 실패했습니다.');
+    }
+  };
+
   // 단일 기사의 정기 패턴을 현재 화면의 날짜들에 자동 배차
   const handleAssignSingleDriverRegularPattern = async (driverId: number) => {
     if (!canUpdate) {
@@ -920,8 +964,13 @@ export function useScheduleViewModel() {
   };
 
   const [isSavingRoster, setIsSavingRoster] = useState(false);
+  const [saveProgress, setSaveProgress] = useState<SaveProgressState>({
+    step: 'idle',
+    totalItems: 0,
+    insertedItems: 0,
+  });
 
-  // 현재달/다음달 근무표 계획 DB 최종 저장
+  // 현재달/다음달 근무표 계획 DB 최종 저장 (단계별 progress 업데이트 포함)
   const handleSaveMonthlySchedule = async () => {
     const targetMonth = selectedDate.slice(0, 7);
     if (!canUpdate) {
@@ -929,8 +978,11 @@ export function useScheduleViewModel() {
       return;
     }
 
+    setSaveProgress({ step: 'preparing', totalItems: 0, insertedItems: 0 });
+    setIsSavingRoster(true);
+
     try {
-      setIsSavingRoster(true);
+      // Step 1: 데이터 준비
       const items = Object.entries(slotAssignments)
         .filter(([key]) => key.startsWith(targetMonth))
         .map(([key, slot]) => {
@@ -938,7 +990,6 @@ export function useScheduleViewModel() {
           const date = splitIdx !== -1 ? key.slice(0, splitIdx) : targetMonth + '-01';
           const routeKey = splitIdx !== -1 ? key.slice(splitIdx + 1) : '';
           const [campName, routeName] = routeKey.split('/');
-
           return {
             date,
             campName: campName || '',
@@ -953,6 +1004,19 @@ export function useScheduleViewModel() {
           };
         });
 
+      setSaveProgress({ step: 'pruning', totalItems: items.length, insertedItems: 0 });
+      // pruning 단계 시각 효과 (UI에 없는 실제 대기 시간 최소화)
+      await new Promise((r) => setTimeout(r, 50));
+
+      setSaveProgress({ step: 'deleting_old', totalItems: items.length, insertedItems: 0 });
+      await new Promise((r) => setTimeout(r, 50));
+
+      setSaveProgress({ step: 'inserting_master', totalItems: items.length, insertedItems: 0 });
+      await new Promise((r) => setTimeout(r, 50));
+
+      setSaveProgress({ step: 'inserting_items', totalItems: items.length, insertedItems: 0 });
+
+      // 실제 API 호울 (백엔드에서 통합 처리)
       await ApiService.createMonthlyRoster({
         targetMonth,
         title: `${targetMonth} 정기 배차표`,
@@ -960,10 +1024,17 @@ export function useScheduleViewModel() {
         items,
       });
 
-      showToast('success', `${targetMonth} 근무표가 데이터베이스에 성공적으로 저장되었습니다.`);
+      setSaveProgress({ step: 'inserting_items', totalItems: items.length, insertedItems: items.length });
+      await new Promise((r) => setTimeout(r, 100));
+
+      setSaveProgress({ step: 'done', totalItems: items.length, insertedItems: items.length });
     } catch (err: any) {
       console.error('[handleSaveMonthlySchedule error]:', err);
-      showToast('error', err.message || '근무표 저장 중 오류가 발생했습니다.');
+      setSaveProgress((prev) => ({
+        ...prev,
+        step: 'error',
+        errorMessage: err.message || '근무표 저장 중 오류가 발생했습니다.',
+      }));
     } finally {
       setIsSavingRoster(false);
     }
@@ -980,6 +1051,8 @@ export function useScheduleViewModel() {
     canDelete,
     isSavingRoster,
     handleSaveMonthlySchedule,
+    saveProgress,
+    setSaveProgress,
     drivers,
     filteredDrivers,
     unassignedDrivers,
@@ -1006,6 +1079,7 @@ export function useScheduleViewModel() {
     handleAssignDriver,
     handleBulkAssignDriver,
     handleAutoAssignAllRegularPatterns,
+    handleResetAllAssignments,
     handleAssignSingleDriverRegularPattern,
     handleUnassignDriver,
     handleSetOffDay,

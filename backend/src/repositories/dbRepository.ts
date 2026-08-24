@@ -2096,7 +2096,10 @@ class MonthlyRosterRepository {
       const sb = getDb();
 
       // [3개월 데이터 보관 정책]: 이전달, 현재달, 다음달 범위 외의 오래된/미래 데이터 자동 정리
-      await pruneDataOutsideRolling3MonthsWindow();
+      // [3개월 데이터 보관 정책]: fire-and-forget으로 처리 (저장 속도 최적화)
+      pruneDataOutsideRolling3MonthsWindow().catch((e) =>
+        console.warn('[pruneDataOutsideRolling3MonthsWindow background]:', e)
+      );
 
       // 동일 target_month의 기존 근무표가 있다면 덮어쓰기 위해 이전 레코드 정리
       await sb.from("monthly_rosters").delete().eq("target_month", dto.targetMonth);
@@ -2138,18 +2141,24 @@ class MonthlyRosterRepository {
           backup_driver_name: it.backupDriverName || null,
         }));
 
-        // 100개씩 chunk 분할 insert
-        for (let i = 0; i < itemRows.length; i += 100) {
-          const chunk = itemRows.slice(i, i + 100);
-          const { error: itemsErr } = await sb
-            .from("monthly_roster_items")
-            .insert(chunk);
-          if (itemsErr)
-            console.error(
-              "[MonthlyRosterRepository item insert error]:",
-              itemsErr,
-            );
+        // 200개씩 chunk 분할 후 병렬 insert (속도 최적화)
+        const CHUNK_SIZE = 200;
+        const chunks: typeof itemRows[] = [];
+        for (let i = 0; i < itemRows.length; i += CHUNK_SIZE) {
+          chunks.push(itemRows.slice(i, i + CHUNK_SIZE));
         }
+        await Promise.all(
+          chunks.map(async (chunk) => {
+            const { error: itemsErr } = await sb
+              .from("monthly_roster_items")
+              .insert(chunk);
+            if (itemsErr)
+              console.error(
+                "[MonthlyRosterRepository item insert error]:",
+                itemsErr,
+              );
+          })
+        );
       }
 
       const created: MonthlyRoster = {
