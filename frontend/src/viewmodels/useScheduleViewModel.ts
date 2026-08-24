@@ -270,7 +270,32 @@ export function useScheduleViewModel() {
     loadData();
   }, [loadData]);
 
-  // 캠프/라우트 열 목록 (X축) - 마스터에 등록된 캠프/라우트 + 기사 등록 캠프/라우트 모두 통합
+  // 사용자 권한 및 담당 캠프 범위 조회
+  const session = useMemo(() => {
+    try {
+      const saved = localStorage.getItem("fleetsync_session");
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
+  }, []);
+
+  const allowedCampNames = useMemo(() => {
+    if (session?.permissions?.isAllCampsAccessible === false && session?.permissions?.assignedCampNames?.length > 0) {
+      return session.permissions.assignedCampNames.map((c: string) => c.toLowerCase().trim());
+    }
+    return null;
+  }, [session]);
+
+  const now = new Date();
+  const currentMonthStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  const isPreviousMonth = selectedDate.slice(0, 7) < currentMonthStr;
+
+  const canCreate = (session?.permissions?.canCreate ?? true) && !isPreviousMonth;
+  const canUpdate = (session?.permissions?.canUpdate ?? true) && !isPreviousMonth;
+  const canDelete = (session?.permissions?.canDelete ?? true) && !isPreviousMonth;
+
+  // 캠프/라우트 열 목록 (X축) - 담당 캠프만 엄격하게 필터링
   const routeColumns = useMemo<RouteColumn[]>(() => {
     const colMap = new Map<string, RouteColumn>();
 
@@ -279,6 +304,9 @@ export function useScheduleViewModel() {
     masterRoutes.forEach(r => {
       const campName = campMap.get(r.campId);
       if (campName) {
+        if (allowedCampNames && !allowedCampNames.includes(campName.toLowerCase().trim())) {
+          return; // 담당 캠프 외 제외
+        }
         const key = `${campName}/${r.name}`;
         const shortCamp = getShortCampName(campName);
         colMap.set(key, {
@@ -290,11 +318,14 @@ export function useScheduleViewModel() {
       }
     });
 
-    // 2. 기사에게 배정된 캠프/라우터도 누락 없이 추가
+    // 2. 기사에게 배정된 캠프/라우터도 누락 없이 추가 (담당 캠프만)
     drivers.forEach(d => {
       const camps = parseCamps(d.camp);
       const routes = parseRoutes(d.routes);
       camps.forEach((camp, i) => {
+        if (allowedCampNames && !allowedCampNames.includes(camp.toLowerCase().trim())) {
+          return; // 담당 캠프 외 제외
+        }
         const route = routes[i] || routes[0] || '기본';
         const key = `${camp}/${route}`;
         if (!colMap.has(key)) {
@@ -327,15 +358,19 @@ export function useScheduleViewModel() {
     });
 
     return cols;
-  }, [masterCamps, masterRoutes, drivers, campFilter, routeFilter]);
+  }, [masterCamps, masterRoutes, drivers, campFilter, routeFilter, allowedCampNames]);
 
-  // 필터 옵션: 회사에 등록된 모든 캠프를 완벽하게 표시
+  // 필터 옵션: 담당 캠프 목록만 완벽하게 표시
   const availableCamps = useMemo(() => {
+    if (allowedCampNames && session?.permissions?.assignedCampNames?.length > 0) {
+      return [...session.permissions.assignedCampNames].sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+    }
+
     const set = new Set<string>();
     masterCamps.forEach(c => set.add(c.name));
     drivers.forEach(d => parseCamps(d.camp).forEach(c => set.add(c)));
     return Array.from(set).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
-  }, [masterCamps, drivers]);
+  }, [masterCamps, drivers, allowedCampNames, session]);
 
   // 필터 옵션: 선택된 캠프에 등록된 모든 라우터 표시
   const availableRoutes = useMemo(() => {
@@ -411,24 +446,6 @@ export function useScheduleViewModel() {
     },
     [slotAssignments, shiftsMap]
   );
-
-  // 사용자 권한 조회
-  const session = useMemo(() => {
-    try {
-      const saved = localStorage.getItem("fleetsync_session");
-      return saved ? JSON.parse(saved) : null;
-    } catch {
-      return null;
-    }
-  }, []);
-
-  const now = new Date();
-  const currentMonthStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-  const isPreviousMonth = selectedDate.slice(0, 7) < currentMonthStr;
-
-  const canCreate = (session?.permissions?.canCreate ?? true) && !isPreviousMonth;
-  const canUpdate = (session?.permissions?.canUpdate ?? true) && !isPreviousMonth;
-  const canDelete = (session?.permissions?.canDelete ?? true) && !isPreviousMonth;
 
   // 미배정 / 가용 기사 목록
   const unassignedDrivers = useMemo(() => {
