@@ -1817,6 +1817,50 @@ import {
   UpdateMonthlyRosterDTO,
 } from "../types";
 
+/**
+ * 3개월 데이터 보관 정책 (이전달, 현재달, 다음달 데이터만 유지)
+ * 대상 테이블: monthly_rosters (CASCADE -> monthly_roster_items), schedule_shifts, backup_assignments
+ */
+export async function pruneDataOutsideRolling3MonthsWindow(): Promise<void> {
+  try {
+    const sb = getDb();
+    const now = new Date();
+    const current = new Date(now.getFullYear(), now.getMonth(), 1);
+    const prev = new Date(current.getFullYear(), current.getMonth() - 1, 1);
+    const next = new Date(current.getFullYear(), current.getMonth() + 1, 1);
+    const nextEnd = new Date(current.getFullYear(), current.getMonth() + 2, 0);
+
+    const formatMonth = (d: Date) =>
+      `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+    const formatDate = (d: Date) =>
+      `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+
+    const validMonths = [
+      formatMonth(prev),
+      formatMonth(current),
+      formatMonth(next),
+    ];
+    const minDate = formatDate(prev); // 이전달 1일
+    const maxDate = formatDate(nextEnd); // 다음달 말일
+
+    // 1. monthly_rosters: 3개월 범위 밖의 근무표 자동 정리
+    await sb
+      .from("monthly_rosters")
+      .delete()
+      .not("target_month", "in", `(${validMonths.map((m) => `'${m}'`).join(",")})`);
+
+    // 2. schedule_shifts: 이전달 1일 이전 / 다음달 말일 이후 근무 기록 정리
+    await sb.from("schedule_shifts").delete().lt("date", minDate);
+    await sb.from("schedule_shifts").delete().gt("date", maxDate);
+
+    // 3. backup_assignments: 이전달 1일 이전 / 다음달 말일 이후 대차 배정 정리
+    await sb.from("backup_assignments").delete().lt("date", minDate);
+    await sb.from("backup_assignments").delete().gt("date", maxDate);
+  } catch (err) {
+    console.warn("[pruneDataOutsideRolling3MonthsWindow warning]:", err);
+  }
+}
+
 class MonthlyRosterRepository {
   // 메모리 폴백 캐시 (DB 테이블 최초 생성 전 또는 통신 장애 대비)
   private fallbackRosters: Map<number, MonthlyRoster> = new Map();
@@ -1916,6 +1960,13 @@ class MonthlyRosterRepository {
 
     try {
       const sb = getDb();
+
+      // [3개월 데이터 보관 정책]: 이전달, 현재달, 다음달 범위 외의 오래된/미래 데이터 자동 정리
+      await pruneDataOutsideRolling3MonthsWindow();
+
+      // 동일 target_month의 기존 근무표가 있다면 덮어쓰기 위해 이전 레코드 정리
+      await sb.from("monthly_rosters").delete().eq("target_month", dto.targetMonth);
+
       // 1. Master Insert
       const { data: insertedMaster, error: masterErr } = await sb
         .from("monthly_rosters")

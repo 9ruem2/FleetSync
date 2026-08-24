@@ -197,13 +197,45 @@ export function useScheduleViewModel() {
         });
       });
       setShiftsMap(sMap);
+
+      // DB에 저장된 월별 근무표(Monthly Roster)가 있다면 slotAssignments에 자동 복원
+      try {
+        const targetMonth = selectedDate.slice(0, 7);
+        const rosters = await ApiService.getMonthlyRosters().catch(() => []);
+        const matchedRoster = rosters.find((r) => r.targetMonth === targetMonth);
+        if (matchedRoster) {
+          const detail = await ApiService.getMonthlyRosterById(matchedRoster.id).catch(() => null);
+          if (detail && Array.isArray(detail.items) && detail.items.length > 0) {
+            setSlotAssignments((prev) => {
+              const next = { ...prev };
+              detail.items!.forEach((it) => {
+                const targetKey = `${it.date}_${it.routeKey}`;
+                if (it.driverId) {
+                  next[targetKey] = {
+                    driverId: it.driverId,
+                    driverName: it.driverName || '',
+                    contractType: it.contractType as any,
+                    status: it.status,
+                    backupAssigned: !!it.backupDriverId,
+                    backupDriverId: it.backupDriverId,
+                    backupDriverName: it.backupDriverName,
+                  };
+                }
+              });
+              return next;
+            });
+          }
+        }
+      } catch (rosterErr) {
+        console.warn('[loadData monthly roster restore error]:', rosterErr);
+      }
     } catch (err: any) {
       console.error('[loadData error]:', err);
       setError(err.message || '스케줄 데이터를 불러올 수 없습니다.');
     } finally {
       setLoading(false);
     }
-  }, [startDate, endDate]);
+  }, [startDate, endDate, selectedDate]);
 
   useEffect(() => {
     loadData();
@@ -685,11 +717,156 @@ export function useScheduleViewModel() {
           `정기 노선 패턴에 따라 ${driversWithPatterns.length}명의 기사가 총 ${totalAssignedCount}개 슬롯에 자동 배치되었습니다.`
         );
       } else {
-        showToast('error', '현재 표시된 기간에 매칭되는 정기 노선 배정 건이 없습니다.');
+        showToast('error', '현재 조회된 스케줄 기간에 매칭되는 정기 패턴 일자가 없습니다.');
       }
     } catch (err: any) {
       console.error('[handleAutoAssignAllRegularPatterns error]:', err);
       showToast('error', err.message || '정기 패턴 일괄 배치에 실패했습니다.');
+    }
+  };
+
+  // 단일 기사의 정기 패턴을 현재 화면의 날짜들에 자동 배차
+  const handleAssignSingleDriverRegularPattern = async (driverId: number) => {
+    try {
+      const driver = drivers.find((d) => d.id === driverId);
+      if (!driver) return;
+      const patterns = driver.routePatterns || [];
+      if (patterns.length === 0) {
+        showToast(
+          'error',
+          `${driver.name} 기사에게 등록된 정기 노선 패턴이 없습니다. 기사 관리에서 먼저 등록해주세요.`
+        );
+        return;
+      }
+
+      let totalAssignedCount = 0;
+      const apiCalls: Promise<any>[] = [];
+
+      setSlotAssignments((prev) => {
+        const next = { ...prev };
+
+        dateRows.forEach((row) => {
+          const dateStr = row.dateStr;
+
+          // 1. 해당 일자가 기사의 고정 휴무인지 확인 -> 휴무면 자동 스킵
+          const isHoliday = !!getDriverFixedHolidayOnDate(driver, dateStr);
+          if (isHoliday) return;
+
+          // 2. 해당 일자에 매칭되는 정기 패턴 찾기
+          const matchedPattern = patterns.find((p) =>
+            isDateMatchingFixedHoliday(dateStr, p.weekCycle, p.dayOfWeek)
+          );
+
+          if (matchedPattern && (matchedPattern.campName || matchedPattern.routeName)) {
+            const targetRouteKey = `${matchedPattern.campName}/${matchedPattern.routeName}`;
+            const targetSlotKey = `${dateStr}_${targetRouteKey}`;
+
+            // 기존 해당 날짜의 기사 배정 정리
+            Object.keys(next).forEach((key) => {
+              if (key.startsWith(`${dateStr}_`)) {
+                if (next[key].driverId === driver.id) {
+                  delete next[key];
+                } else if (next[key].backupDriverId === driver.id) {
+                  next[key] = {
+                    ...next[key],
+                    backupAssigned: false,
+                    backupDriverId: undefined,
+                    backupDriverName: undefined,
+                    backupContractType: undefined,
+                  };
+                }
+              }
+            });
+
+            next[targetSlotKey] = {
+              driverId: driver.id,
+              driverName: driver.name,
+              contractType: driver.contractType,
+              status: driver.contractType as ShiftStatus,
+            };
+
+            totalAssignedCount++;
+            apiCalls.push(
+              ApiService.updateShiftCell(
+                driver.id,
+                dateStr,
+                driver.contractType as ShiftStatus
+              ).catch((e) => console.warn(e))
+            );
+          }
+        });
+
+        return next;
+      });
+
+      await Promise.all(apiCalls);
+
+      if (totalAssignedCount > 0) {
+        showToast(
+          'success',
+          `${driver.name} 기사의 정기 패턴이 현재 스케줄(총 ${totalAssignedCount}일)에 자동 배치되었습니다.`
+        );
+      } else {
+        showToast('error', '현재 스케줄 기간에 매칭되는 정기 패턴 일자가 없습니다.');
+      }
+    } catch (err: any) {
+      console.error('[handleAssignSingleDriverRegularPattern error]:', err);
+      showToast('error', err.message || '정기 패턴 배치에 실패했습니다.');
+    }
+  };
+
+  // 현재 선택된 년월이 이전달인지 여부 판별 (이전달은 수정/삭제 불가, 조회만 가능)
+  const now = new Date();
+  const currentMonthStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  const isPreviousMonth = selectedDate.slice(0, 7) < currentMonthStr;
+
+  const [isSavingRoster, setIsSavingRoster] = useState(false);
+
+  // 현재달/다음달 근무표 계획 DB 최종 저장
+  const handleSaveMonthlySchedule = async () => {
+    const targetMonth = selectedDate.slice(0, 7);
+    if (isPreviousMonth) {
+      showToast('error', '이전달 근무표는 수정 및 저장이 불가합니다. (조회 전용)');
+      return;
+    }
+
+    try {
+      setIsSavingRoster(true);
+      const items = Object.entries(slotAssignments)
+        .filter(([key]) => key.startsWith(targetMonth))
+        .map(([key, slot]) => {
+          const splitIdx = key.indexOf('_');
+          const date = splitIdx !== -1 ? key.slice(0, splitIdx) : targetMonth + '-01';
+          const routeKey = splitIdx !== -1 ? key.slice(splitIdx + 1) : '';
+          const [campName, routeName] = routeKey.split('/');
+
+          return {
+            date,
+            campName: campName || '',
+            routeName: routeName || '',
+            routeKey,
+            driverId: slot.driverId,
+            driverName: slot.driverName,
+            contractType: slot.contractType,
+            status: slot.status,
+            backupDriverId: slot.backupDriverId,
+            backupDriverName: slot.backupDriverName,
+          };
+        });
+
+      await ApiService.createMonthlyRoster({
+        targetMonth,
+        title: `${targetMonth} 정기 배차표`,
+        status: 'approved',
+        items,
+      });
+
+      showToast('success', `${targetMonth} 근무표가 데이터베이스에 성공적으로 저장되었습니다.`);
+    } catch (err: any) {
+      console.error('[handleSaveMonthlySchedule error]:', err);
+      showToast('error', err.message || '근무표 저장 중 오류가 발생했습니다.');
+    } finally {
+      setIsSavingRoster(false);
     }
   };
 
@@ -698,6 +875,9 @@ export function useScheduleViewModel() {
     setViewMode,
     selectedDate,
     setSelectedDate,
+    isPreviousMonth,
+    isSavingRoster,
+    handleSaveMonthlySchedule,
     drivers,
     filteredDrivers,
     unassignedDrivers,
@@ -724,6 +904,7 @@ export function useScheduleViewModel() {
     handleAssignDriver,
     handleBulkAssignDriver,
     handleAutoAssignAllRegularPatterns,
+    handleAssignSingleDriverRegularPattern,
     handleUnassignDriver,
     handleSetOffDay,
     handleAssignBackup,

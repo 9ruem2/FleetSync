@@ -2,7 +2,8 @@ import React from 'react';
 import { Driver } from '../../models/driver.model';
 import { SlotAssignment } from '../../viewmodels/useScheduleViewModel';
 import { getShortCampName } from '../../utils/routeUtils';
-import { Truck, Calendar, User, Phone, MapPin } from 'lucide-react';
+import { getDriverFixedHolidayOnDate } from '../../utils/fixedHolidayUtils';
+import { Truck } from 'lucide-react';
 
 interface Props {
   driver: Driver;
@@ -63,8 +64,8 @@ export const DriverMonthlyScheduleCard: React.FC<Props> = ({
       }
     });
 
-    let status = '미배정';
-    let routeDisplay = '-';
+    let status = '휴무';
+    let routeDisplay = '휴무';
     let originalDriverName = undefined;
 
     if (matchedSlot) {
@@ -79,11 +80,17 @@ export const DriverMonthlyScheduleCard: React.FC<Props> = ({
         workDays++;
       } else if ((matchedSlot as any).status === '휴무') {
         status = '휴무';
+        routeDisplay = '휴무';
         offDays++;
       } else {
         status = (matchedSlot as any).contractType || (matchedSlot as any).status || '고정';
         workDays++;
       }
+    } else {
+      // 배정된 노선이 없는 날: 고정 휴무일 및 기본 휴무로 처리
+      status = '휴무';
+      routeDisplay = '휴무';
+      offDays++;
     }
 
     dailySchedule.push({
@@ -103,7 +110,7 @@ export const DriverMonthlyScheduleCard: React.FC<Props> = ({
       id={`driver-schedule-card-${driver.id}`}
       className="bg-white text-slate-900 rounded-3xl border border-slate-200 shadow-xl p-6 sm:p-8 max-w-2xl w-full mx-auto font-['Pretendard',sans-serif]"
     >
-      {/* Header Banner - 불필요한 메타데이터 제거하고 기사명과 년/월만 심플하게 표시 */}
+      {/* Header Banner - 기사명과 년/월 표시 */}
       <div className="flex items-center justify-between border-b-2 border-slate-900 pb-4 mb-5">
         <div className="flex items-center gap-3.5">
           <div className="w-12 h-12 rounded-2xl bg-slate-900 text-white flex items-center justify-center font-black shadow-md shrink-0">
@@ -199,23 +206,23 @@ export const DriverMonthlyScheduleCard: React.FC<Props> = ({
                     let statusBadge = null;
 
                     if (day.status === '휴무') {
-                      bgStyle = 'bg-red-50/70 text-red-900';
+                      bgStyle = 'bg-red-50/40 text-red-900';
                       statusBadge = (
-                        <span className="text-[10px] font-extrabold text-red-600 bg-red-100/80 border border-red-200 px-1.5 py-0.5 rounded">
+                        <span className="text-[10px] font-extrabold text-red-600 bg-red-100/80 border border-red-200 px-1.5 py-0.5 rounded shadow-2xs">
                           휴무
                         </span>
                       );
                     } else if (day.status === '대차투입') {
                       bgStyle = 'bg-emerald-50 text-emerald-950';
                       statusBadge = (
-                        <span className="text-[10px] font-extrabold text-emerald-800 bg-emerald-100/80 border border-emerald-200 px-1.5 py-0.5 rounded truncate max-w-full block">
+                        <span className="text-[10px] font-extrabold text-emerald-800 bg-emerald-100/80 border border-emerald-200 px-1.5 py-0.5 rounded truncate max-w-full block shadow-2xs">
                           대차 {day.routeDisplay}
                         </span>
                       );
-                    } else if (day.status !== '미배정') {
+                    } else {
                       bgStyle = 'bg-blue-50/60 text-blue-950';
                       statusBadge = (
-                        <span className="text-[10px] font-extrabold text-blue-800 bg-blue-100/80 border border-blue-200 px-1.5 py-0.5 rounded truncate max-w-full block">
+                        <span className="text-[10px] font-extrabold text-blue-800 bg-blue-100/80 border border-blue-200 px-1.5 py-0.5 rounded truncate max-w-full block shadow-2xs">
                           {day.routeDisplay}
                         </span>
                       );

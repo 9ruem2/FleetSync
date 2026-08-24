@@ -17,6 +17,9 @@ import {
   Download,
   ChevronDown,
   ChevronUp,
+  AlertTriangle,
+  Save,
+  FileText,
 } from "lucide-react";
 import { useScheduleViewModel } from "../../viewmodels/useScheduleViewModel";
 import { ToastNotification } from "../components/ToastNotification";
@@ -53,8 +56,8 @@ export const ScheduleGridView: React.FC = () => {
     }
   }, []);
 
-  const canUpdate = session?.permissions?.canUpdate ?? true;
-  const canCreate = session?.permissions?.canCreate ?? true;
+  const canUpdate = (session?.permissions?.canUpdate ?? true) && !vm.isPreviousMonth;
+  const canCreate = (session?.permissions?.canCreate ?? true) && !vm.isPreviousMonth;
 
   // 날짜 이전/다음 이동 핸들러
   const handleDateShift = (direction: "prev" | "next") => {
@@ -102,6 +105,21 @@ export const ScheduleGridView: React.FC = () => {
       {/* Toast Notification */}
       <ToastNotification toast={vm.toastMessage} />
 
+      {/* Previous Month Read-Only Notice */}
+      {vm.isPreviousMonth && (
+        <div className="bg-amber-50 border border-amber-200 text-amber-900 px-4 py-3 rounded-2xl flex items-center justify-between gap-3 text-xs font-bold shadow-2xs">
+          <div className="flex items-center gap-2">
+            <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+            <span>
+              🔒 이전달({vm.selectedDate.slice(0, 7)}) 근무표는 조회 및 배차표 발급 전용입니다. (수정, 삭제 및 배치는 불가합니다)
+            </span>
+          </div>
+          <span className="text-[11px] px-2 py-0.5 rounded-md bg-amber-100/80 border border-amber-300 text-amber-800">
+            읽기 전용
+          </span>
+        </div>
+      )}
+
       {/* Top Banner / Actions */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-white p-4 sm:p-6 rounded-2xl border border-slate-200 shadow-xs">
         <div>
@@ -112,10 +130,16 @@ export const ScheduleGridView: React.FC = () => {
             <div>
               <h2 className="text-lg sm:text-xl font-bold text-slate-900 flex items-center gap-2">
                 <span>노선 배차 관리</span>
+                {vm.isPreviousMonth && (
+                  <span className="text-xs px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 font-semibold">
+                    조회 전용
+                  </span>
+                )}
               </h2>
               <p className="text-xs text-slate-500 mt-0.5">
-                날짜별 각 캠프 및 라우터 구역에 기사를 드래그하여 배정하고
-                일정을 편성합니다.
+                {vm.isPreviousMonth
+                  ? "이전달 배차표 조회 및 기사별 PDF/이미지 발급 화면입니다."
+                  : "날짜별 각 캠프 및 라우터 구역에 기사를 드래그하여 배정하고 일정을 편성합니다."}
               </p>
             </div>
           </div>
@@ -171,7 +195,7 @@ export const ScheduleGridView: React.FC = () => {
             </button>
           </div>
 
-          {/* 정기 패턴 일괄 자동 배차 버튼 */}
+          {/* 정기 패턴 일괄 자동 배차 버튼 (현재달/다음달만) */}
           {canUpdate && (
             <button
               onClick={() => {
@@ -179,13 +203,40 @@ export const ScheduleGridView: React.FC = () => {
                   vm.handleAutoAssignAllRegularPatterns();
                 }
               }}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white font-bold text-xs shadow-xs transition"
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-indigo-50 border border-indigo-200 hover:bg-indigo-100 text-indigo-700 font-bold text-xs shadow-2xs transition"
               title="기사별 정기 노선 패턴에 맞춰 현재 달력에 일괄 자동 배치"
             >
               <Sparkles className="w-3.5 h-3.5" />
-              <span>정기 패턴 일괄 자동 배차</span>
+              <span>정기 패턴 일괄 배차</span>
             </button>
           )}
+
+          {/* 근무표 DB 저장 버튼 (현재달/다음달만) */}
+          {canUpdate && (
+            <button
+              disabled={vm.isSavingRoster}
+              onClick={vm.handleSaveMonthlySchedule}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-bold text-xs shadow-xs transition disabled:opacity-50"
+              title="현재 편성된 근무표를 DB에 저장"
+            >
+              {vm.isSavingRoster ? (
+                <RotateCcw className="w-3.5 h-3.5 animate-spin" />
+              ) : (
+                <Save className="w-3.5 h-3.5" />
+              )}
+              <span>{vm.isSavingRoster ? "저장 중..." : "근무표 저장"}</span>
+            </button>
+          )}
+
+          {/* 배차표 발급 버튼 */}
+          <button
+            onClick={() => setIsFinalizeModalOpen(true)}
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white border border-slate-200 hover:bg-slate-50 text-slate-800 font-bold text-xs shadow-2xs transition"
+            title="기사별 PDF / 이미지 배차표 발급"
+          >
+            <FileText className="w-3.5 h-3.5 text-blue-600" />
+            <span>배차표 발급</span>
+          </button>
 
           {/* Refresh */}
           <button
@@ -330,11 +381,11 @@ export const ScheduleGridView: React.FC = () => {
                     draggable
                     onDragStart={() => handleDragStart(driver.id)}
                     onDragEnd={handleDragEnd}
-                    onDoubleClick={() => canUpdate && setBulkAssignDriver(driver)}
-                    title="드래그하여 배정하거나 더블클릭하여 일괄 자동 배치"
-                    className={`p-3 rounded-xl border transition select-none cursor-grab active:cursor-grabbing group relative ${
+                    onClick={() => setBulkAssignDriver(driver)}
+                    title="클릭하여 기사 근무/휴무 정보 조회 (드래그하여 노선에 직접 배정 가능)"
+                    className={`p-3 rounded-xl border transition select-none cursor-pointer group relative ${
                       isDragging
-                        ? "opacity-40 border-dashed border-blue-400 bg-blue-50"
+                        ? "opacity-40 border-dashed border-blue-400 bg-blue-50 cursor-grabbing"
                         : "bg-white border-slate-200 hover:border-indigo-300 hover:shadow-xs hover:bg-slate-50/60"
                     }`}
                   >
@@ -557,20 +608,38 @@ export const ScheduleGridView: React.FC = () => {
         </div>
       </div>
 
-      {/* Bottom Main Action CTA Banner: 화면 최하단 대형 확정 및 배차표 발급 버튼 */}
-      <div className="pt-2 pb-4">
+      {/* Bottom Main Action CTA Banner: 화면 최하단 저장 및 배차표 발급 버튼 */}
+      <div className="pt-2 pb-4 flex flex-col sm:flex-row items-center gap-3">
+        {canUpdate && (
+          <button
+            disabled={vm.isSavingRoster}
+            onClick={vm.handleSaveMonthlySchedule}
+            className="w-full sm:flex-1 py-4 px-6 rounded-2xl bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-black text-sm sm:text-base shadow-lg shadow-blue-600/20 hover:shadow-xl transition-all flex items-center justify-center gap-2.5 cursor-pointer disabled:opacity-50"
+          >
+            {vm.isSavingRoster ? (
+              <RotateCcw className="w-5 h-5 animate-spin text-white" />
+            ) : (
+              <Save className="w-5 h-5 text-white" />
+            )}
+            <span>
+              {vm.isSavingRoster
+                ? "DB에 저장 중..."
+                : `${vm.selectedDate.slice(0, 7)} 근무표 DB 저장`}
+            </span>
+          </button>
+        )}
+
         <button
           onClick={() => setIsFinalizeModalOpen(true)}
-          className="w-full py-4 sm:py-5 px-6 rounded-2xl sm:rounded-3xl bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 hover:from-blue-700 hover:via-indigo-700 hover:to-blue-800 text-white font-black text-sm sm:text-base shadow-xl shadow-blue-600/25 hover:shadow-2xl hover:shadow-blue-600/35 active:scale-[0.99] transition-all flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-3 group border border-blue-400/30 cursor-pointer"
+          className={`w-full ${
+            canUpdate ? "sm:flex-1 bg-slate-900 hover:bg-slate-800 text-white" : "bg-blue-600 hover:bg-blue-700 text-white"
+          } py-4 px-6 rounded-2xl font-black text-sm sm:text-base shadow-lg transition-all flex items-center justify-center gap-2.5 cursor-pointer`}
         >
-          <div className="flex items-center gap-2">
-            <FileSpreadsheet className="w-5 h-5 sm:w-6 sm:h-6 text-blue-200 group-hover:scale-110 transition-transform" />
-            <span>{vm.selectedDate.slice(0, 7)} 노선 배차표 최종 확정 및 발급</span>
-          </div>
-          <span className="hidden sm:inline text-blue-200/80 font-normal text-xs">
-            (DB 안전 저장 및 기사별 PDF / 이미지 배차표 발급)
+          <FileText className="w-5 h-5 text-blue-300" />
+          <span>
+            {vm.selectedDate.slice(0, 7)} 기사별 배차표 발급 (PDF / 이미지)
           </span>
-          <Download className="w-4 h-4 text-blue-200 hidden sm:block group-hover:translate-y-0.5 transition-transform" />
+          <Download className="w-4 h-4 text-blue-300" />
         </button>
       </div>
 
@@ -632,16 +701,13 @@ export const ScheduleGridView: React.FC = () => {
         />
       )}
 
-      {/* Monthly Schedule Finalize & Driver PDF/PNG Export Modal */}
+      {/* Monthly Schedule Driver PDF/PNG Export Modal */}
       <ScheduleFinalizeModal
         isOpen={isFinalizeModalOpen}
         onClose={() => setIsFinalizeModalOpen(false)}
         targetMonth={vm.selectedDate.slice(0, 7)}
         drivers={vm.drivers}
         assignments={vm.slotAssignments}
-        onSavedSuccess={() => {
-          vm.showToast("success", "근무표가 성공적으로 저장 및 승인되었습니다.");
-        }}
       />
 
       {/* 드래그 앤 드롭 고정 휴무자 노선 배치 확인 팝업 (취소 / 배치) */}
@@ -668,17 +734,18 @@ export const ScheduleGridView: React.FC = () => {
         }}
       />
 
-      {/* 정기 패턴 노선 일괄 자동 배치 모달 (가용 기사 카드 더블클릭 트리거) */}
+      {/* 기사 근무 및 휴무 패턴 상세 조회 모달 */}
       <BulkRouteAssignModal
         isOpen={!!bulkAssignDriver}
         driver={bulkAssignDriver}
-        dateRows={vm.dateRows}
-        availableCamps={vm.availableCamps}
-        routeColumns={vm.routeColumns}
         onClose={() => setBulkAssignDriver(null)}
-        onBulkAssign={async (driverId, targetDates, routeKey) => {
-          await vm.handleBulkAssignDriver(driverId, targetDates, routeKey);
-        }}
+        onAssignRegularPattern={
+          canUpdate
+            ? async (driverId) => {
+                await vm.handleAssignSingleDriverRegularPattern(driverId);
+              }
+            : undefined
+        }
       />
     </div>
   );
