@@ -13,7 +13,7 @@ export function App() {
   const [currentUser, setCurrentUser] = useState<UserSession | null>(null);
   const [activeTab, setActiveTab] = useState<
     "drivers" | "schedule" | "calendar" | "admins"
-  >("schedule");
+  >("drivers");
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
