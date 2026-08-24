@@ -4,7 +4,113 @@ export type ShiftStatus = '고정' | '용차' | '백업' | '휴무';
 export interface Company {
   id: number;
   name: string;
+  companyCode: string;
+  masterAdminIds?: string | null;
   createdAt: string;
+}
+
+export interface AdminCampRouteMapping {
+  campId: number;
+  campName: string;
+  routeId?: number | null;
+  routeName: string;
+}
+
+export interface Admin {
+  id: number;
+  companyId: number;
+  loginId: string;
+  password?: string;
+  name: string;
+  isMaster: boolean;
+  isAllCampsAccessible: boolean;
+  canCreate: boolean;
+  canRead: boolean;
+  canUpdate: boolean;
+  canDelete: boolean;
+  assignedCampIds?: number[];
+  assignedCampNames?: string[];
+  assignedCampRoutes?: AdminCampRouteMapping[];
+  createdAt: string;
+}
+
+export interface AdminCamp {
+  id: number;
+  adminId: number;
+  campId: number;
+  createdAt: string;
+}
+
+export interface AdminCampRoute {
+  id: number;
+  adminId: number;
+  campId: number;
+  routeId?: number | null;
+  routeName: string;
+  createdAt: string;
+}
+
+export interface CreateAdminDTO {
+  companyId: number;
+  loginId: string;
+  password: string;
+  name: string;
+  isMaster?: boolean;
+  isAllCampsAccessible?: boolean;
+  canCreate?: boolean;
+  canRead?: boolean;
+  canUpdate?: boolean;
+  canDelete?: boolean;
+  assignedCampIds?: number[];
+  assignedCampRoutes?: {
+    campId: number;
+    routeId?: number | null;
+    routeName?: string;
+  }[];
+}
+
+export interface UpdateAdminDTO {
+  loginId?: string;
+  password?: string;
+  name?: string;
+  isMaster?: boolean;
+  isAllCampsAccessible?: boolean;
+  canCreate?: boolean;
+  canRead?: boolean;
+  canUpdate?: boolean;
+  canDelete?: boolean;
+  assignedCampIds?: number[];
+  assignedCampRoutes?: {
+    campId: number;
+    routeId?: number | null;
+    routeName?: string;
+  }[];
+}
+
+export interface LoginDTO {
+  companyCode: string;
+  loginId: string;
+  password: string;
+}
+
+export interface LoginResponseDTO {
+  adminId: number;
+  loginId: string;
+  adminName: string;
+  isMaster: boolean;
+  companyId: number;
+  companyCode: string;
+  companyName: string;
+  permissions: {
+    isAllCampsAccessible: boolean;
+    canCreate: boolean;
+    canRead: boolean;
+    canUpdate: boolean;
+    canDelete: boolean;
+    assignedCampIds: number[];
+    assignedCampNames: string[];
+    assignedCampRoutes?: AdminCampRouteMapping[];
+  };
 }
 
 export interface Camp {
@@ -28,6 +134,26 @@ export interface DriverCampRouteInfo {
   route: string;
 }
 
+export interface DriverFixedHoliday {
+  id?: number;
+  driverId?: number;
+  weekCycle: string; // '매주' | '1,3주' | '2,4주' | '1주' | '2주' | '3주' | '4주' | '5주'
+  dayOfWeek: string; // '일' | '월' | '화' | '수' | '목' | '금' | '토' (쉼표 구분 복수 지원)
+  createdAt?: string;
+}
+
+export interface DriverRoutePattern {
+  id?: number;
+  driverId?: number;
+  weekCycle: string; // '매주' | '1,3주' | '2,4주' | '1주'~'5주'
+  dayOfWeek: string; // '월' | '화' | '화,수' 등
+  campId?: number;
+  campName: string;  // '남양주3'
+  routeId?: number;
+  routeName: string; // '905CD'
+  createdAt?: string;
+}
+
 export interface Driver {
   id: number;
   companyId?: number;
@@ -41,6 +167,8 @@ export interface Driver {
   createdAt: string;
   isDeleted: boolean;
   campRoutes?: DriverCampRouteInfo[];
+  fixedHolidays?: DriverFixedHoliday[];
+  routePatterns?: DriverRoutePattern[];
 }
 
 export interface ScheduleShift {
@@ -83,6 +211,18 @@ export interface CreateDriverDTO {
   camp: string;     // 콤마 구분 캠프 목록
   routes: string;   // 콤마 구분 라우트 목록 (camp와 1:1)
   contractType: ContractType;
+  fixedHolidays?: {
+    weekCycle: string;
+    dayOfWeek: string;
+  }[];
+  routePatterns?: {
+    weekCycle: string;
+    dayOfWeek: string;
+    campId?: number;
+    campName: string;
+    routeId?: number;
+    routeName: string;
+  }[];
 }
 
 export interface UpdateDriverDTO {
@@ -93,6 +233,18 @@ export interface UpdateDriverDTO {
   camp?: string;
   routes?: string;
   contractType?: ContractType;
+  fixedHolidays?: {
+    weekCycle: string;
+    dayOfWeek: string;
+  }[];
+  routePatterns?: {
+    weekCycle: string;
+    dayOfWeek: string;
+    campId?: number;
+    campName: string;
+    routeId?: number;
+    routeName: string;
+  }[];
 }
 
 export interface UpdateShiftStatusDTO {

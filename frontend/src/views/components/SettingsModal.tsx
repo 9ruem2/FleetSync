@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Company, Camp, Route } from '../../models/master.model';
 import { ApiService } from '../../services/apiService';
-import { INITIAL_COMPANIES } from '../../constants/company';
 import { X, Building2, MapPin, Settings, Plus, Trash2, ChevronRight, Layers, CheckCircle2, Lock } from 'lucide-react';
 
 interface Props {
@@ -34,10 +33,9 @@ export const SettingsModal: React.FC<Props> = ({ isOpen, onClose }) => {
       setLoading(true);
       const data = await ApiService.getCompanies();
       setCompanies(data);
-      // '대국' 회사 또는 첫번째 회사를 기본 선택
+      // 첫번째 회사를 기본 선택
       if (data.length > 0) {
-        const daeguk = data.find(c => c.name === '대국') || data[0];
-        setSelectedCompany(daeguk);
+        setSelectedCompany(data[0]);
       }
     } catch (err) {
       console.error(err);

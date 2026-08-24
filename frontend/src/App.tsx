@@ -4,20 +4,16 @@ import { Header } from "./views/components/Header";
 import { DriverListView } from "./views/drivers/DriverListView";
 import { ScheduleGridView } from "./views/schedule/ScheduleGridView";
 import { VacationCalendarView } from "./views/calendar/VacationCalendarView";
+import { AdminManagementView } from "./views/admin/AdminManagementView";
 import { SettingsModal } from "./views/components/SettingsModal";
 import { LoginView } from "./views/auth/LoginView";
-
-interface UserSession {
-  userId: string;
-  companyId: number;
-  companyName: string;
-}
+import { UserSession } from "./models/user.model";
 
 export function App() {
   const [currentUser, setCurrentUser] = useState<UserSession | null>(null);
   const [activeTab, setActiveTab] = useState<
-    "drivers" | "schedule" | "calendar"
-  >("schedule");
+    "drivers" | "schedule" | "calendar" | "admins"
+  >("drivers");
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
@@ -26,7 +22,31 @@ export function App() {
     const saved = localStorage.getItem("fleetsync_session");
     if (saved) {
       try {
-        setCurrentUser(JSON.parse(saved));
+        const parsed = JSON.parse(saved);
+        if (!parsed || !parsed.companyId || !parsed.loginId) {
+          localStorage.removeItem("fleetsync_session");
+          return;
+        }
+        const normalized: UserSession = {
+          adminId: parsed.adminId || 0,
+          loginId: parsed.loginId,
+          adminName: parsed.adminName || parsed.loginId,
+          isMaster: !!parsed.isMaster,
+          companyId: parsed.companyId,
+          companyCode: parsed.companyCode || "",
+          companyName: parsed.companyName || "",
+          permissions: parsed.permissions || {
+            isAllCampsAccessible: true,
+            canCreate: true,
+            canRead: true,
+            canUpdate: true,
+            canDelete: true,
+            assignedCampIds: [],
+            assignedCampNames: [],
+          },
+        };
+        setCurrentUser(normalized);
+        localStorage.setItem("fleetsync_session", JSON.stringify(normalized));
       } catch (e) {
         localStorage.removeItem("fleetsync_session");
       }
@@ -45,7 +65,7 @@ export function App() {
     }
   };
 
-  const handleTabChange = (tab: "drivers" | "schedule" | "calendar") => {
+  const handleTabChange = (tab: "drivers" | "schedule" | "calendar" | "admins") => {
     setActiveTab(tab);
     setIsMobileMenuOpen(false);
   };
@@ -68,6 +88,11 @@ export function App() {
           title: "휴무 달력 조회 (Vacation Calendar View)",
           subtitle: "월간/주간 휴무 조회",
         };
+      case "admins":
+        return {
+          title: "관리자 및 권한 관리 (Admin & Permissions)",
+          subtitle: "총괄관리자 전용: 관리자 계정 등록, 담당 캠프/노선 및 C/R/U/D 권한 설정",
+        };
     }
   };
 
@@ -84,6 +109,7 @@ export function App() {
       <Sidebar
         activeTab={activeTab}
         setActiveTab={handleTabChange}
+        currentUser={currentUser}
         isOpen={isMobileMenuOpen}
         onClose={() => setIsMobileMenuOpen(false)}
         onOpenSettings={() => setIsSettingsOpen(true)}
@@ -104,6 +130,7 @@ export function App() {
           {activeTab === "drivers" && <DriverListView />}
           {activeTab === "schedule" && <ScheduleGridView />}
           {activeTab === "calendar" && <VacationCalendarView />}
+          {activeTab === "admins" && <AdminManagementView currentUser={currentUser} />}
         </div>
       </main>
 

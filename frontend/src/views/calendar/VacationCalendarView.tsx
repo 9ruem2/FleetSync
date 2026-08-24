@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { useCalendarViewModel } from "../../viewmodels/useCalendarViewModel";
 import { ToastNotification } from "../components/ToastNotification";
 import { OffDayRecord } from "../../models/schedule.model";
+import { sortFixedHolidays } from "../../utils/fixedHolidayUtils";
 import {
   CalendarDays,
   ChevronLeft,
@@ -286,6 +287,9 @@ export const VacationCalendarView: React.FC = () => {
                   cleanRoute = parts[parts.length - 1] || cleanRoute;
                 }
 
+                const driverObj = vm.allDrivers.find(d => d.id === rec.driverId);
+                const hasFixedHoliday = driverObj?.fixedHolidays && driverObj.fixedHolidays.length > 0;
+
                 return (
                   <div
                     key={rec.id || index}
@@ -301,13 +305,20 @@ export const VacationCalendarView: React.FC = () => {
                         <div className="w-8 h-8 rounded-full bg-slate-900 text-white font-bold flex items-center justify-center text-xs shrink-0 shadow-xs">
                           {rec.driverName.slice(0, 1)}
                         </div>
-                        <div className="min-w-0 flex items-center gap-1.5">
-                          <span className="font-extrabold text-sm text-slate-900 truncate">
-                            {rec.driverName}
-                          </span>
-                          <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-red-100 text-red-700 shrink-0">
-                            휴무
-                          </span>
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-extrabold text-sm text-slate-900 truncate">
+                              {rec.driverName}
+                            </span>
+                            <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-red-100 text-red-700 shrink-0">
+                              {hasFixedHoliday ? '고정 휴무' : '휴무'}
+                            </span>
+                          </div>
+                          {hasFixedHoliday && (
+                            <div className="text-[10px] text-indigo-600 font-semibold mt-0.5">
+                              {sortFixedHolidays(driverObj!.fixedHolidays!).map(fh => `${fh.weekCycle} ${fh.dayOfWeek}`).join(', ')}
+                            </div>
+                          )}
                         </div>
                       </div>
 

@@ -2,9 +2,11 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { OffDayRecord } from '../models/schedule.model';
 import { Driver } from '../models/driver.model';
 import { ApiService } from '../services/apiService';
+import { isDateMatchingFixedHoliday } from '../utils/fixedHolidayUtils';
+import { getShortCampName } from '../utils/routeUtils';
 
 export function useCalendarViewModel() {
-  const [currentDate, setCurrentDate] = useState<Date>(new Date('2026-08-01'));
+  const [currentDate, setCurrentDate] = useState<Date>(new Date());
   const [offDays, setOffDays] = useState<OffDayRecord[]>([]);
   const [allDrivers, setAllDrivers] = useState<Driver[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
@@ -29,16 +31,28 @@ export function useCalendarViewModel() {
     setTimeout(() => setToastMessage(null), 3500);
   };
 
-  // Fetch off-days and drivers + slotAssignments
+  // Fetch off-days and drivers + slotAssignments + fixed holidays
   const loadData = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
 
-      const [offDaysData, driversData] = await Promise.all([
-        ApiService.getOffDays().catch(() => []),
-        ApiService.getDrivers().catch(() => [])
+      // 달력 범위 (현재 월 기준 이전달 ~ 다음달)
+      const year = currentDate.getFullYear();
+      const month = currentDate.getMonth();
+      const startDate = new Date(year, month - 1, 20).toISOString().split('T')[0];
+      const endDate = new Date(year, month + 1, 15).toISOString().split('T')[0];
+
+      const [offDaysData, driversData, backupAssignments] = await Promise.all([
+        ApiService.getOffDays(startDate, endDate).catch(() => []),
+        ApiService.getDrivers().catch(() => []),
+        ApiService.getBackupAssignments().catch(() => []),
       ]);
+
+      const backupMap = new Map<string, any>();
+      backupAssignments.forEach((b: any) => {
+        backupMap.set(`${b.date}_${b.originalDriverId}`, b);
+      });
 
       // 1. 노선 관리에서 저장된 슬롯 배정 데이터 확인
       let slotAssignments: Record<string, any> = {};
@@ -59,7 +73,7 @@ export function useCalendarViewModel() {
             const date = key.slice(0, splitIdx);
             const routeKey = key.slice(splitIdx + 1); // "남양주3/905CD"
             const [cName, rName] = routeKey.split('/');
-            const shortCamp = (cName || '').replace('남양주', '남').replace('구리', '구');
+            const shortCamp = getShortCampName(cName);
             const displayRoute = rName ? `${shortCamp}/${rName}` : cName;
 
             slotOffDays.push({
@@ -78,8 +92,55 @@ export function useCalendarViewModel() {
         }
       });
 
-      // 3. DB 오프데이와 슬롯 오프데이 병합 (중복 제거)
+      // 3. 기사별 고정 휴무일(fixedHolidays) 자동 계산하여 병합
       const mergedMap = new Map<string, OffDayRecord>();
+
+      // 달력에 표시될 전체 날짜 리스트 생성 (전후 45일)
+      const dateList: string[] = [];
+      const cur = new Date(startDate);
+      const end = new Date(endDate);
+      while (cur <= end) {
+        const y = cur.getFullYear();
+        const m = String(cur.getMonth() + 1).padStart(2, '0');
+        const d = String(cur.getDate()).padStart(2, '0');
+        dateList.push(`${y}-${m}-${d}`);
+        cur.setDate(cur.getDate() + 1);
+      }
+
+      // 기사별 고정 휴무일 주입
+      driversData.forEach(driver => {
+        if (driver.fixedHolidays && driver.fixedHolidays.length > 0) {
+          const campList = (driver.camp || '').split(',').map(s => s.trim()).filter(Boolean);
+          const routeList = (driver.routes || '').split(',').map(s => s.trim()).filter(Boolean);
+          const firstCamp = campList[0] || '';
+          const firstRoute = routeList[0] || '';
+          const shortCamp = getShortCampName(firstCamp);
+          const displayRoute = firstRoute ? (shortCamp ? `${shortCamp}/${firstRoute}` : firstRoute) : shortCamp;
+
+          dateList.forEach(dStr => {
+            const isFixed = driver.fixedHolidays!.some(h =>
+              isDateMatchingFixedHoliday(dStr, h.weekCycle, h.dayOfWeek)
+            );
+            if (isFixed) {
+              const backup = backupMap.get(`${dStr}_${driver.id}`);
+              mergedMap.set(`${dStr}_${driver.id}`, {
+                id: driver.id * 10000 + Math.abs(dStr.split('').reduce((a, b) => (a << 5) - a + b.charCodeAt(0), 0) % 1000),
+                driverId: driver.id,
+                driverName: driver.name,
+                campName: firstCamp,
+                routeName: firstRoute,
+                displayRoute,
+                routeNumber: firstRoute || '-',
+                date: dStr,
+                backupAssigned: !!backup,
+                backupDriverName: backup?.backupDriverName,
+              });
+            }
+          });
+        }
+      });
+
+      // 4. DB 오프데이 데이터 병합 (수동 지정 오프데이)
       offDaysData.forEach(r => {
         const dObj = driversData.find(d => d.id === r.driverId);
         const campList = (dObj?.camp || '').split(',').map(s => s.trim()).filter(Boolean);
@@ -95,7 +156,7 @@ export function useCalendarViewModel() {
           }
         }
         
-        const shortCamp = matchedCamp.replace('남양주', '남').replace('구리', '구');
+        const shortCamp = getShortCampName(matchedCamp);
         const displayRoute = r.routeNumber ? (shortCamp ? `${shortCamp}/${r.routeNumber}` : r.routeNumber) : shortCamp;
         
         mergedMap.set(`${r.date}_${r.driverId}`, {
@@ -106,7 +167,7 @@ export function useCalendarViewModel() {
         });
       });
 
-      // 슬롯 배정이 우선 적용되도록 오버라이드
+      // 5. 슬롯 배정 우선 적용 오버라이드
       slotOffDays.forEach(r => {
         mergedMap.set(`${r.date}_${r.driverId}`, r);
       });
@@ -118,7 +179,7 @@ export function useCalendarViewModel() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [currentDate]);
 
   useEffect(() => {
     loadData();
@@ -231,7 +292,7 @@ export function useCalendarViewModel() {
   };
 
   const setTodayMonth = () => {
-    setCurrentDate(new Date('2026-08-01'));
+    setCurrentDate(new Date());
   };
 
   return {

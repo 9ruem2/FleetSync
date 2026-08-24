@@ -25,23 +25,37 @@ export function useDriverViewModel() {
     setTimeout(() => setToastMessage(null), 3500);
   };
 
-  const loadDrivers = useCallback(async () => {
+  const loadDrivers = useCallback(async (showLoadingSpinner = true) => {
     try {
-      setLoading(true);
+      if (showLoadingSpinner) {
+        setLoading(true);
+      }
       setError(null);
-      const data = await ApiService.getDrivers();
-      console.log('[loadDrivers SUCCESS] 로드된 기사 수:', data.length, data);
+      let campsParam: string | undefined = undefined;
+      try {
+        const saved = localStorage.getItem("fleetsync_session");
+        if (saved) {
+          const session = JSON.parse(saved);
+          if (session?.permissions?.isAllCampsAccessible === false && session?.permissions?.assignedCampNames?.length > 0) {
+            campsParam = session.permissions.assignedCampNames.join(",");
+          }
+        }
+      } catch {}
+
+      const data = await ApiService.getDrivers(undefined, undefined, undefined, campsParam);
       setDrivers(data);
     } catch (err: any) {
       console.error('[loadDrivers ERROR]:', err);
       setError(err.message || '기사 목록을 불러오는 중 오류가 발생했습니다.');
     } finally {
-      setLoading(false);
+      if (showLoadingSpinner) {
+        setLoading(false);
+      }
     }
   }, []);
 
   useEffect(() => {
-    loadDrivers();
+    loadDrivers(true);
   }, [loadDrivers]);
 
   const availableCamps = useMemo(() => {
@@ -92,10 +106,13 @@ export function useDriverViewModel() {
 
   const handleCreateDriver = async (form: CreateDriverForm) => {
     try {
-      await ApiService.createDriver(form);
+      const created = await ApiService.createDriver(form);
+      if (created) {
+        setDrivers(prev => [created, ...prev.filter(d => d.id !== created.id)]);
+      }
       showToast('success', `${form.name} 기사가 성공적으로 등록되었습니다.`);
       setIsAddModalOpen(false);
-      await loadDrivers();
+      loadDrivers(false); // 백그라운드 동기화 (로딩 스피너 깜빡임 없음)
     } catch (err: any) {
       showToast('error', err.message || '기사 등록에 실패했습니다.');
     }
@@ -103,10 +120,13 @@ export function useDriverViewModel() {
 
   const handleUpdateDriver = async (id: number, form: UpdateDriverForm) => {
     try {
-      await ApiService.updateDriver(id, form);
+      const updated = await ApiService.updateDriver(id, form);
+      if (updated) {
+        setDrivers(prev => prev.map(d => (d.id === id ? updated : d)));
+      }
       showToast('success', `${form.name} 기사 정보가 수정되었습니다.`);
       setEditingDriver(null);
-      await loadDrivers();
+      loadDrivers(false); // 백그라운드 동기화 (로딩 스피너 깜빡임 없음)
     } catch (err: any) {
       showToast('error', err.message || '기사 정보 수정에 실패했습니다.');
     }
@@ -115,9 +135,10 @@ export function useDriverViewModel() {
   const handleDeleteDriver = async (id: number) => {
     try {
       await ApiService.deleteDriver(id);
+      setDrivers(prev => prev.filter(d => d.id !== id));
       showToast('success', '기사 정보가 삭제 처리되었습니다.');
       setDeletingDriver(null);
-      await loadDrivers();
+      loadDrivers(false);
     } catch (err: any) {
       showToast('error', err.message || '기사 삭제에 실패했습니다.');
     }
@@ -156,6 +177,6 @@ export function useDriverViewModel() {
     handleCreateDriver,
     handleUpdateDriver,
     handleDeleteDriver,
-    reload: loadDrivers
+    reload: () => loadDrivers(true),
   };
 }

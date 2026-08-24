@@ -1,36 +1,40 @@
-import { Request, Response } from 'express';
-import { backupService } from '../services/backupService';
+import { backupService } from "../services/index";
+import { AssignBackupDTO } from "../types";
+import { jsonResponse, errorResponse, parseBody } from "./httpUtils";
 
 export class BackupController {
-  public static getAllAssignments(_req: Request, res: Response): void {
+  public async getAllAssignments(): Promise<Response> {
     try {
-      const assignments = backupService.getAllAssignments();
-      res.status(200).json({ success: true, data: assignments });
-    } catch (error: any) {
-      res.status(500).json({ success: false, message: error.message });
+      const assignments = await backupService.getAllAssignments();
+      return jsonResponse({ success: true, data: assignments });
+    } catch (err: any) {
+      return errorResponse(err.message || "백업 지정 목록 조회 실패", 500);
     }
   }
 
-  public static getCandidates(req: Request, res: Response): void {
+  public async getCandidates(url: URL): Promise<Response> {
+    const date = url.searchParams.get("date");
+    if (!date) return errorResponse("조회 기준 날짜(date)가 필요합니다", 400);
     try {
-      const { date } = req.query;
-      if (!date) {
-        res.status(400).json({ success: false, message: '조회 기준 날짜(date)가 필요합니다' });
-        return;
-      }
-      const candidates = backupService.getAvailableBackupDrivers(date as string);
-      res.status(200).json({ success: true, data: candidates });
-    } catch (error: any) {
-      res.status(500).json({ success: false, message: error.message });
+      const candidates = await backupService.getAvailableBackupDrivers(date);
+      return jsonResponse({ success: true, data: candidates });
+    } catch (err: any) {
+      return errorResponse(err.message || "백업 후보 조회 실패", 500);
     }
   }
 
-  public static assignBackup(req: Request, res: Response): void {
-    try {
-      const assignment = backupService.assignBackup(req.body);
-      res.status(201).json({ success: true, data: assignment, message: '대차 기사가 지정되었습니다' });
-    } catch (error: any) {
-      res.status(400).json({ success: false, message: error.message });
-    }
+  public async assignBackup(req: Request): Promise<Response> {
+    const body = await parseBody<AssignBackupDTO>(req);
+    const assignment = await backupService.assignBackup(body);
+    return jsonResponse(
+      {
+        success: true,
+        data: assignment,
+        message: "대차 기사가 지정되었습니다",
+      },
+      201,
+    );
   }
 }
+
+export const backupController = new BackupController();

@@ -6,10 +6,10 @@ export default defineConfig({
   plugins: [react()],
   server: {
     port: 5173,
-    // Vercel Dev (vercel dev) 또는 로컬 백엔드 서버 프록시
+    // 로컬 백엔드 서버(포트 4000)로 API 프록시
     proxy: {
       '/api': {
-        target: 'http://localhost:3000',
+        target: 'http://localhost:4000',
         changeOrigin: true,
       },
     },
